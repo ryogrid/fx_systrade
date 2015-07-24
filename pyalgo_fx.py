@@ -1,6 +1,5 @@
 from pyalgotrade import strategy
 from pyalgotrade import plotter
-from pyalgotrade.tools import yahoofinance, quandl
 from pyalgotrade.technical import bollinger
 from pyalgotrade.stratanalyzer import sharpe
 from pyalgotrade.barfeed import yahoofeed
@@ -27,7 +26,8 @@ class BBands(strategy.BacktestingStrategy):
         shares = self.getBroker().getShares(self.__instrument)
         bar = bars[self.__instrument]
         if shares == 0 and bar.getClose() < lower:
-            sharesToBuy = int(self.getBroker().getCash(False) / bar.getClose())
+#            sharesToBuy = int(self.getBroker().getCash(False) / bar.getClose())
+            sharesToBuy = int(self.getBroker().getCash(False) / 200)
             self.marketOrder(self.__instrument, sharesToBuy)
         elif shares > 0 and bar.getClose() > upper:
             self.marketOrder(self.__instrument, -1*shares)
@@ -35,12 +35,8 @@ class BBands(strategy.BacktestingStrategy):
 def main(plot):
     bBandsPeriod = 40
 
-    # instrument = "yhoo"
-    # # Download the bars.
-    # feed_dummy = yahoofinance.build_feed([instrument], 2010, 2015, ".")
-    # feed = quandl.build_feed("CURRFX", ["USDJPY"], 2010, 2015, ".", noAdjClose=True)
-    start = datetime(2010, 1, 1, 0, 0, 0, 0, pytz.utc)
-    end = datetime(2013, 1, 1, 0, 0, 0, 0, pytz.utc)
+    start = datetime(2000, 1, 1, 0, 0, 0, 0, pytz.utc)
+    end = datetime(2015, 7, 1, 0, 0, 0, 0, pytz.utc)
     data = web.DataReader('DEXJPUS', 'fred', start, end)
 
     frslt = open('./hoge.csv', 'w')
