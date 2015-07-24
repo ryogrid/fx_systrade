@@ -42,7 +42,7 @@ def main(plot):
     frslt = open('./hoge.csv', 'w')
     frslt.write("Date,Open,High,Low,Close,Volume,Adj Close\n")
     for k,v in data["DEXJPUS"].iteritems():
-        if v != v: # if non
+        if v != v: # if nan
             continue
             
         frslt.write(str(k) + "," + str(v) + "," + \
