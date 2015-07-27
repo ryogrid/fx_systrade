@@ -4,6 +4,9 @@ from pyalgotrade.stratanalyzer import sharpe
 from pyalgotrade.barfeed import yahoofeed
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
+import talib
+from pyalgotrade.talibext.indicator import LINEARREG
+
 import pandas.io.data as web
 import pytz
 from datetime import datetime
@@ -45,12 +48,16 @@ class MATrade(strategy.BacktestingStrategy):
     def onBars(self, bars):
         # If a position was not opened, check if we should enter a long position.
         if self.__position is None:
-            if self.touchBottom():
+            ds = self.getFeed().getDataSeries(self.__instrument).getCloseDataSeries()
+            if self.touchBottom() and LINEARREG(ds, 20)[-1] > 0:
                 shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
                 # Enter a buy market order. The order is good till canceled.
                 self.__position = self.enterLong(self.__instrument, shares, True)
+
+            return
         # Check if we have to exit the position.
-        elif not self.__position.exitActive() and (self.touchTop() or cross.cross_above(self.__prices, self.__sma, -2) > 0):
+        elif not self.__position.exitActive() and \
+            (self.touchTop() or cross.cross_above(self.__prices, self.__sma, -2) > 0 or self.touchBottom()):
             self.__position.exitMarket()
 
 
