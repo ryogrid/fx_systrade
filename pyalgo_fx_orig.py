@@ -24,7 +24,8 @@ class MATrade(strategy.BacktestingStrategy):
         self.setUseAdjustedValues(True)
         self.__prices = feed[instrument].getPriceDataSeries()
         self.__sma = ma.SMA(self.__prices, 20)
-
+        self.__pos_kind = ""
+        
     def getSMA(self):
         return self.__sma
 
@@ -55,22 +56,28 @@ class MATrade(strategy.BacktestingStrategy):
         # If a position was not opened, check if we should enter a long position.
         if self.__position is None:
             ds = self.getFeed().getDataSeries(self.__instrument).getCloseDataSeries()
-            if self.touchBottom() and LINEARREG(ds, 20)[-1] > 0:
+            if self.touchBottom(): # and LINEARREG(ds, 20)[1] > 0:
                 shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
                 # Enter a buy market order. The order is good till canceled.
                 self.__position = self.enterShort(self.__instrument, shares, True)
-            elif self.touchTop() and LINEARREG(ds, 20)[-1] < 0:
+                self.__pos_kind = "Short"
+                print str(bars[self.__instrument].getDateTime()) + " " + "buy Short"
+            elif self.touchTop(): # and LINEARREG(ds, 20)[1] < 0:
                 shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
                 # Enter a buy market order. The order is good till canceled.
-                self.__position = self.enterLong(self.__instrument, shares, True)                
+                self.__position = self.enterLong(self.__instrument, shares, True)
+                self.__pos_kind = "Long"
+                print str(bars[self.__instrument].getDateTime()) + " " + "buy Long"
             return
         # Check if we have to exit the position.
         elif (not self.__position.exitActive()):
-            if self.__position > 0 and (cross.cross_below(self.__prices, self.__sma, -2) > 0 or self.touchBottom()):
+            if self.__pos_kind == "Long" and (cross.cross_below(self.__prices, self.__sma, -2) > 0 or self.touchBottom()):
                 self.__position.exitMarket() #Long exit
-            elif self.__position < 0 and (cross.cross_above(self.__prices, self.__sma, -2) > 0 or self.touchTop()):
+                print str(bars[self.__instrument].getDateTime()) + " " + "exit " + self.__pos_kind
+            elif self.__pos_kind == "Short" and (cross.cross_above(self.__prices, self.__sma, -2) > 0 or self.touchTop()):
                 self.__position.exitMarket() #Short exit
-
+                print str(bars[self.__instrument].getDateTime()) + " " + "exit " + self.__pos_kind
+                
 def merge_csv(out_fname, input_files):
     frslt = open('./hoge.csv', 'w')        
     frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
