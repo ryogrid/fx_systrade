@@ -58,11 +58,11 @@ class MATrade(strategy.BacktestingStrategy):
             if self.touchBottom() and LINEARREG(ds, 20)[-1] > 0:
                 shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
                 # Enter a buy market order. The order is good till canceled.
-                self.__position = self.enterLong(self.__instrument, shares, True)
+                self.__position = self.enterShort(self.__instrument, shares, True)
             elif self.touchTop() and LINEARREG(ds, 20)[-1] < 0:
                 shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
                 # Enter a buy market order. The order is good till canceled.
-                self.__position = self.enterShort(self.__instrument, shares, True)                
+                self.__position = self.enterLong(self.__instrument, shares, True)                
             return
         # Check if we have to exit the position.
         elif (not self.__position.exitActive()):
