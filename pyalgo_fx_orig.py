@@ -2,6 +2,9 @@ from pyalgotrade import strategy
 from pyalgotrade import plotter
 from pyalgotrade.stratanalyzer import sharpe
 from pyalgotrade.barfeed import yahoofeed
+from pyalgotrade.barfeed import csvfeed
+from pyalgotrade.barfeed import Frequency
+
 from pyalgotrade.technical import ma
 from pyalgotrade.technical import cross
 import talib
@@ -68,24 +71,30 @@ class MATrade(strategy.BacktestingStrategy):
             elif self.__position < 0 and (cross.cross_above(self.__prices, self.__sma, -2) > 0 or self.touchTop()):
                 self.__position.exitMarket() #Short exit
 
-def main(plot):
-    start = datetime(1990, 1, 1, 0, 0, 0, 0, pytz.utc)
-    end = datetime(2015, 7, 1, 0, 0, 0, 0, pytz.utc)
-    data = web.DataReader('DEXJPUS', 'fred', start, end)
+def merge_csv(out_fname, input_files):
+    frslt = open('./hoge.csv', 'w')        
+    frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
 
-    frslt = open('./hoge.csv', 'w')
-    frslt.write("Date,Open,High,Low,Close,Volume,Adj Close\n")
-    for k,v in data["DEXJPUS"].iteritems():
-        if v != v: # if nan
-            continue
-            
-        frslt.write(str(k) + "," + str(v) + "," + \
-                    str(v) + "," + str(v) + \
-                    "," + str(v) + ",1000000,"+ str(v) + "\n")
+    for iname in input_files:
+        fd = open(iname, 'r')
+        for trxline in fd:
+            splited = trxline.split(",")
+            if splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
+                time = splited[0].replace("/", "-") + " " + splited[1]
+                val = splited[2]
+
+                frslt.write(str(time) + "," + str(val) + "," + \
+                            str(val) + "," + str(val) + \
+                            "," + str(val) + ",1000000,"+ str(val) + "\n")
+
     frslt.close()
+    
+def main(plot):
+#    merge_csv("./hoge.csv", ["./USDJPY_M5_2001.txt","./USDJPY_M5_2002.txt","./USDJPY_M5_2003.txt","./USDJPY_M5_2004.txt",\
+#                             "./USDJPY_M5_2005.txt","./USDJPY_M5_2006.txt","./USDJPY_M5_2007.txt","./USDJPY_M5_2008.txt"])
 
     instrument = "USDJPY"
-    feed = yahoofeed.Feed()
+    feed = csvfeed.GenericBarFeed(Frequency.MINUTE, pytz.utc)
     feed.addBarsFromCSV(instrument, "./hoge.csv")
     strat = MATrade(feed, instrument)
     sharpeRatioAnalyzer = sharpe.SharpeRatio()
