@@ -46,6 +46,9 @@ class MATrade(strategy.BacktestingStrategy):
             return True        
         
     def onBars(self, bars):
+#        if self.__position != None and (self.__position.getReturn() > 0.05 or self.__position.getReturn() < -0.02):
+#            self.__position.exitMarket()
+            
         # If a position was not opened, check if we should enter a long position.
         if self.__position is None:
             ds = self.getFeed().getDataSeries(self.__instrument).getCloseDataSeries()
@@ -53,16 +56,20 @@ class MATrade(strategy.BacktestingStrategy):
                 shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
                 # Enter a buy market order. The order is good till canceled.
                 self.__position = self.enterLong(self.__instrument, shares, True)
-
+            elif self.touchTop() and LINEARREG(ds, 20)[-1] < 0:
+                shares = int(self.getBroker().getCash() * 0.9 / bars[self.__instrument].getPrice())
+                # Enter a buy market order. The order is good till canceled.
+                self.__position = self.enterShort(self.__instrument, shares, True)                
             return
         # Check if we have to exit the position.
-        elif not self.__position.exitActive() and \
-            (self.touchTop() or cross.cross_above(self.__prices, self.__sma, -2) > 0 or self.touchBottom()):
-            self.__position.exitMarket()
-
+        elif (not self.__position.exitActive()):
+            if self.__position > 0 and (cross.cross_below(self.__prices, self.__sma, -2) > 0 or self.touchBottom()):
+                self.__position.exitMarket() #Long exit
+            elif self.__position < 0 and (cross.cross_above(self.__prices, self.__sma, -2) > 0 or self.touchTop()):
+                self.__position.exitMarket() #Short exit
 
 def main(plot):
-    start = datetime(2000, 1, 1, 0, 0, 0, 0, pytz.utc)
+    start = datetime(1990, 1, 1, 0, 0, 0, 0, pytz.utc)
     end = datetime(2015, 7, 1, 0, 0, 0, 0, pytz.utc)
     data = web.DataReader('DEXJPUS', 'fred', start, end)
 
