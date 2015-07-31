@@ -50,8 +50,8 @@ class MATrade(strategy.BacktestingStrategy):
             return True        
         
     def onBars(self, bars):
-#        if self.__position != None and (self.__position.getReturn() > 0.05 or self.__position.getReturn() < -0.02):
-#            self.__position.exitMarket()
+        if self.__position != None and self.__position.getReturn() < -0.05:
+            self.__position.exitMarket()
             
         # If a position was not opened, check if we should enter a long position.
         if self.__position is None:
