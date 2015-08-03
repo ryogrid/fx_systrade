@@ -41,16 +41,15 @@ def construct_network(input_len, output_len, hidden_nodes, is_elman=True):
 """
 main
 """
-hidden_nodes = 500
 INPUT_LEN = 60*24
 OUTPUT_LEN = 5
-is_elman = True
+is_elman = False
 
-TRAINDATA_DIV = 100
+TRAINDATA_DIV = 5
 parameters = {}
 
 # build rnn
-rnn_net = construct_network(INPUT_LEN + 1, OUTPUT_LEN + 1, hidden_nodes, is_elman)
+rnn_net = construct_network(INPUT_LEN + 1, OUTPUT_LEN, INPUT_LEN * 2, is_elman)
 
 training_ds = []
 
@@ -76,7 +75,8 @@ print "train len: " + str(train_len)
 # df = pd.DataFrame(d)
 # df.plot(grid=True, figsize=(10,4), y="USDJPY")
 
-ds  = SupervisedDataSet(INPUT_LEN + 1, OUTPUT_LEN + 1)
+x_arr = np.array(xrange(OUTPUT_LEN + 1))
+ds  = SupervisedDataSet(INPUT_LEN + 1, OUTPUT_LEN)
 for window_s in xrange(train_len-(INPUT_LEN+OUTPUT_LEN)):
     input_rates = []
     output_rates = []
@@ -84,7 +84,10 @@ for window_s in xrange(train_len-(INPUT_LEN+OUTPUT_LEN)):
         input_rates.append(exchange_rates[i][1])
     for i in xrange(window_s + INPUT_LEN, window_s + INPUT_LEN + OUTPUT_LEN + 1):    
         output_rates.append(exchange_rates[i][1])
-    ds.addSample(input_rates, output_rates)    
+
+    y_arr = np.array(output_rates)
+    angle = np.polyfit(x_arr, y_arr, 1)[0]
+    ds.addSample(input_rates, [angle])
 
 trainer = BackpropTrainer(rnn_net, **parameters)
 trainer.setData(ds)
@@ -106,37 +109,34 @@ NOT_HAVE = 3
 pos_kind = NOT_HAVE
 positions = 0
 
-x_arr = np.array(xrange(OUTPUT_LEN + 1))
+
 for window_s in xrange((data_len - train_len) - (INPUT_LEN + OUTPUT_LEN)):
     current_spot = train_len + window_s + INPUT_LEN + OUTPUT_LEN
     input_vals = []
     for i in xrange(train_len + window_s, train_len + window_s + INPUT_LEN + 1):
         input_vals.append(exchange_rates[i][1])
         
-    predicted_vals = rnn_net.activate(input_vals)
-    y_arr = np.array(predicted_vals[:])
-    angle = np.polyfit(x_arr, y_arr, 1)[0]
-    
-    print "angle " + str(angle)
+    predicted_angle = rnn_net.activate(input_vals)[0]
+
     print "state " + str(pos_kind)
-    print "predicted_vals" + str(predicted_vals)
+    print "predicted_angle " + str(predicted_angle)
     if pos_kind == NOT_HAVE:
-        if angle > 0.5:
+        if predicted_angle > 0.2:
             pos_kind = LONG
             positions = portfolio / exchange_rates[current_spot][1]
-        elif angle < -0.5:
+        elif predicted_angle < -0.2:
             pos_kind = SHORT
             positions = portfolio / exchange_rates[current_spot][1]
             sell_val = exchange_rates[current_spot][1]
     else:
-        if pos_kind == LONG and angle < -0.1:
+        if pos_kind == LONG and predicted_angle < -0.1:
             pos_kind = NOT_HAVE
             portfolio = positions * exchange_rates[current_spot][1]
-        elif pos_kind == SHORT and angle > 0.1:
+        elif pos_kind == SHORT and predicted_angle > 0.1:
             pos_kind = NOT_HAVE
             portfolio += positions * sell_val - positions * exchange_rates[current_spot][1]
 
-    portfolio_arr.append([exchange_rates[current_spot][0], portfolio])
+#    portfolio_arr.append([exchange_rates[current_spot][0], portfolio])
     print str(exchange_rates[current_spot][0]) + " " + str(portfolio)
     
 # ig, ax1 = plt.subplots(figsize=(10,4))
