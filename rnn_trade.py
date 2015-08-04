@@ -9,6 +9,7 @@ from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import BackpropTrainer
 import pandas as pd
 import matplotlib.pyplot as plt
+import pickle
 
 def construct_network(input_len, output_len, hidden_nodes, is_elman=True):
     n = RecurrentNetwork()
@@ -50,7 +51,8 @@ TRAINDATA_DIV = 5
 parameters = {}
 
 # build rnn
-rnn_net = construct_network(INPUT_LEN + 1, OUTPUT_LEN, hidden, is_elman)
+
+
 
 training_ds = []
 
@@ -69,41 +71,51 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-
+if True:
+    dump_fd = open("./rnn_net.dump", "r")
+    rnn_net = pickle.load(dump_fd)
+    
+if False: ### training start
+    rnn_net = construct_network(INPUT_LEN + 1, OUTPUT_LEN, hidden, is_elman)
+    
 # hoge = pd.Series(exchange_rates[:][1])
 # print exchange_rates[1][:]
 # d = {'USDJPY': hoge}
 # df = pd.DataFrame(d)
 # df.plot(grid=True, figsize=(10,4), y="USDJPY")
 
-x_arr = np.array(xrange(OUTPUT_LEN + 1))
-ds  = SupervisedDataSet(INPUT_LEN + 1, OUTPUT_LEN)
-for window_s in xrange(train_len-(INPUT_LEN+OUTPUT_LEN)):
-    input_rates = []
-    output_rates = []
-    prev = 0
-    for i in xrange(window_s, window_s + INPUT_LEN + 1):
-        if prev != 0:
-            input_rates.append(exchange_rates[i][1] - prev)
-        else:
-            input_rates.append(0)
-        prev = exchange_rates[i][1]
-    for i in xrange(window_s + INPUT_LEN, window_s + INPUT_LEN + OUTPUT_LEN + 1):    
-        output_rates.append(exchange_rates[i][1])
+    x_arr = np.array(xrange(OUTPUT_LEN + 1))
+    ds  = SupervisedDataSet(INPUT_LEN + 1, OUTPUT_LEN)
+    for window_s in xrange(train_len-(INPUT_LEN+OUTPUT_LEN)):
+        input_rates = []
+        output_rates = []
+        prev = 0
+        for i in xrange(window_s, window_s + INPUT_LEN + 1):
+            if prev != 0:
+                input_rates.append(exchange_rates[i][1] - prev)
+            else:
+                input_rates.append(0)
+            prev = exchange_rates[i][1]
+        for i in xrange(window_s + INPUT_LEN, window_s + INPUT_LEN + OUTPUT_LEN + 1):    
+            output_rates.append(exchange_rates[i][1])
 
-    y_arr = np.array(output_rates)
-    angle = np.polyfit(x_arr, y_arr, 1)[0]
-#    print "learn_angle " + str(angle)
-    ds.addSample(input_rates, [angle])
+        y_arr = np.array(output_rates)
+        angle = np.polyfit(x_arr, y_arr, 1)[0]
+        #    print "learn_angle " + str(angle)
+        ds.addSample(input_rates, [angle])
 
-trainer = BackpropTrainer(rnn_net, **parameters)
-trainer.setData(ds)
-trainer.train()
+    trainer = BackpropTrainer(rnn_net, **parameters)
+    trainer.setData(ds)
+    trainer.train()
 
-del ds  # release memory
+    del ds  # release memory
 
-# predict
-rnn_net.reset()
+    # predict
+    rnn_net.reset()
+
+    dump_fd = open("./rnn_net.dump", "w")
+    pickle.dump(rnn_net, dump_fd)
+### training end
 
 # frslt = open('../test/rnn_result8.csv', 'w')
 # frslt.write(enroll_id_str + "," + str(result[0]) + "\n")        
@@ -116,7 +128,7 @@ NOT_HAVE = 3
 pos_kind = NOT_HAVE
 positions = 0
 
-
+trade_val = -1
 for window_s in xrange((data_len - train_len) - (INPUT_LEN + OUTPUT_LEN)):
     current_spot = train_len + window_s + INPUT_LEN + OUTPUT_LEN
     input_vals = []
@@ -136,17 +148,20 @@ for window_s in xrange((data_len - train_len) - (INPUT_LEN + OUTPUT_LEN)):
         if predicted_angle > 2:
             pos_kind = LONG
             positions = portfolio / exchange_rates[current_spot][1]
+            trade_val = exchange_rates[current_spot][1]
         elif predicted_angle < -2:
             pos_kind = SHORT
             positions = portfolio / exchange_rates[current_spot][1]
-            sell_val = exchange_rates[current_spot][1]
+            trade_val = exchange_rates[current_spot][1]
     else:
-        if pos_kind == LONG and predicted_angle < -2:
-            pos_kind = NOT_HAVE
-            portfolio = positions * exchange_rates[current_spot][1]
-        elif pos_kind == SHORT and predicted_angle > 2:
-            pos_kind = NOT_HAVE
-            portfolio += positions * sell_val - positions * exchange_rates[current_spot][1]
+        if pos_kind == LONG:
+            if ((exchange_rates[current_spot][1] - trade_val)/trade_val) > 0.03 or ((exchange_rates[current_spot][1] - trade_val)/trade_val) < -0.01:
+                pos_kind = NOT_HAVE
+                portfolio = positions * exchange_rates[current_spot][1]
+        elif pos_kind == SHORT:
+            if ((trade_val - exchange_rates[current_spot][1])/trade_val) > 0.03 or ((trade_val - exchange_rates[current_spot][1])/trade_val) < -0.01:
+                pos_kind = NOT_HAVE
+                portfolio += positions * trade_val - positions * exchange_rates[current_spot][1]
 
 #    portfolio_arr.append([exchange_rates[current_spot][0], portfolio])
     print str(exchange_rates[current_spot][0]) + " " + str(portfolio)
