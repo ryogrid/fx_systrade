@@ -42,8 +42,8 @@ def construct_network(input_len, output_len, hidden_nodes, is_elman=True):
 """
 main
 """
-hidden = 200
-INPUT_LEN = 20 #60*24
+hidden = 600
+INPUT_LEN = 60 #60*24
 OUTPUT_LEN = 2
 is_elman = True
 
@@ -76,7 +76,7 @@ if True:
     rnn_net = pickle.load(dump_fd)
     
 if False: ### training start
-    rnn_net = construct_network(INPUT_LEN + 1, OUTPUT_LEN, hidden, is_elman)
+    rnn_net = construct_network(INPUT_LEN, 1, hidden, is_elman)
     
 # hoge = pd.Series(exchange_rates[:][1])
 # print exchange_rates[1][:]
@@ -84,24 +84,27 @@ if False: ### training start
 # df = pd.DataFrame(d)
 # df.plot(grid=True, figsize=(10,4), y="USDJPY")
 
-    x_arr = np.array(xrange(OUTPUT_LEN + 1))
-    ds  = SupervisedDataSet(INPUT_LEN + 1, OUTPUT_LEN)
-    for window_s in xrange(train_len-(INPUT_LEN+OUTPUT_LEN)):
+    ds  = SupervisedDataSet(INPUT_LEN, 1)
+    x_arr = np.array(xrange(OUTPUT_LEN))    
+    for window_s in xrange(train_len - (INPUT_LEN + OUTPUT_LEN)):
         input_rates = []
         output_rates = []
         prev = 0
-        for i in xrange(window_s, window_s + INPUT_LEN + 1):
+        for i in xrange(window_s, window_s + INPUT_LEN):
             if prev != 0:
                 input_rates.append(exchange_rates[i][1] - prev)
             else:
                 input_rates.append(0)
             prev = exchange_rates[i][1]
-        for i in xrange(window_s + INPUT_LEN, window_s + INPUT_LEN + OUTPUT_LEN + 1):    
+        for i in xrange(window_s + INPUT_LEN, window_s + INPUT_LEN + OUTPUT_LEN):
             output_rates.append(exchange_rates[i][1])
+
 
         y_arr = np.array(output_rates)
         angle = np.polyfit(x_arr, y_arr, 1)[0]
         #    print "learn_angle " + str(angle)
+#        print "add angle" + str(angle)
+#        print "add input_rates len " + str(len(input_rates))
         ds.addSample(input_rates, [angle])
 
     trainer = BackpropTrainer(rnn_net, **parameters)
@@ -133,7 +136,7 @@ for window_s in xrange((data_len - train_len) - (INPUT_LEN + OUTPUT_LEN)):
     current_spot = train_len + window_s + INPUT_LEN + OUTPUT_LEN
     input_vals = []
     prev = 0
-    for i in xrange(train_len + window_s, train_len + window_s + INPUT_LEN + 1):
+    for i in xrange(train_len + window_s, train_len + window_s + INPUT_LEN):
         if prev != 0:
             input_vals.append(exchange_rates[i][1] - prev)
         else:
@@ -145,23 +148,21 @@ for window_s in xrange((data_len - train_len) - (INPUT_LEN + OUTPUT_LEN)):
     print "state " + str(pos_kind)
     print "predicted_angle " + str(predicted_angle)
     if pos_kind == NOT_HAVE:
-        if predicted_angle > 2:
+        if predicted_angle > 5:
             pos_kind = LONG
             positions = portfolio / exchange_rates[current_spot][1]
             trade_val = exchange_rates[current_spot][1]
-        elif predicted_angle < -2:
+        elif predicted_angle < -5:
             pos_kind = SHORT
             positions = portfolio / exchange_rates[current_spot][1]
             trade_val = exchange_rates[current_spot][1]
     else:
         if pos_kind == LONG:
-            if ((exchange_rates[current_spot][1] - trade_val)/trade_val) > 0.03 or ((exchange_rates[current_spot][1] - trade_val)/trade_val) < -0.01:
-                pos_kind = NOT_HAVE
-                portfolio = positions * exchange_rates[current_spot][1]
+            pos_kind = NOT_HAVE
+            portfolio = positions * exchange_rates[current_spot][1]
         elif pos_kind == SHORT:
-            if ((trade_val - exchange_rates[current_spot][1])/trade_val) > 0.03 or ((trade_val - exchange_rates[current_spot][1])/trade_val) < -0.01:
-                pos_kind = NOT_HAVE
-                portfolio += positions * trade_val - positions * exchange_rates[current_spot][1]
+            pos_kind = NOT_HAVE
+            portfolio += positions * trade_val - positions * exchange_rates[current_spot][1]
 
 #    portfolio_arr.append([exchange_rates[current_spot][0], portfolio])
     print str(exchange_rates[current_spot][0]) + " " + str(portfolio)
