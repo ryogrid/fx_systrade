@@ -42,17 +42,13 @@ def construct_network(input_len, output_len, hidden_nodes, is_elman=True):
 """
 main
 """
-hidden = 600
-INPUT_LEN = 60 #60*24
+hidden = 50
+INPUT_LEN = 5 #60*24
 OUTPUT_LEN = 2
 is_elman = True
 
-TRAINDATA_DIV = 5
+TRAINDATA_DIV = 2
 parameters = {}
-
-# build rnn
-
-
 
 training_ds = []
 
@@ -71,11 +67,12 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if True:
+if False:
     dump_fd = open("./rnn_net.dump", "r")
     rnn_net = pickle.load(dump_fd)
     
-if False: ### training start
+if True: ### training start
+    # build rnn
     rnn_net = construct_network(INPUT_LEN, 1, hidden, is_elman)
     
 # hoge = pd.Series(exchange_rates[:][1])
@@ -148,11 +145,11 @@ for window_s in xrange((data_len - train_len) - (INPUT_LEN + OUTPUT_LEN)):
     print "state " + str(pos_kind)
     print "predicted_angle " + str(predicted_angle)
     if pos_kind == NOT_HAVE:
-        if predicted_angle > 5:
+        if predicted_angle > 0:
             pos_kind = LONG
             positions = portfolio / exchange_rates[current_spot][1]
             trade_val = exchange_rates[current_spot][1]
-        elif predicted_angle < -5:
+        elif predicted_angle < 0:
             pos_kind = SHORT
             positions = portfolio / exchange_rates[current_spot][1]
             trade_val = exchange_rates[current_spot][1]
