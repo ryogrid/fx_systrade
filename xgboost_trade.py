@@ -110,7 +110,7 @@ main
 """
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 4
+TRAINDATA_DIV = 10
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -164,7 +164,7 @@ if True: ### training start
     tr_input_arr = np.array(tr_input_mat)
     tr_angle_arr = np.array(tr_angle_mat)
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    param = {'max_depth':2, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
+    param = {'max_depth':4, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
     num_round = 500
@@ -220,11 +220,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     print "state " + str(pos_kind)
     print "predicted_prob " + str(predicted_prob)
     if pos_kind == NOT_HAVE:
-        if predicted_prob > 0.7 :
+        if predicted_prob > 0.85 :
            pos_kind = LONG
            positions = portfolio / exchange_rates[current_spot]
            trade_val = exchange_rates[current_spot]
-        elif predicted_prob < 0.3:
+        elif predicted_prob < 0.15:
            pos_kind = SHORT
            positions = portfolio / exchange_rates[current_spot]
            trade_val = exchange_rates[current_spot]
