@@ -38,6 +38,8 @@ def get_ma(price_arr, cur_pos, period = 20):
     return ta.SMA(prices, timeperiod = period)[-1]
 
 def get_ma_kairi(price_arr, cur_pos, period = None):
+    # ma = get_ma(price_arr, cur_pos)
+    # return ((price_arr[cur_pos] - ma) / ma) * 100.0
     return 0
 
 def get_bb_1(price_arr, cur_pos, period = 40):
@@ -110,7 +112,7 @@ main
 """
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 10
+TRAINDATA_DIV = 4
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -141,18 +143,18 @@ if True: ### training start
              exchange_rates[i] - exchange_rates[i - 1],
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
-             get_ma_kairi(exchange_rates, i),
+#             get_ma_kairi(exchange_rates, i),
              get_bb_1(exchange_rates, i),
-             get_bb_2(exchange_rates, i),
-             get_ema(exchange_rates, i),
-             get_ema_rsi(exchange_rates, i),
-             get_cci(exchange_rates, i),
+#             get_bb_2(exchange_rates, i),
+#             get_ema(exchange_rates, i),
+#             get_ema_rsi(exchange_rates, i),
+#             get_cci(exchange_rates, i),
              get_mo(exchange_rates, i),
              get_po(exchange_rates, i),
-             get_lw(exchange_rates, i),
-             get_ss(exchange_rates, i),
-             get_dmi(exchange_rates, i),
-             get_vorarity(exchange_rates, i),
+#             get_lw(exchange_rates, i),
+#             get_ss(exchange_rates, i),
+#             get_dmi(exchange_rates, i),
+#             get_vorarity(exchange_rates, i),
              get_macd(exchange_rates, i)]
             )
         tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
@@ -167,7 +169,7 @@ if True: ### training start
     param = {'max_depth':4, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
-    num_round = 500
+    num_round = 200
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
     dump_fd = open("./bst.dump", "w")
@@ -180,6 +182,8 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
+HALF_SPREAD = 0.002
+
 positions = 0
 
 trade_val = -1
@@ -195,18 +199,18 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         exchange_rates[current_spot] - exchange_rates[current_spot - 1],
         get_rsi(exchange_rates, current_spot),
         get_ma(exchange_rates, current_spot),
-        get_ma_kairi(exchange_rates, current_spot),
+#        get_ma_kairi(exchange_rates, current_spot),
         get_bb_1(exchange_rates, current_spot),
-        get_bb_2(exchange_rates, current_spot),
-        get_ema(exchange_rates, current_spot),
-        get_ema_rsi(exchange_rates, current_spot),
-        get_cci(exchange_rates, current_spot),
+#        get_bb_2(exchange_rates, current_spot),
+#        get_ema(exchange_rates, current_spot),
+#        get_ema_rsi(exchange_rates, current_spot),
+#        get_cci(exchange_rates, current_spot),
         get_mo(exchange_rates, current_spot),
         get_po(exchange_rates, current_spot),
-        get_lw(exchange_rates, current_spot),
-        get_ss(exchange_rates, current_spot),
-        get_dmi(exchange_rates, current_spot),
-        get_vorarity(exchange_rates, current_spot),
+#        get_lw(exchange_rates, current_spot),
+#        get_ss(exchange_rates, current_spot),
+#        get_dmi(exchange_rates, current_spot),
+#        get_vorarity(exchange_rates, current_spot),
         get_macd(exchange_rates, i)]        
     )
 
@@ -220,22 +224,22 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     print "state " + str(pos_kind)
     print "predicted_prob " + str(predicted_prob)
     if pos_kind == NOT_HAVE:
-        if predicted_prob > 0.85 :
+        if predicted_prob > 0.9 :
            pos_kind = LONG
-           positions = portfolio / exchange_rates[current_spot]
-           trade_val = exchange_rates[current_spot]
-        elif predicted_prob < 0.15:
+           positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
+           trade_val = exchange_rates[current_spot] + HALF_SPREAD
+        elif predicted_prob < 0.1:
            pos_kind = SHORT
-           positions = portfolio / exchange_rates[current_spot]
-           trade_val = exchange_rates[current_spot]
+           positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+           trade_val = exchange_rates[current_spot] - HALF_SPREAD
     else:
         if pos_cont_count >= OUTPUT_LEN:
             if pos_kind == LONG:
                 pos_kind = NOT_HAVE
-                portfolio = positions * exchange_rates[current_spot]
+                portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
-                portfolio += positions * trade_val - positions * exchange_rates[current_spot]
+                portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
             pos_cont_count = 0
         else:
             pos_cont_count += 1
