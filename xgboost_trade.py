@@ -24,40 +24,61 @@ def merge_csv(out_fname, input_files):
     frslt.close()
 
 def get_rsi(price_arr, cur_pos, period = 40):
-    tmp_arr = price_arr[:cur_pos]
+    if cur_pos <= period:
+#        s = 0
+        return 0
+    else:
+        s = cur_pos - (period + 1)
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.RSI(prices, timeperiod = period)[-1]
 
 def get_ma(price_arr, cur_pos, period = 20):
-    tmp_arr = price_arr[:cur_pos]
+    if cur_pos <= period:
+        s = 0
+    else:
+        s = cur_pos - period
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.SMA(prices, timeperiod = period)[-1]
 
 def get_ma_kairi(price_arr, cur_pos, period = None):
-    # ma = get_ma(price_arr, cur_pos)
-    # return ((price_arr[cur_pos] - ma) / ma) * 100.0
+    ma = get_ma(price_arr, cur_pos)
+    return ((price_arr[cur_pos] - ma) / ma) * 100.0
     return 0
 
 def get_bb_1(price_arr, cur_pos, period = 40):
-    tmp_arr = price_arr[:cur_pos]
+    if cur_pos <= period:
+        s = 0
+    else:
+        s = cur_pos - period
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.BBANDS(prices, timeperiod = period)[0][-1]
 
 def get_bb_2(price_arr, cur_pos, period = 40):
-    tmp_arr = price_arr[:cur_pos]
+    if cur_pos <= period:
+        s = 0
+    else:
+        s = cur_pos - period
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.BBANDS(prices, timeperiod = period)[2][-1]
 
 def get_ema(price_arr, cur_pos, period = 20):
-    tmp_arr = price_arr[:cur_pos]
+    if cur_pos <= period:
+        s = 0
+    else:
+        s = cur_pos - period
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
@@ -71,14 +92,23 @@ def get_cci(price_arr, cur_pos, period = None):
     return 0
 
 def get_mo(price_arr, cur_pos, period = 20):
-    tmp_arr = price_arr[:cur_pos]
+    if cur_pos <= (period + 1):
+#        s = 0
+        return 0
+    else:
+        s = cur_pos - (period + 1)
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.CMO(prices, timeperiod = period)[-1]        
 
-def get_po(price_arr, cur_pos, period = None):
-    tmp_arr = price_arr[:cur_pos]
+def get_po(price_arr, cur_pos, period = 10):
+    if cur_pos <= period:
+        s = 0
+    else:
+        s = cur_pos - period
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
@@ -96,8 +126,12 @@ def get_dmi(price_arr, cur_pos, period = None):
 def get_vorarity(price_arr, cur_pos, period = None):
     return 0
 
-def get_macd(price_arr, cur_pos, period = None):
-    tmp_arr = price_arr[:cur_pos]
+def get_macd(price_arr, cur_pos, period = 100):
+    if cur_pos <= period:
+        s = 0
+    else:
+        s = cur_pos - period
+    tmp_arr = price_arr[s:cur_pos]
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
@@ -112,7 +146,7 @@ main
 """
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 10
+TRAINDATA_DIV = 4
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -137,7 +171,7 @@ if False:
 if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
-    for i in xrange(1+1000, train_len, OUTPUT_LEN):
+    for i in xrange(1 + 1000, train_len, OUTPUT_LEN):
         tr_input_mat.append(
             [exchange_rates[i],
              exchange_rates[i] - exchange_rates[i - 1],
@@ -151,13 +185,15 @@ if True: ### training start
 #             get_ema_rsi(exchange_rates, i),
 #             get_cci(exchange_rates, i),
              get_mo(exchange_rates, i),
-             get_po(exchange_rates, i),
+#             get_po(exchange_rates, i),
 #             get_lw(exchange_rates, i),
 #             get_ss(exchange_rates, i),
 #             get_dmi(exchange_rates, i),
 #             get_vorarity(exchange_rates, i),
-             get_macd(exchange_rates, i)]
+             get_macd(exchange_rates, i),
+         ]
             )
+#        print tr_input_mat
         tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
         if tmp >= 0:
             tr_angle_mat.append(1)
@@ -208,12 +244,13 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 #        get_ema_rsi(exchange_rates, current_spot),
 #        get_cci(exchange_rates, current_spot),
         get_mo(exchange_rates, current_spot),
-        get_po(exchange_rates, current_spot),
+#        get_po(exchange_rates, current_spot),
 #        get_lw(exchange_rates, current_spot),
 #        get_ss(exchange_rates, current_spot),
 #        get_dmi(exchange_rates, current_spot),
 #        get_vorarity(exchange_rates, current_spot),
-        get_macd(exchange_rates, i)]        
+        get_macd(exchange_rates, i)
+    ]        
     )
 
     ts_input_arr = np.array(ts_input_mat)
