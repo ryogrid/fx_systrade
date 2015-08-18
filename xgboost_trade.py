@@ -112,7 +112,7 @@ main
 """
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 4
+TRAINDATA_DIV = 10
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -141,12 +141,13 @@ if True: ### training start
         tr_input_mat.append(
             [exchange_rates[i],
              exchange_rates[i] - exchange_rates[i - 1],
+             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
-#             get_ma_kairi(exchange_rates, i),
+             get_ma_kairi(exchange_rates, i),
              get_bb_1(exchange_rates, i),
-#             get_bb_2(exchange_rates, i),
-#             get_ema(exchange_rates, i),
+             get_bb_2(exchange_rates, i),
+             get_ema(exchange_rates, i),
 #             get_ema_rsi(exchange_rates, i),
 #             get_cci(exchange_rates, i),
              get_mo(exchange_rates, i),
@@ -169,7 +170,7 @@ if True: ### training start
     param = {'max_depth':4, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
-    num_round = 200
+    num_round = 500
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
     dump_fd = open("./bst.dump", "w")
@@ -182,7 +183,7 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-HALF_SPREAD = 0.002
+HALF_SPREAD = 0.000
 
 positions = 0
 
@@ -197,12 +198,13 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     ts_input_mat.append(
        [exchange_rates[current_spot],
         exchange_rates[current_spot] - exchange_rates[current_spot - 1],
+        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
         get_rsi(exchange_rates, current_spot),
         get_ma(exchange_rates, current_spot),
-#        get_ma_kairi(exchange_rates, current_spot),
+        get_ma_kairi(exchange_rates, current_spot),
         get_bb_1(exchange_rates, current_spot),
-#        get_bb_2(exchange_rates, current_spot),
-#        get_ema(exchange_rates, current_spot),
+        get_bb_2(exchange_rates, current_spot),
+        get_ema(exchange_rates, current_spot),
 #        get_ema_rsi(exchange_rates, current_spot),
 #        get_cci(exchange_rates, current_spot),
         get_mo(exchange_rates, current_spot),
@@ -224,11 +226,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     print "state " + str(pos_kind)
     print "predicted_prob " + str(predicted_prob)
     if pos_kind == NOT_HAVE:
-        if predicted_prob > 0.9 :
+        if predicted_prob > 0.85 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob < 0.1:
+        elif predicted_prob < 0.15:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
