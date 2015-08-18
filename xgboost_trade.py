@@ -146,7 +146,7 @@ main
 """
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 4
+TRAINDATA_DIV = 10
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -175,21 +175,21 @@ if True: ### training start
         tr_input_mat.append(
             [exchange_rates[i],
              exchange_rates[i] - exchange_rates[i - 1],
-             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
+#             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
              get_ma_kairi(exchange_rates, i),
              get_bb_1(exchange_rates, i),
              get_bb_2(exchange_rates, i),
              get_ema(exchange_rates, i),
-#             get_ema_rsi(exchange_rates, i),
-#             get_cci(exchange_rates, i),
+             get_ema_rsi(exchange_rates, i),
+             get_cci(exchange_rates, i),
              get_mo(exchange_rates, i),
 #             get_po(exchange_rates, i),
-#             get_lw(exchange_rates, i),
-#             get_ss(exchange_rates, i),
-#             get_dmi(exchange_rates, i),
-#             get_vorarity(exchange_rates, i),
+             get_lw(exchange_rates, i),
+             get_ss(exchange_rates, i),
+             get_dmi(exchange_rates, i),
+             get_vorarity(exchange_rates, i),
              get_macd(exchange_rates, i),
          ]
             )
@@ -234,21 +234,21 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     ts_input_mat.append(
        [exchange_rates[current_spot],
         exchange_rates[current_spot] - exchange_rates[current_spot - 1],
-        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
+#        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
         get_rsi(exchange_rates, current_spot),
         get_ma(exchange_rates, current_spot),
         get_ma_kairi(exchange_rates, current_spot),
         get_bb_1(exchange_rates, current_spot),
         get_bb_2(exchange_rates, current_spot),
         get_ema(exchange_rates, current_spot),
-#        get_ema_rsi(exchange_rates, current_spot),
-#        get_cci(exchange_rates, current_spot),
+        get_ema_rsi(exchange_rates, current_spot),
+        get_cci(exchange_rates, current_spot),
         get_mo(exchange_rates, current_spot),
 #        get_po(exchange_rates, current_spot),
-#        get_lw(exchange_rates, current_spot),
-#        get_ss(exchange_rates, current_spot),
-#        get_dmi(exchange_rates, current_spot),
-#        get_vorarity(exchange_rates, current_spot),
+        get_lw(exchange_rates, current_spot),
+        get_ss(exchange_rates, current_spot),
+        get_dmi(exchange_rates, current_spot),
+        get_vorarity(exchange_rates, current_spot),
         get_macd(exchange_rates, i)
     ]        
     )

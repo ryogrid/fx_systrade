@@ -81,7 +81,7 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-HALF_SPREAD = 0.000
+HALF_SPREAD = 0.002
 
 positions = 0
 
@@ -90,6 +90,7 @@ for cur in xrange(21, data_len):
 
     print "state " + str(pos_kind)
     ma_list = get_ma_list(exchange_rates, cur)
+#    ma_list_5 = get_ma_list(exchange_rates, cur, 5)
 #    print ma_list
     
     if pos_kind == NOT_HAVE:
@@ -102,10 +103,10 @@ for cur in xrange(21, data_len):
            positions = portfolio / (exchange_rates[cur] - HALF_SPREAD)
            trade_val = exchange_rates[cur] - HALF_SPREAD
     else:
-        if pos_kind == LONG and touch_bottom(exchange_rates, ma_list, cur): # or cross_below(exchange_rates, ma_list, cur):
+        if pos_kind == LONG and touch_bottom(exchange_rates, ma_list, cur):# or cross_below(exchange_rates, ma_list_5, cur)):
             pos_kind = NOT_HAVE
             portfolio = positions * (exchange_rates[cur] - HALF_SPREAD)
-        elif pos_kind == SHORT and touch_top(exchange_rates, ma_list, cur): # or cross_above(exchange_rates, ma_list, cur):
+        elif pos_kind == SHORT and touch_top(exchange_rates, ma_list, cur):# or cross_above(exchange_rates, ma_list_5, cur)):
             pos_kind = NOT_HAVE
             portfolio += positions * trade_val - positions * (exchange_rates[cur] + HALF_SPREAD)
 
