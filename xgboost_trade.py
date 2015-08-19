@@ -158,6 +158,20 @@ for line in rates_fd:
         exchange_dates.append(time)
         exchange_rates.append(val)
 
+reverse_exchange_rates = []
+prev_org = -1
+prev = -1
+for rate in exchange_rates:
+    if prev_org != -1:
+        diff = rate - prev_org
+        reverse_exchange_rates.append(prev - diff)
+        prev_org = rate
+        prev = prev - diff
+    else:
+        reverse_exchange_rates.append(rate)
+        prev_org = rate
+        prev = rate
+
 data_len = len(exchange_rates)
 train_len = len(exchange_rates)/TRAINDATA_DIV
 
@@ -171,7 +185,7 @@ if False:
 if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
-    for i in xrange(1 + 1000, train_len, OUTPUT_LEN):
+    for i in xrange(1000, train_len, OUTPUT_LEN):
         tr_input_mat.append(
             [exchange_rates[i],
              exchange_rates[i] - exchange_rates[i - 1],
@@ -193,17 +207,45 @@ if True: ### training start
              get_macd(exchange_rates, i),
          ]
             )
+        tr_input_mat.append(
+            [reverse_exchange_rates[i],
+             reverse_exchange_rates[i] - reverse_exchange_rates[i - 1],
+#             (reverse_exchange_rates[i] - reverse_exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
+             get_rsi(reverse_exchange_rates, i),
+             get_ma(reverse_exchange_rates, i),
+             get_ma_kairi(reverse_exchange_rates, i),
+             get_bb_1(reverse_exchange_rates, i),
+             get_bb_2(reverse_exchange_rates, i),
+             get_ema(reverse_exchange_rates, i),
+             get_ema_rsi(reverse_exchange_rates, i),
+             get_cci(reverse_exchange_rates, i),
+             get_mo(reverse_exchange_rates, i),
+#             get_po(reverse_exchange_rates, i),
+             get_lw(reverse_exchange_rates, i),
+             get_ss(reverse_exchange_rates, i),
+             get_dmi(reverse_exchange_rates, i),
+             get_vorarity(reverse_exchange_rates, i),
+             get_macd(reverse_exchange_rates, i),
+         ]
+            )        
 #        print tr_input_mat
+
         tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
         if tmp >= 0:
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
+        tmp = (reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i])/float(OUTPUT_LEN)
+        if tmp >= 0:
+            tr_angle_mat.append(1)
+        else:
+            tr_angle_mat.append(0)
+            
         
     tr_input_arr = np.array(tr_input_mat)
     tr_angle_arr = np.array(tr_angle_mat)
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    param = {'max_depth':4, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
+    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
     num_round = 500
