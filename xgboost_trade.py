@@ -248,7 +248,7 @@ if True: ### training start
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
-    num_round = 500
+    num_round = 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
     dump_fd = open("./bst.dump", "w")
