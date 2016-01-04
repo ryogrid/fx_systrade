@@ -94,6 +94,7 @@ for line in rates_fd:
         time_str = splited[0].replace("/", "-") + " " + splited[1]
         if prev == 0:
             val = EVEN
+            prev = float(splited[2])
         else:
             diff = float(splited[2]) - prev
             prev = float(splited[2])
@@ -101,9 +102,9 @@ for line in rates_fd:
                 val = UP
             elif diff < -0.15:
                 val = DOWN
-            elif diff > 0.05:
+            elif diff >= 0.05:
                 val = BIT_UP
-            elif diff < - 0.05:
+            elif diff <= - 0.05:
                 val = BIT_DOWN
             else:
                 val = EVEN
@@ -187,7 +188,7 @@ result = None
 state = make_initial_state(batchsize=1, train=False)
 for i in xrange(DATA_LEN - (DATA_LEN / TRAINING_DIV)):
     cur_idx = int((DATA_LEN / TRAINING_DIV) + i)
-    x_batch = np.array([exchange_rates[cur_idx + i + j][1]
+    x_batch = np.array([exchange_rates[cur_idx + j][1]
                            for j in xrange(INPUT_LEN)])
     # y_batch = np.array([exchange_rates[i + INPUT_LEN + j][1]
     #                        for j in xrange(OUTPUT_LEN)])
