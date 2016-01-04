@@ -22,6 +22,7 @@ grad_clip = 5    # gradient norm threshold to clip
 
 INPUT_LEN = 20
 OUTPUT_LEN = 20
+TRAINING_DIV = 5
 
 # Prepare RNNLM model
 # model = FunctionSet(embed=F.EmbedID(INPUT_LEN, n_units),
@@ -30,12 +31,12 @@ OUTPUT_LEN = 20
 #                     l2_x =F.Linear(n_units, 4 * n_units),
 #                     l2_h =F.Linear(n_units, 4 * n_units),
 #                     l3   =F.Linear(n_units, OUTPUT_LEN))
-model = FunctionSet(embed=F.EmbedID(100000, n_units),
+model = FunctionSet(embed=F.EmbedID(60, n_units),
                     l1_x =F.Linear(n_units, 4 * n_units),
                     l1_h =F.Linear(n_units, 4 * n_units),
                     l2_x =F.Linear(n_units, 4 * n_units),
                     l2_h =F.Linear(n_units, 4 * n_units),
-                    l3   =F.Linear(n_units, 100000))
+                    l3   =F.Linear(n_units, 60))
 for param in model.parameters:
     param[:] = np.random.uniform(-0.1, 0.1, param.shape)
 
@@ -50,7 +51,10 @@ def forward_one_step(x_data, y_data, state, train=True):
     c2, h2 = F.lstm(state['c2'], h2_in)
     y      = model.l3(F.dropout(h2, train=train))
     state  = {'c1': c1, 'h1': h1, 'c2': c2, 'h2': h2}
-    return state, F.softmax_cross_entropy(y, t), y
+    if train == True:
+        return state, F.softmax_cross_entropy(y, t)
+    else:
+        return state, F.softmax(y)
 
 def make_initial_state(batchsize=batchsize, train=True):
     return {name: Variable(mod.zeros((batchsize, n_units), dtype=np.int32),
@@ -82,13 +86,13 @@ for line in rates_fd:
     splited = line.split(",")
     if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
         time_str = splited[0].replace("/", "-") + " " + splited[1]
-        val = int(float(splited[2]) * 100)
+        val = int(float(splited[2]) - 80)
         exchange_rates.append([time_str, val])
 
 DATA_LEN = len(exchange_rates)
 
 # Learning loop
-jump         = ((DATA_LEN / 2) / (INPUT_LEN + OUTPUT_LEN)) - 1
+jump         = ((DATA_LEN / TRAINING_DIV) / (INPUT_LEN + OUTPUT_LEN)) - 1
 cur_log_perp = mod.zeros(())
 epoch        = 0
 start_at     = time.time()
@@ -102,7 +106,6 @@ print "input len: " + str(INPUT_LEN)
 print "output len: " + str(OUTPUT_LEN)
 print "epoch num: " + str(n_epoch)
 
-tmp = None
 print 'going to train {} iterations'.format(jump * n_epoch)
 for epoch in xrange(n_epoch):
     for i in xrange(jump):
@@ -113,11 +116,11 @@ for epoch in xrange(n_epoch):
         y_batch = np.array([exchange_rates[(INPUT_LEN + OUTPUT_LEN) * i + INPUT_LEN + j][1]
                               # for j in xrange(batchsize)], dtype=np.int32)
                                for j in xrange(OUTPUT_LEN)], dtype=np.int32)
-        state, loss_i, tmp = forward_one_step(x_batch, y_batch, state)
+        state, loss_i = forward_one_step(x_batch, y_batch, state)
         accum_loss   += loss_i
         cur_log_perp += loss_i.data.reshape(())
 
-        if (i * epoch + 1) % bprop_len == 0:  # Run truncated BPTT
+        if (epoch * jump + i) % bprop_len == 0:  # Run truncated BPTT
             optimizer.zero_grads()
             accum_loss.backward()
             accum_loss.unchain_backward()  # truncate
@@ -126,10 +129,10 @@ for epoch in xrange(n_epoch):
             optimizer.clip_grads(grad_clip)
             optimizer.update()
 
-        if (i * epoch + 1) % 10000 == 0:
+        if (epoch * jump + i) % 1000 == 0:
             now      = time.time()
-            throuput = 10000. / (now - cur_at)
-            perp     = math.exp(cuda.to_cpu(cur_log_perp) / 10000)
+            throuput = 1000. / (now - cur_at)
+            perp     = math.exp(cuda.to_cpu(cur_log_perp) / 1000)
             print 'iter {} training perplexity: {:.2f} ({:.2f} iters/sec)'.format(
                 i + 1, perp, throuput)
             cur_at   = now
@@ -160,21 +163,20 @@ positions = 0
 
 trade_val = -1
 
-result = nil
+result = None
 state = make_initial_state(batchsize=1, train=False)
-for i in xrange((DATA_LEN / 2) - (INPUT_LEN + OUTPUT_LEN)):
-    current_spot = (DATA_LEN / 2) + i
-    x_batch = np.array([exchange_rates[i + j][1]
+for i in xrange((DATA_LEN / TRAINING_DIV)):
+    cur_idx = int((DATA_LEN / TRAINING_DIV) + i)
+    x_batch = np.array([exchange_rates[cur_idx + i + j][1]
                            for j in xrange(INPUT_LEN)])
-    y_batch = np.array([exchange_rates[i + INPUT_LEN + j][1]
-                           for j in xrange(OUTPUT_LEN)])
-    state, loss_i, result = forward_one_step(x_batch, y_batch, state, train=False)
+    # y_batch = np.array([exchange_rates[i + INPUT_LEN + j][1]
+    #                        for j in xrange(OUTPUT_LEN)])
+    state, loss_i = forward_one_step(x_batch, x_batch, state, train=False)
 
     print "last of input\n"
     print x_batch[-1]
-    print "result\n"
-    print result
-
+    print "loss_i\n"
+    print loss_i.data
 
     # print "state " + str(pos_kind)
     # print "predicted_angle " + str(predicted_angle)
