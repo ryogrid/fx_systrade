@@ -22,7 +22,7 @@ grad_clip = 5    # gradient norm threshold to clip
 
 INPUT_LEN = 20
 OUTPUT_LEN = 20
-TRAINING_DIV = 5
+TRAINING_DIV = 200
 
 # Prepare RNNLM model
 # model = FunctionSet(embed=F.EmbedID(INPUT_LEN, n_units),
@@ -31,12 +31,12 @@ TRAINING_DIV = 5
 #                     l2_x =F.Linear(n_units, 4 * n_units),
 #                     l2_h =F.Linear(n_units, 4 * n_units),
 #                     l3   =F.Linear(n_units, OUTPUT_LEN))
-model = FunctionSet(embed=F.EmbedID(60, n_units),
+model = FunctionSet(embed=F.EmbedID(5, n_units),
                     l1_x =F.Linear(n_units, 4 * n_units),
                     l1_h =F.Linear(n_units, 4 * n_units),
                     l2_x =F.Linear(n_units, 4 * n_units),
                     l2_h =F.Linear(n_units, 4 * n_units),
-                    l3   =F.Linear(n_units, 60))
+                    l3   =F.Linear(n_units, 5))
 for param in model.parameters:
     param[:] = np.random.uniform(-0.1, 0.1, param.shape)
 
@@ -76,23 +76,43 @@ optimizer.setup(model.collect_parameters())
 #         sum_log_perp += loss.data.reshape(())
 #     return math.exp(cuda.to_cpu(sum_log_perp) / (dataset.size - 1))
 
+UP = 4
+BIT_UP = 3
+EVEN = 2
+BIT_DOWN = 1
+DOWN = 0
 
 """
 main
 """
 rates_fd = open('./hoge.csv', 'r')
 exchange_rates = []
+prev = 0
 for line in rates_fd:
     splited = line.split(",")
     if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
         time_str = splited[0].replace("/", "-") + " " + splited[1]
-        val = int(float(splited[2]) - 80)
+        if prev == 0:
+            val = EVEN
+        else:
+            diff = float(splited[2]) - prev
+            prev = float(splited[2])
+            if diff > 0.15:
+                val = UP
+            elif diff < -0.15:
+                val = DOWN
+            elif diff > 0.05:
+                val = BIT_UP
+            elif diff < - 0.05:
+                val = BIT_DOWN
+            else:
+                val = EVEN
         exchange_rates.append([time_str, val])
 
 DATA_LEN = len(exchange_rates)
 
 # Learning loop
-jump         = ((DATA_LEN / TRAINING_DIV) / (INPUT_LEN + OUTPUT_LEN)) - 1
+train_len    = DATA_LEN / TRAINING_DIV
 cur_log_perp = mod.zeros(())
 epoch        = 0
 start_at     = time.time()
@@ -101,26 +121,26 @@ state        = make_initial_state()
 accum_loss   = Variable(mod.zeros(()))
 
 print "data size: " + str(DATA_LEN)
-print "jump: " + str(jump)
+print "train_len: " + str(train_len)
 print "input len: " + str(INPUT_LEN)
 print "output len: " + str(OUTPUT_LEN)
 print "epoch num: " + str(n_epoch)
 
-print 'going to train {} iterations'.format(jump * n_epoch)
+print 'going to train {} iterations'.format(train_len * n_epoch)
 for epoch in xrange(n_epoch):
-    for i in xrange(jump):
+    for i in xrange(train_len):
         x_batch = np.array([exchange_rates[(INPUT_LEN + OUTPUT_LEN) * i + j][1]
                               # for j in xrange(batchsize)], dtype=np.int32)
                                for j in xrange(INPUT_LEN)], dtype=np.int32)
                             
-        y_batch = np.array([exchange_rates[(INPUT_LEN + OUTPUT_LEN) * i + INPUT_LEN + j][1]
+        y_batch = np.array([exchange_rates[(INPUT_LEN + OUTPUT_LEN) * i + j + 1][1]
                               # for j in xrange(batchsize)], dtype=np.int32)
                                for j in xrange(OUTPUT_LEN)], dtype=np.int32)
         state, loss_i = forward_one_step(x_batch, y_batch, state)
         accum_loss   += loss_i
         cur_log_perp += loss_i.data.reshape(())
 
-        if (epoch * jump + i) % bprop_len == 0:  # Run truncated BPTT
+        if (epoch * train_len + i) % bprop_len == 0:  # Run truncated BPTT
             optimizer.zero_grads()
             accum_loss.backward()
             accum_loss.unchain_backward()  # truncate
@@ -129,7 +149,7 @@ for epoch in xrange(n_epoch):
             optimizer.clip_grads(grad_clip)
             optimizer.update()
 
-        if (epoch * jump + i) % 1000 == 0:
+        if (epoch * train_len + i) % 1000 == 0:
             now      = time.time()
             throuput = 1000. / (now - cur_at)
             perp     = math.exp(cuda.to_cpu(cur_log_perp) / 1000)
@@ -139,7 +159,7 @@ for epoch in xrange(n_epoch):
             cur_log_perp.fill(0)
 
         # if (i * epoch + 1) % jump == 0:
-        if epoch * jump + i % 100 == 0:            
+        if epoch * train_len + i % 100 == 0:            
             now  = time.time()
             # perp = evaluate(valid_data)
             # print 'epoch {} validation perplexity: {:.2f}'.format(epoch, perp)
@@ -165,7 +185,7 @@ trade_val = -1
 
 result = None
 state = make_initial_state(batchsize=1, train=False)
-for i in xrange((DATA_LEN / TRAINING_DIV)):
+for i in xrange(DATA_LEN - (DATA_LEN / TRAINING_DIV)):
     cur_idx = int((DATA_LEN / TRAINING_DIV) + i)
     x_batch = np.array([exchange_rates[cur_idx + i + j][1]
                            for j in xrange(INPUT_LEN)])
@@ -174,7 +194,7 @@ for i in xrange((DATA_LEN / TRAINING_DIV)):
     state, loss_i = forward_one_step(x_batch, x_batch, state, train=False)
 
     print "last of input\n"
-    print x_batch[-1]
+    print x_batch
     print "loss_i\n"
     print loss_i.data
 
