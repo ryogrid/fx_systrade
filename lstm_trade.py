@@ -14,22 +14,28 @@ from chainer import cuda, Variable, FunctionSet, optimizers
 import chainer.functions  as F
 
 mod = np
-n_epoch   = 39   # number of epochs
+n_epoch   = 1 # # 39   # number of epochs
 n_units   = 650  # number of units per layer
 batchsize = 20   # minibatch size
 bprop_len = 35   # length of truncated BPTT
 grad_clip = 5    # gradient norm threshold to clip
 
-INPUT_LEN = 200
-OUTPUT_LEN = 5
+INPUT_LEN = 20
+OUTPUT_LEN = 20
 
 # Prepare RNNLM model
-model = FunctionSet(embed=F.EmbedID(INPUT_LEN, n_units),
+# model = FunctionSet(embed=F.EmbedID(INPUT_LEN, n_units),
+#                     l1_x =F.Linear(n_units, 4 * n_units),
+#                     l1_h =F.Linear(n_units, 4 * n_units),
+#                     l2_x =F.Linear(n_units, 4 * n_units),
+#                     l2_h =F.Linear(n_units, 4 * n_units),
+#                     l3   =F.Linear(n_units, OUTPUT_LEN))
+model = FunctionSet(embed=F.EmbedID(100000, n_units),
                     l1_x =F.Linear(n_units, 4 * n_units),
                     l1_h =F.Linear(n_units, 4 * n_units),
                     l2_x =F.Linear(n_units, 4 * n_units),
                     l2_h =F.Linear(n_units, 4 * n_units),
-                    l3   =F.Linear(n_units, OUTPUT_LEN))
+                    l3   =F.Linear(n_units, 100000))
 for param in model.parameters:
     param[:] = np.random.uniform(-0.1, 0.1, param.shape)
 
@@ -47,7 +53,7 @@ def forward_one_step(x_data, y_data, state, train=True):
     return state, F.softmax_cross_entropy(y, t), y
 
 def make_initial_state(batchsize=batchsize, train=True):
-    return {name: Variable(mod.zeros((batchsize, n_units), dtype=np.float32),
+    return {name: Variable(mod.zeros((batchsize, n_units), dtype=np.int32),
                            volatile=not train)
             for name in ('c1', 'h1', 'c2', 'h2')}
 
@@ -56,16 +62,15 @@ optimizer = optimizers.SGD(lr=1.)
 optimizer.setup(model.collect_parameters())
 
 # Evaluation routine
-def evaluate(dataset):
-    sum_log_perp = mod.zeros(())
-    state        = make_initial_state(batchsize=1, train=False)
-    for i in xrange(dataset.size - 1):
-        x_batch = dataset[i  :i+1]
-        y_batch = dataset[i+1:i+2]
-        state, loss   = forward_one_step(x_batch, y_batch, state, train=False)
-        sum_log_perp += loss.data.reshape(())
-
-    return math.exp(cuda.to_cpu(sum_log_perp) / (dataset.size - 1))
+# def evaluate(dataset):
+#     sum_log_perp = mod.zeros(())
+#     state        = make_initial_state(batchsize=1, train=False)
+#     for i in xrange(dataset.size - 1):
+#         x_batch = dataset[i  :i+1]
+#         y_batch = dataset[i+1:i+2]
+#         state, loss   = forward_one_step(x_batch, y_batch, state, train=False)
+#         sum_log_perp += loss.data.reshape(())
+#     return math.exp(cuda.to_cpu(sum_log_perp) / (dataset.size - 1))
 
 
 """
@@ -77,7 +82,7 @@ for line in rates_fd:
     splited = line.split(",")
     if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
         time_str = splited[0].replace("/", "-") + " " + splited[1]
-        val = int(float(splited[2]))
+        val = int(float(splited[2]) * 100)
         exchange_rates.append([time_str, val])
 
 DATA_LEN = len(exchange_rates)
@@ -102,14 +107,17 @@ print 'going to train {} iterations'.format(jump * n_epoch)
 for epoch in xrange(n_epoch):
     for i in xrange(jump):
         x_batch = np.array([exchange_rates[(INPUT_LEN + OUTPUT_LEN) * i + j][1]
-                           for j in xrange(INPUT_LEN)])
+                              # for j in xrange(batchsize)], dtype=np.int32)
+                               for j in xrange(INPUT_LEN)], dtype=np.int32)
+                            
         y_batch = np.array([exchange_rates[(INPUT_LEN + OUTPUT_LEN) * i + INPUT_LEN + j][1]
-                           for j in xrange(OUTPUT_LEN)])
+                              # for j in xrange(batchsize)], dtype=np.int32)
+                               for j in xrange(OUTPUT_LEN)], dtype=np.int32)
         state, loss_i, tmp = forward_one_step(x_batch, y_batch, state)
         accum_loss   += loss_i
         cur_log_perp += loss_i.data.reshape(())
 
-        if (i + 1) % bprop_len == 0:  # Run truncated BPTT
+        if (i * epoch + 1) % bprop_len == 0:  # Run truncated BPTT
             optimizer.zero_grads()
             accum_loss.backward()
             accum_loss.unchain_backward()  # truncate
@@ -118,7 +126,7 @@ for epoch in xrange(n_epoch):
             optimizer.clip_grads(grad_clip)
             optimizer.update()
 
-        if (i + 1) % 10000 == 0:
+        if (i * epoch + 1) % 10000 == 0:
             now      = time.time()
             throuput = 10000. / (now - cur_at)
             perp     = math.exp(cuda.to_cpu(cur_log_perp) / 10000)
@@ -127,12 +135,12 @@ for epoch in xrange(n_epoch):
             cur_at   = now
             cur_log_perp.fill(0)
 
-        if (i + 1) % jump == 0:
-            epoch += 1
-            print 'evaluate'
+        # if (i * epoch + 1) % jump == 0:
+        if epoch * jump + i % 100 == 0:            
             now  = time.time()
-            perp = evaluate(valid_data)
-            print 'epoch {} validation perplexity: {:.2f}'.format(epoch, perp)
+            # perp = evaluate(valid_data)
+            # print 'epoch {} validation perplexity: {:.2f}'.format(epoch, perp)
+            print 'epoch {}, i {}'.format(epoch, i)
             cur_at += time.time() - now  # skip time of evaluation
 
         if epoch >= 6:
@@ -163,7 +171,7 @@ for i in xrange((DATA_LEN / 2) - (INPUT_LEN + OUTPUT_LEN)):
     state, loss_i, result = forward_one_step(x_batch, y_batch, state, train=False)
 
     print "last of input\n"
-    print x_batch    
+    print x_batch[-1]
     print "result\n"
     print result
 
