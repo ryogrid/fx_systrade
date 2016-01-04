@@ -14,8 +14,8 @@ from chainer import cuda, Variable, FunctionSet, optimizers
 import chainer.functions  as F
 
 mod = np
-n_epoch   = 1 # # 39   # number of epochs
-n_units   = 650  # number of units per layer
+n_epoch   = 20 # # 39   # number of epochs
+n_units   = 200 # 650  # number of units per layer
 batchsize = 20   # minibatch size
 bprop_len = 35   # length of truncated BPTT
 grad_clip = 5    # gradient norm threshold to clip
@@ -31,12 +31,12 @@ TRAINING_DIV = 200
 #                     l2_x =F.Linear(n_units, 4 * n_units),
 #                     l2_h =F.Linear(n_units, 4 * n_units),
 #                     l3   =F.Linear(n_units, OUTPUT_LEN))
-model = FunctionSet(embed=F.EmbedID(5, n_units),
+model = FunctionSet(embed=F.EmbedID(4, n_units),
                     l1_x =F.Linear(n_units, 4 * n_units),
                     l1_h =F.Linear(n_units, 4 * n_units),
                     l2_x =F.Linear(n_units, 4 * n_units),
                     l2_h =F.Linear(n_units, 4 * n_units),
-                    l3   =F.Linear(n_units, 5))
+                    l3   =F.Linear(n_units, 4))
 for param in model.parameters:
     param[:] = np.random.uniform(-0.1, 0.1, param.shape)
 
@@ -76,9 +76,9 @@ optimizer.setup(model.collect_parameters())
 #         sum_log_perp += loss.data.reshape(())
 #     return math.exp(cuda.to_cpu(sum_log_perp) / (dataset.size - 1))
 
-UP = 4
-BIT_UP = 3
-EVEN = 2
+UP = 3
+BIT_UP = 2
+# EVEN = 2
 BIT_DOWN = 1
 DOWN = 0
 
@@ -93,7 +93,7 @@ for line in rates_fd:
     if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
         time_str = splited[0].replace("/", "-") + " " + splited[1]
         if prev == 0:
-            val = EVEN
+            val = BIT_UP
             prev = float(splited[2])
         else:
             diff = float(splited[2]) - prev
@@ -102,12 +102,13 @@ for line in rates_fd:
                 val = UP
             elif diff < -0.15:
                 val = DOWN
-            elif diff >= 0.05:
+            elif diff >= 0:
                 val = BIT_UP
-            elif diff <= - 0.05:
+            elif diff < 0:
                 val = BIT_DOWN
             else:
-                val = EVEN
+                val = BIT_UP # guard
+                
         exchange_rates.append([time_str, val])
 
 DATA_LEN = len(exchange_rates)
