@@ -189,6 +189,9 @@ if True: ### training start
         tr_input_mat.append(
             [exchange_rates[i],
              exchange_rates[i] - exchange_rates[i - 1],
+             exchange_rates[i] - exchange_rates[i - 6],
+             exchange_rates[i] - exchange_rates[i - 12],
+             exchange_rates[i] - exchange_rates[i - 48],
 #             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
@@ -210,6 +213,9 @@ if True: ### training start
         tr_input_mat.append(
             [reverse_exchange_rates[i],
              reverse_exchange_rates[i] - reverse_exchange_rates[i - 1],
+             reverse_exchange_rates[i] - reverse_exchange_rates[i - 6],
+             reverse_exchange_rates[i] - reverse_exchange_rates[i - 12],
+             reverse_exchange_rates[i] - reverse_exchange_rates[i - 48],             
 #             (reverse_exchange_rates[i] - reverse_exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(reverse_exchange_rates, i),
              get_ma(reverse_exchange_rates, i),
@@ -276,6 +282,9 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     ts_input_mat.append(
        [exchange_rates[current_spot],
         exchange_rates[current_spot] - exchange_rates[current_spot - 1],
+        exchange_rates[current_spot] - exchange_rates[current_spot - 6],
+        exchange_rates[current_spot] - exchange_rates[current_spot - 12],
+        exchange_rates[current_spot] - exchange_rates[current_spot - 48],
 #        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
         get_rsi(exchange_rates, current_spot),
         get_ma(exchange_rates, current_spot),
