@@ -82,6 +82,7 @@ main
 SERIES_LEN = 25
 DATA_NUM = 250
 CLUSTER_NUM = 50
+MA_PERIOD = 5
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_rates = []
@@ -92,10 +93,14 @@ for line in rates_fd:
         val = float(splited[2])
         exchange_rates.append(val-110)
 
+ma_vals = []        
+for idx in xrange(MA_PERIOD, len(exchange_rates)):
+    ma_vals.append(sum(exchange_rates[idx:idx+MA_PERIOD])/MA_PERIOD)
+    
 tmp_arr = []        
 for window_s in xrange(1, DATA_NUM):
     current_spot = SERIES_LEN * window_s
-    input_data = tmp_arr.append(exchange_rates[current_spot:current_spot + SERIES_LEN])
+    input_data = tmp_arr.append(ma_vals[current_spot:current_spot + SERIES_LEN])
 
 input_data = np.array(tmp_arr)
 
