@@ -67,7 +67,13 @@ def k_means_clust(data,num_clust,num_iter,w=5):
                 flag = True
             if flag == True:
                 centroids[key]=[m/len(assignments[key]) for m in clust_sum]
-            
+
+    #print
+    for key in assignments:
+        print("------------------------------")
+        for k in assignments[key]:
+            print(data[k])
+    
     return centroids
 
 """
@@ -75,7 +81,7 @@ main
 """
 SERIES_LEN = 25
 DATA_NUM = 250
-CLUSTER_NUM = 20
+CLUSTER_NUM = 50
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_rates = []
@@ -88,14 +94,14 @@ for line in rates_fd:
 
 tmp_arr = []        
 for window_s in xrange(1, DATA_NUM):
-    current_spot = DATA_NUM * window_s
-    input_data = tmp_arr.append(exchange_rates[current_spot:current_spot + DATA_NUM])
+    current_spot = SERIES_LEN * window_s
+    input_data = tmp_arr.append(exchange_rates[current_spot:current_spot + SERIES_LEN])
 
 input_data = np.array(tmp_arr)
 
 import matplotlib.pylab as plt
 
-centroids=k_means_clust(input_data, CLUSTER_NUM, 10, 12)
+centroids=k_means_clust(input_data, CLUSTER_NUM, 30, 4)
 for i in centroids:
     plt.plot(i)
 
