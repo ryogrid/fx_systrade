@@ -36,7 +36,7 @@ def DTWDistance(s1, s2, w):
 
     return math.sqrt(DTW[len(s1)-1, len(s2)-1])
 
-def k_means_clust(data,num_clust,num_iter,w=5):
+def k_means_clust(data,num_clust,num_iter,w=5,org_vals=None):
     centroids=random.sample(data,num_clust)
     counter=0
     for n in range(num_iter):
@@ -72,7 +72,9 @@ def k_means_clust(data,num_clust,num_iter,w=5):
     for key in assignments:
         print("------------------------------")
         for k in assignments[key]:
-            print(data[k])
+            for price in org_vals[int(data[k][0]*1000000)]:
+                print str(price) + "," ,
+            print("")
     
     return centroids
 
@@ -83,6 +85,7 @@ SERIES_LEN = 25
 DATA_NUM = 250
 CLUSTER_NUM = 50
 MA_PERIOD = 5
+ITR_NUM = 30
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_rates = []
@@ -96,17 +99,26 @@ for line in rates_fd:
 ma_vals = []        
 for idx in xrange(MA_PERIOD, len(exchange_rates)):
     ma_vals.append(sum(exchange_rates[idx:idx+MA_PERIOD])/MA_PERIOD)
+
+trend_vals = []    
+for idx in xrange(2, len(ma_vals)):
+    trend_vals.append(ma_vals[idx]-ma_vals[idx-1])
     
-tmp_arr = []        
+tmp_arr = []
+to_out_arr = []
+i = 0
 for window_s in xrange(1, DATA_NUM):
     current_spot = SERIES_LEN * window_s
-    input_data = tmp_arr.append(ma_vals[current_spot:current_spot + SERIES_LEN])
+    tmp_arr.append([0.000001*i] + trend_vals[current_spot:current_spot + SERIES_LEN])
+    to_out_arr.append(ma_vals[current_spot:current_spot + SERIES_LEN])
+    i+=1
 
+    
 input_data = np.array(tmp_arr)
 
 import matplotlib.pylab as plt
 
-centroids=k_means_clust(input_data, CLUSTER_NUM, 30, 4)
+centroids=k_means_clust(input_data, CLUSTER_NUM, ITR_NUM, 4, to_out_arr)
 for i in centroids:
     plt.plot(i)
 
