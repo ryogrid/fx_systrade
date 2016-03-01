@@ -23,6 +23,43 @@ def merge_csv(out_fname, input_files):
 
     frslt.close()
 
+# 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
+def judge_chart_type(data_arr):
+    max_val = 0
+    min_val = float("inf")
+
+    last_idx = len(data_arr)-1
+    
+    for idx in xrange(len(data_arr)):
+        if data_arr[idx] > max_val:
+            max_val = data_arr[idx]
+            max_idx = idx
+
+        if data_arr[idx] < min_val:
+            min_val = data_arr[idx]
+            min_idx = idx
+
+
+    if max_val == min_val:
+        return 0
+    
+    if min_idx == 0 and max_idx == last_idx:
+        return 1
+
+    if max_idx == 0 and min_idx == last_idx:
+        return 2
+
+    if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
+        return 0
+    
+    if max_idx != 0 and max_idx != last_idx:
+        return 3
+
+    if min_idx != 0 and min_idx != last_idx:
+        return 4
+        
+    return 0
+
 def get_rsi(price_arr, cur_pos, period = 40):
     if cur_pos <= period:
 #        s = 0
@@ -147,6 +184,7 @@ main
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
+CHART_TYPE_JDG_LEN = 25
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -189,9 +227,6 @@ if True: ### training start
         tr_input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
-             (exchange_rates[i] - exchange_rates[i - 6])/exchange_rates[i - 6],
-             (exchange_rates[i] - exchange_rates[i - 12])/exchange_rates[i - 12],
-             (exchange_rates[i] - exchange_rates[i - 48])/exchange_rates[i - 48],
 #             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
@@ -208,14 +243,12 @@ if True: ### training start
              get_dmi(exchange_rates, i),
              get_vorarity(exchange_rates, i),
              get_macd(exchange_rates, i),
+             judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i])
          ]
             )
         tr_input_mat.append(
             [reverse_exchange_rates[i],
              (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1])/reverse_exchange_rates[i - 1],
-             (reverse_exchange_rates[i] - reverse_exchange_rates[i - 6])/reverse_exchange_rates[i - 6],
-             (reverse_exchange_rates[i] - reverse_exchange_rates[i - 12])/reverse_exchange_rates[i - 12],
-             (reverse_exchange_rates[i] - reverse_exchange_rates[i - 48])/reverse_exchange_rates[i - 48],
 #             (reverse_exchange_rates[i] - reverse_exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(reverse_exchange_rates, i),
              get_ma(reverse_exchange_rates, i),
@@ -232,6 +265,7 @@ if True: ### training start
              get_dmi(reverse_exchange_rates, i),
              get_vorarity(reverse_exchange_rates, i),
              get_macd(reverse_exchange_rates, i),
+             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])             
          ]
             )        
 #        print tr_input_mat
@@ -254,7 +288,7 @@ if True: ### training start
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
-    num_round = 1000
+    num_round = 3000 # 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
     dump_fd = open("./bst.dump", "w")
@@ -267,7 +301,7 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-HALF_SPREAD = 0.000
+HALF_SPREAD = 0.002
 
 positions = 0
 
@@ -277,14 +311,16 @@ pos_cont_count = 0
 for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
 
+    # try trade in only linear chart case
+    chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
+    if chart_type != 1 and chart_type != 2:
+        continue
+    
     # prediction    
     ts_input_mat = []
     ts_input_mat.append(
        [exchange_rates[current_spot],
         (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
-        (exchange_rates[current_spot] - exchange_rates[current_spot - 6])/exchange_rates[current_spot - 6],
-        (exchange_rates[current_spot] - exchange_rates[current_spot - 12])/exchange_rates[current_spot - 12],
-        (exchange_rates[current_spot] - exchange_rates[current_spot - 48])/exchange_rates[current_spot - 48],
 #        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
         get_rsi(exchange_rates, current_spot),
         get_ma(exchange_rates, current_spot),
@@ -300,7 +336,8 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         get_ss(exchange_rates, current_spot),
         get_dmi(exchange_rates, current_spot),
         get_vorarity(exchange_rates, current_spot),
-        get_macd(exchange_rates, i)
+        get_macd(exchange_rates, i),
+        chart_type
     ]        
     )
 
