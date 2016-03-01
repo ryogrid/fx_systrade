@@ -85,7 +85,7 @@ SERIES_LEN = 25
 DATA_NUM = 250
 CLUSTER_NUM = 50
 MA_PERIOD = 5
-ITR_NUM = 30
+ITR_NUM = 200
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_rates = []
