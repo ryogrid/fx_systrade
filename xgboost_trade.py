@@ -301,7 +301,7 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-HALF_SPREAD = 0.002
+HALF_SPREAD = 0.0015
 
 positions = 0
 
@@ -351,11 +351,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     print "state " + str(pos_kind)
     print "predicted_prob " + str(predicted_prob)
     if pos_kind == NOT_HAVE:
-        if predicted_prob > 0.85 :
+        if predicted_prob > 0.9 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob < 0.15:
+        elif predicted_prob < 0.1:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
