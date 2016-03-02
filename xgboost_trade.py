@@ -183,7 +183,7 @@ main
 """
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 10
+TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
