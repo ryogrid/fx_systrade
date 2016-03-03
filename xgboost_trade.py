@@ -316,6 +316,10 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
     if chart_type != 1 and chart_type != 2:
         continue
+
+    vorarity = get_vorarity(exchange_rates, current_spot)
+    if vorarity > 0.1:
+        continue
     
     # prediction    
     ts_input_mat = []
@@ -341,7 +345,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         chart_type
     ]        
     )
-    print("vorarity: " + str(get_vorarity(exchange_rates, current_spot)))
+#    print("vorarity: " + str(get_vorarity(exchange_rates, current_spot)))
 
     ts_input_arr = np.array(ts_input_mat)
     dtest = xgb.DMatrix(ts_input_arr)
