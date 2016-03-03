@@ -5,6 +5,11 @@ import xgboost as xgb
 import pickle
 import talib as ta
 
+INPUT_LEN = 1
+OUTPUT_LEN = 5
+TRAINDATA_DIV = 10
+CHART_TYPE_JDG_LEN = 25
+
 def merge_csv(out_fname, input_files):
     frslt = open('./hoge.csv', 'w')        
     frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
@@ -161,7 +166,7 @@ def get_dmi(price_arr, cur_pos, period = None):
     return 0
 
 def get_vorarity(price_arr, cur_pos, period = None):
-    return 0
+    return np.std(price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos])
 
 def get_macd(price_arr, cur_pos, period = 100):
     if cur_pos <= period:
@@ -181,10 +186,6 @@ def get_macd(price_arr, cur_pos, period = 100):
 """
 main
 """
-INPUT_LEN = 1
-OUTPUT_LEN = 5
-TRAINDATA_DIV = 2
-CHART_TYPE_JDG_LEN = 25
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -340,6 +341,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         chart_type
     ]        
     )
+    print("vorarity: " + str(get_vorarity(exchange_rates, current_spot)))
 
     ts_input_arr = np.array(ts_input_mat)
     dtest = xgb.DMatrix(ts_input_arr)
