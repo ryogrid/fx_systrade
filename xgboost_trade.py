@@ -166,7 +166,16 @@ def get_dmi(price_arr, cur_pos, period = None):
     return 0
 
 def get_vorarity(price_arr, cur_pos, period = None):
-    return np.std(price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos])
+    tmp_arr = []
+    prev = -1
+    for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
+        if prev == -1:
+            tmp_arr.append(0)
+        else:
+            tmp_arr.append(val - prev)
+        prev = val
+        
+    return np.std(tmp_arr)
 
 def get_macd(price_arr, cur_pos, period = 100):
     if cur_pos <= period:
@@ -289,7 +298,7 @@ if True: ### training start
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
-    num_round = 3000 # 1000
+    num_round = 3000 #10 #3000 # 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
     dump_fd = open("./bst.dump", "w")
@@ -311,15 +320,38 @@ trade_val = -1
 pos_cont_count = 0
 for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
+    skip_flag = False
 
+    # print "state1 " + str(pos_kind)    
+    if pos_kind != NOT_HAVE:
+        # print "pos_cont_count " + str(pos_cont_count)
+        if pos_cont_count >= (OUTPUT_LEN-1):
+            if pos_kind == LONG:
+                pos_kind = NOT_HAVE
+                portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+                print exchange_dates[current_spot] + " " + str(portfolio)
+            elif pos_kind == SHORT:
+                pos_kind = NOT_HAVE
+                portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                print exchange_dates[current_spot] + " " + str(portfolio)
+            pos_cont_count = 0
+        else:
+            pos_cont_count += 1
+        continue
+
+#    print("hoge")
     # try trade in only linear chart case
+
+    # chart_type = 0
     chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
     if chart_type != 1 and chart_type != 2:
-        continue
+        skip_flag = True
 
+    # vorarity = 0
     vorarity = get_vorarity(exchange_rates, current_spot)
-    if vorarity > 0.1:
-        continue
+    # if vorarity >= 0.07:
+    #     skip_flag = True
+#    print("vorarity: " + str(vorarity))
     
     # prediction    
     ts_input_mat = []
@@ -340,7 +372,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         get_lw(exchange_rates, current_spot),
         get_ss(exchange_rates, current_spot),
         get_dmi(exchange_rates, current_spot),
-        get_vorarity(exchange_rates, current_spot),
+        vorarity,
         get_macd(exchange_rates, i),
         chart_type
     ]        
@@ -354,27 +386,15 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 
     predicted_prob = pred[0]
 
-    print "state " + str(pos_kind)
-    print "predicted_prob " + str(predicted_prob)
-    if pos_kind == NOT_HAVE:
-        if predicted_prob > 0.9 :
+    # print "state2 " + str(pos_kind)
+    # print "predicted_prob " + str(predicted_prob)
+    # print "skip_flag:" + str(skip_flag)
+    if pos_kind == NOT_HAVE and skip_flag == False:
+        if predicted_prob >= 0.9 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob < 0.1:
+        elif predicted_prob <= 0.1:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
-    else:
-        if pos_cont_count >= OUTPUT_LEN:
-            if pos_kind == LONG:
-                pos_kind = NOT_HAVE
-                portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
-            elif pos_kind == SHORT:
-                pos_kind = NOT_HAVE
-                portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
-            pos_cont_count = 0
-        else:
-            pos_cont_count += 1
-
-    print exchange_dates[current_spot] + " " + str(portfolio)
