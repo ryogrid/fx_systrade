@@ -322,6 +322,15 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
 
+    # chart_type = 0
+    chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
+    if chart_type != 1 and chart_type != 2:
+        skip_flag = True
+        if pos_kind != NOT_HAVE:
+            # if liner trend keep position
+            continue
+        
+        
     # print "state1 " + str(pos_kind)    
     if pos_kind != NOT_HAVE:
         # print "pos_cont_count " + str(pos_cont_count)
@@ -342,15 +351,10 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 #    print("hoge")
     # try trade in only linear chart case
 
-    # chart_type = 0
-    chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
-    if chart_type != 1 and chart_type != 2:
-        skip_flag = True
-
     # vorarity = 0
     vorarity = get_vorarity(exchange_rates, current_spot)
-    # if vorarity >= 0.07:
-    #     skip_flag = True
+    if vorarity >= 0.07:
+        skip_flag = True
 #    print("vorarity: " + str(vorarity))
     
     # prediction    
