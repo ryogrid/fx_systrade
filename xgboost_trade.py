@@ -322,6 +322,17 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
 
+    #sonkiri
+    if pos_kind != NOT_HAVE:
+        if pos_kind == LONG:
+            cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+        elif pos_kind == SHORT:
+            cur_portfo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
+        if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
+            portfolio = cur_portfo
+            pos_kind = NOT_HAVE
+            continue
+        
     # chart_type = 0
     chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
     if chart_type != 1 and chart_type != 2:
