@@ -5,9 +5,10 @@ import xgboost as xgb
 import pickle
 import talib as ta
 import oandapy
-import time
-import oanda_acount_info
 from datetime import datetime
+from time import sleep
+import oanda_acount_info
+
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
@@ -357,7 +358,7 @@ pos_cont_count = 0
 oanda_prices_arr = []
 total_win_pips = 0
 while 1:
-    time.sleep(300) # 5min
+    sleep(300) # 5min
 
     skip_flag = False
     
