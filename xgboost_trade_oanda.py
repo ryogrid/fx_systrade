@@ -16,7 +16,7 @@ CHART_TYPE_JDG_LEN = 25
 
 POSITION_UNITS = 1000
 
-oanda = oandapy.API(environment="practice", access_token=ACCESS_TOKEN)
+oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
 
 def merge_csv(out_fname, input_files):
     frslt = open('./hoge.csv', 'w')        
@@ -209,7 +209,7 @@ def get_price_ask():
     return prices[0].get("ask")    
 
 def exec_order_buy():
-    oanda.create_order(ACOUNT_NUM,
+    oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
                                   units=1000,
                                   side='buy',
@@ -217,7 +217,7 @@ def exec_order_buy():
                               )
 
 def exec_order_sell():
-    oanda.create_order(ACOUNT_NUM,
+    oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
                                   units=1000,
                                   side='sell',
@@ -225,7 +225,7 @@ def exec_order_sell():
                               )    
 
 def close_all_positions():
-    oanda.close_position(ACOUNT_NUM,
+    oanda.close_position(oanda_acount_info.ACOUNT_NUM,
                          instrument="USD_JPY",
     )
     
@@ -370,7 +370,7 @@ while 1:
     if arr_len > PRICES_LEN:
         oanda_prices_arr.pop()
     elif arr_len == PRICES_LEN:
-        #do nothing
+        print("arr has been filled!")
     elif arr_len < PRICES_LEN:
         continue
 
@@ -381,8 +381,8 @@ while 1:
             cur_portfo = portfolio + (POSITION_UNITS * latest_price_bid - POSITION_UNITS * trade_val)
         elif pos_kind == SHORT:
             got_pips = trade_val - latest_price_ask
-            cur_portfo = portfolio + (POSITION_UNITS * trade_val - POSITION_UNITS * latest_price_ask)
-        if got_pips < SONKIRI_PIPS
+            cur_portfoo = portfolio + (POSITION_UNITS * trade_val - POSITION_UNITS * latest_price_ask)
+        if got_pips < SONKIRI_PIPS:
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
             print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " sonkiri " + str(got_pips)
