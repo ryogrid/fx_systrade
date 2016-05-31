@@ -201,11 +201,11 @@ def get_macd(price_arr, cur_pos, period = 100):
         return 0
 
 def get_price_bid():
-    prices = oanda.get_prices(instruments="EUR_JPY")
+    prices = oanda.get_prices(instruments="USD_JPY")
     return prices[0].get("bid")
 
 def get_price_ask():
-    prices = oanda.get_prices(instruments="EUR_JPY")
+    prices = oanda.get_prices(instruments="USD_JPY")
     return prices[0].get("ask")    
 
 def exec_order_buy():
@@ -348,8 +348,8 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-SONKIRI_RATE = 0.05
 PRICES_LEN = 50
+SONKIRI_PIPS = -5 # convert to pips -> x100
 
 trade_val = -1
 
@@ -364,7 +364,7 @@ while 1:
     latest_price_bid = get_price_bid()
     latest_price_ask = get_price_ask()
     
-    oanda_prices_arr.append(0, latest_price)
+    oanda_prices_arr.append(0, latest_price_bid)
     
     arr_len = len(oanda_prices_arr)
     if arr_len > PRICES_LEN:
@@ -377,12 +377,15 @@ while 1:
     #sonkiri
     if pos_kind != NOT_HAVE:
         if pos_kind == LONG:
-            cur_portfo = POSITION_UNITS * (latest_price_ask)
+            got_pips = latest_price_bid - trade_val
+            cur_portfo = portfolio + (POSITION_UNITS * latest_price_bid - POSITION_UNITS * trade_val)
         elif pos_kind == SHORT:
-            cur_portfo = portfolio + (POSITION_UNITS * trade_val - POSITION_UNITS * (latest_price_bid))
-        if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
+            got_pips = trade_val - latest_price_ask
+            cur_portfo = portfolio + (POSITION_UNITS * trade_val - POSITION_UNITS * latest_price_ask)
+        if got_pips < SONKIRI_PIPS
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
+            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " sonkiri " + str(got_pips)
             continue
     
     # chart_type = 0
@@ -404,14 +407,14 @@ while 1:
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + str(portfolio)
                 win_pips = latest_price_bid - trade_val
                 total_win_pips += win_pips
-                print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + str(win_pips) + " " + str(total_win_pips)                
+                print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)                
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
                 portfolio += POSITION_UNITS * trade_val - POSITION_UNITS * latest_price_ask
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + str(portfolio)
                 win_pips = trade_val - latest_price_ask
                 total_win_pips += win_pips
-                print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + str(win_pips) + " " + str(total_win_pips)
+                print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)
             pos_cont_count = 0
         else:
             pos_cont_count += 1
@@ -468,9 +471,9 @@ while 1:
            pos_kind = LONG
            trade_val = latest_price_ask
            exec_order_buy()
-           print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + "buy " + str(latest_price_ask)
+           print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask)
         elif predicted_prob <= 0.1:
            pos_kind = SHORT
            trade_val = latest_price_bid
            exec_order_sell()
-           print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + "sell " + str(latest_price_bid)
+           print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid)
