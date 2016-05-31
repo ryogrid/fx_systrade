@@ -202,11 +202,13 @@ def get_macd(price_arr, cur_pos, period = 100):
         return 0
 
 def get_price_bid():
-    prices = oanda.get_prices(instruments="USD_JPY")
+    response = oanda.get_prices(instruments="USD_JPY")
+    prices = response.get("prices")
     return prices[0].get("bid")
 
 def get_price_ask():
-    prices = oanda.get_prices(instruments="USD_JPY")
+    response = oanda.get_prices(instruments="USD_JPY")
+    prices = response.get("prices")    
     return prices[0].get("ask")    
 
 def exec_order_buy():
@@ -358,8 +360,6 @@ pos_cont_count = 0
 oanda_prices_arr = []
 total_win_pips = 0
 while 1:
-    sleep(300) # 5min
-
     skip_flag = False
     
     latest_price_bid = get_price_bid()
@@ -478,3 +478,5 @@ while 1:
            trade_val = latest_price_bid
            exec_order_sell()
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid)
+
+    sleep(300) # 5min
