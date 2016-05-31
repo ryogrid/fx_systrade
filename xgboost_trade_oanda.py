@@ -360,6 +360,7 @@ pos_cont_count = 0
 oanda_prices_arr = []
 total_win_pips = 0
 while 1:
+    sleep(300) # 5min
     skip_flag = False
     
     latest_price_bid = get_price_bid()
@@ -434,7 +435,7 @@ while 1:
     # prediction    
     ts_input_mat = []
     ts_input_mat.append(
-       [latest_price,
+       [latest_price_bid,
         (oanda_prices_arr[-1] - oanda_prices_arr[-2])/oanda_prices_arr[-2],
 #        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
         get_rsi(oanda_prices_arr, -1),
@@ -479,4 +480,3 @@ while 1:
            exec_order_sell()
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid)
 
-    sleep(300) # 5min
