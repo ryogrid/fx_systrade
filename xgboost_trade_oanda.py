@@ -387,6 +387,7 @@ while 1:
         if got_pips < SONKIRI_PIPS:
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
+            close_all_positions()
             print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " sonkiri " + str(got_pips)
             continue
     
@@ -409,6 +410,7 @@ while 1:
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + str(portfolio)
                 win_pips = latest_price_bid - trade_val
                 total_win_pips += win_pips
+                close_all_positions()                
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)                
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
@@ -416,6 +418,7 @@ while 1:
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " " + str(portfolio)
                 win_pips = trade_val - latest_price_ask
                 total_win_pips += win_pips
+                close_all_positions()                
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)
             pos_cont_count = 0
         else:
