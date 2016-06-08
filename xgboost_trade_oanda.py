@@ -366,11 +366,11 @@ while 1:
     latest_price_bid = get_price_bid()
     latest_price_ask = get_price_ask()
     
-    oanda_prices_arr.insert(0, latest_price_bid)
+    oanda_prices_arr.insert(-1, latest_price_bid)
     
     arr_len = len(oanda_prices_arr)
     if arr_len > PRICES_LEN:
-        oanda_prices_arr.pop()
+        oanda_prices_arr.pop(0)
     elif arr_len == PRICES_LEN:
         print("arr has been filled!")
     elif arr_len < PRICES_LEN:
