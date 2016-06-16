@@ -235,6 +235,14 @@ def close_all_positions():
 """
 main
 """
+from logging import getLogger,FileHandler,DEBUG,INFO
+
+logger = getLogger(__name__)
+_fhandler = FileHandler("./log/xgboost_oanda_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".log",'w')
+_fhandler.setLevel(DEBUG)
+logger.setLevel(DEBUG)
+logger.addHandler(_fhandler)
+
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -266,11 +274,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
+if True:
     dump_fd = open("./bst.dump", "r")
     bst = pickle.load(dump_fd)
 
-if True: ### training start
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -365,14 +373,17 @@ while 1:
     
     latest_price_bid = get_price_bid()
     latest_price_ask = get_price_ask()
-    
-    oanda_prices_arr.insert(-1, latest_price_bid)
+
+    logger.debug("latest_price_bid " + str(latest_price_bid))
+    oanda_prices_arr.insert(len(oanda_prices_arr), latest_price_bid)
     
     arr_len = len(oanda_prices_arr)
     if arr_len > PRICES_LEN:
         oanda_prices_arr.pop(0)
+        logger.debug("arr" + str(oanda_prices_arr))
     elif arr_len == PRICES_LEN:
         print("arr has been filled!")
+        logger.debug("arr has been filled!")
     elif arr_len < PRICES_LEN:
         continue
 
@@ -389,14 +400,17 @@ while 1:
             pos_kind = NOT_HAVE
             close_all_positions()
             print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " sonkiri " + str(got_pips)
+            logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " sonkiri " + str(got_pips))
             continue
     
     # chart_type = 0
     chart_type = judge_chart_type(oanda_prices_arr[-1*CHART_TYPE_JDG_LEN:-1])
+    logger.debug("chart_type " + str(chart_type))
     if chart_type != 1 and chart_type != 2:
         skip_flag = True
         if pos_kind != NOT_HAVE:
             # if liner trend keep position
+            pos_cont_count += 1 # this must not be skiped
             continue
         
         
@@ -411,7 +425,8 @@ while 1:
                 win_pips = latest_price_bid - trade_val
                 total_win_pips += win_pips
                 close_all_positions()                
-                print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)                
+                print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)
+                logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips))
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
                 portfolio += POSITION_UNITS * trade_val - POSITION_UNITS * latest_price_ask
@@ -420,6 +435,7 @@ while 1:
                 total_win_pips += win_pips
                 close_all_positions()                
                 print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips)
+                logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " close " + str(win_pips) + " " + str(total_win_pips))
             pos_cont_count = 0
         else:
             pos_cont_count += 1
@@ -432,6 +448,7 @@ while 1:
     vorarity = get_vorarity(oanda_prices_arr, -1)
     if vorarity >= 0.07:
         skip_flag = True
+        logger.debug("skip because voraritiy")
         continue
 #    print("vorarity: " + str(vorarity))
     
@@ -477,9 +494,11 @@ while 1:
            trade_val = latest_price_ask
            exec_order_buy()
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask)
+           logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask))
         elif predicted_prob <= 0.1:
            pos_kind = SHORT
            trade_val = latest_price_bid
            exec_order_sell()
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid)
+           logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid))
 
