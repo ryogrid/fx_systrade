@@ -226,11 +226,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
+if True:
     dump_fd = open("./bst.dump", "r")
     bst = pickle.load(dump_fd)
 
-if True: ### training start
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -312,6 +312,7 @@ SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
 HALF_SPREAD = 0.0015
+SONKIRI_RATE = 0.05
 
 positions = 0
 
@@ -388,7 +389,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         get_ss(exchange_rates, current_spot),
         get_dmi(exchange_rates, current_spot),
         vorarity,
-        get_macd(exchange_rates, i),
+        get_macd(exchange_rates, current_spot),
         chart_type
     ]        
     )
