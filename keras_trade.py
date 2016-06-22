@@ -340,12 +340,12 @@ if True: ### training start
     
     # setup deep NN
     model = Sequential()
-    # model.add(Dense(dims, neuro_num, init='glorot_uniform'))
-    # model.add(PReLU((neuro_num,)))
-    # model.add(BatchNormalization((neuro_num,)))
-    # model.add(Dropout(0.5))
-
     model.add(Dense(dims, neuro_num, init='glorot_uniform'))
+    model.add(PReLU((neuro_num,)))
+    model.add(BatchNormalization((neuro_num,)))
+    model.add(Dropout(0.5))
+
+    model.add(Dense(neuro_num, neuro_num, init='glorot_uniform'))
     model.add(PReLU((neuro_num,)))
     model.add(BatchNormalization((neuro_num,)))
     model.add(Dropout(0.5))
