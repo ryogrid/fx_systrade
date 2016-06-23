@@ -225,6 +225,9 @@ def get_macd(price_arr, cur_pos, period = 100):
 """
 main
 """
+arr = ["USDJPY_M5_2001.txt","USDJPY_M5_2002.txt","USDJPY_M5_2003.txt","USDJPY_M5_2004.txt","USDJPY_M5_2005.txt","USDJPY_M5_2006.txt","USDJPY_M5_2007.txt","USDJPY_M5_2008.txt"]
+merge_csv("hoge", arr)
+
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
 exchange_rates = []
@@ -349,13 +352,18 @@ if True: ### training start
     model.add(PReLU((neuro_num,)))
     model.add(BatchNormalization((neuro_num,)))
     model.add(Dropout(0.5))
+
+    model.add(Dense(neuro_num, neuro_num, init='glorot_uniform'))
+    model.add(PReLU((neuro_num,)))
+    model.add(BatchNormalization((neuro_num,)))
+    model.add(Dropout(0.5))    
     
-    model.add(Dense(neuro_num, 25, init='glorot_uniform'))
-    model.add(PReLU((25,)))
-    model.add(BatchNormalization((25,)))
+    model.add(Dense(neuro_num, neuro_num/2, init='glorot_uniform'))
+    model.add(PReLU((neuro_num/2,)))
+    model.add(BatchNormalization((neuro_num/2,)))
     model.add(Dropout(0.5))
     
-    model.add(Dense(25, nb_classes, init='glorot_uniform'))
+    model.add(Dense(neuro_num/2, nb_classes, init='glorot_uniform'))
     model.add(Activation('sigmoid'))
     
     model.compile(loss='binary_crossentropy', optimizer="adam")
