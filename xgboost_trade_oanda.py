@@ -365,7 +365,7 @@ SONKIRI_PIPS = -5 # convert to pips -> x100
 trade_val = -1
 
 pos_cont_count = 0
-oanda_prices_arr = []
+oanda_prices_arr = [106.549, 106.603, 106.576, 106.474, 106.448, 106.583, 106.575, 106.444, 106.416, 106.526, 106.531, 106.448, 106.21, 106.248, 106.081, 105.831, 105.987, 105.972, 103.579, 104.688, 104.724, 104.938, 104.977, 104.642, 104.797, 104.92, 104.906, 104.975, 105.131, 104.952, 105.218, 104.918, 104.97, 104.812, 104.933, 104.867, 104.999, 105.353, 104.896, 104.82, 103.364, 104.248, 103.862, 104.252, 104.77, 104.656, 104.851, 104.866, 104.805, 104.751]
 total_win_pips = 0
 while 1:
     sleep(300) # 5min
@@ -489,13 +489,13 @@ while 1:
     # print "predicted_prob " + str(predicted_prob)
     # print "skip_flag:" + str(skip_flag)
     if pos_kind == NOT_HAVE and skip_flag == False:
-        if predicted_prob >= 0.9 :
+        if predicted_prob >= 0.9 and chart_type == 2:
            pos_kind = LONG
            trade_val = latest_price_ask
            exec_order_buy()
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask)
            logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask))
-        elif predicted_prob <= 0.1:
+        elif predicted_prob <= 0.1 and chart_type == 1:
            pos_kind = SHORT
            trade_val = latest_price_bid
            exec_order_sell()
