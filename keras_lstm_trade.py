@@ -24,30 +24,22 @@ from keras.preprocessing import sequence
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 
-INPUT_LEN = 50
+INPUT_LEN = 10
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
+CHART_TYPE_JDG_LEN = 25
 
-
-def preprocess_data(X, scaler=None):
-    return X, None
-
-    if not scaler:
-        scaler = StandardScaler()
-        scaler.fit(X)
-    X = scaler.transform(X)
-    return X, scaler
-    
-def preprocess_labels(labels, encoder=None, categorical=True):
-    return labels, None
-    
-    if not encoder:
-        encoder = LabelEncoder()
-        encoder.fit(labels)
-    y = encoder.transform(labels).astype(np.int32)
-    if categorical:
-        y = np_utils.to_categorical(y)
-    return y, encoder
+def get_vorarity(price_arr, cur_pos, period = None):
+    tmp_arr = []
+    prev = -1
+    for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
+        if prev == -1:
+            tmp_arr.append(0)
+        else:
+            tmp_arr.append(val - prev)
+        prev = val
+        
+    return np.std(tmp_arr)
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -148,7 +140,7 @@ def make_code_arr(rates_arr, start_idx, length):
 """
 main
 """
-nb_epoch = 10
+nb_epoch = 500
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
@@ -208,20 +200,17 @@ if True: ### training start
     X = np.array(tr_input_mat)
     Y = np.array(tr_angle_mat)
 
-    X, scaler = preprocess_data(X)
-    Y, encoder = preprocess_labels(Y)
-
     np.random.seed(1337) # for reproducibility
 
     dims = X.shape[1]
     print(dims, 'dims')
 
-    neuro_num = 300
+    neuro_num = 25
     
     # setup deep NN
 
     model = Sequential()
-    model.add(Embedding(input_dim=24, output_dim=100, init='glorot_uniform', input_length=dims))
+    model.add(Embedding(input_dim=24, output_dim=10, init='glorot_uniform', input_length=dims))
     model.add(LSTM(neuro_num, return_sequences=False))
 #    model.add(LSTM(neuro_num, batch_input_shape=(10, None, dims), return_sequences=False))
     model.add(Dense(1))
@@ -303,20 +292,19 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     ts_input_arr = np.array(ts_input_mat)
 
     X_test = np.array(ts_input_arr)
-    X_test, _ = preprocess_data(X_test, scaler)
     
-    proba = model.predict_proba(X_test, verbose=0)
+    proba = model.predict(X_test, verbose=0)
     print(str(proba))
     
     # print "state2 " + str(pos_kind)
     # print "predicted_prob " + str(predicted_prob)
     # print "skip_flag:" + str(skip_flag)
     if pos_kind == NOT_HAVE and skip_flag == False:
-        if proba[0][0] >= 0.9 :
+        if proba >= 0.9 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif proba[0][1] >= 0.9:
+        elif proba <= 0.1:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
