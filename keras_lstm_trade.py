@@ -205,12 +205,12 @@ if True: ### training start
     dims = X.shape[1]
     print(dims, 'dims')
 
-    neuro_num = 25
+    neuro_num = 10
     
     # setup deep NN
 
     model = Sequential()
-    model.add(Embedding(input_dim=24, output_dim=25, init='glorot_uniform', input_length=dims))
+    model.add(Embedding(input_dim=24, output_dim=10, init='glorot_uniform', input_length=dims))
     model.add(LSTM(neuro_num, return_sequences=False))
 #    model.add(LSTM(neuro_num, batch_input_shape=(10, None, dims), return_sequences=False))
     model.add(Dense(1))
