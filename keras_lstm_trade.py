@@ -140,7 +140,7 @@ def make_code_arr(rates_arr, start_idx, length):
 """
 main
 """
-nb_epoch = 500
+nb_epoch = 100
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_dates = []
@@ -233,7 +233,7 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-HALF_SPREAD = 0.0015
+HALF_SPREAD = 0 #0.0015
 SONKIRI_RATE = 0.05
 
 positions = 0
