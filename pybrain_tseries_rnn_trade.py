@@ -151,6 +151,7 @@ def make_code_arr(rates_arr, start_idx, length):
         diff = rates_arr[idx+1] - rates_arr[idx]
         ret_arr.append(diff_to_code(diff))
 
+    print(str(ret_arr))
     return ret_arr
 
 """
@@ -217,7 +218,7 @@ if True: ### training start
         else:
             output_list2.append(0)
 
-        for i in xrange(0, 100):
+        for i in xrange(0, 10):
             t_ds_list.append((input_list1, output_list1))
             t_ds_list.append((input_list2, output_list2))            
 
@@ -296,6 +297,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     ts_input_mat = make_code_arr(exchange_rates, i, INPUT_LEN)
 
     predicted_prob = rnn_net.activate(ts_input_mat)
+    print(str(predicted_prob))
     
     # Print "state2 " + str(pos_kind)
     # print "predicted_prob " + str(predicted_prob)

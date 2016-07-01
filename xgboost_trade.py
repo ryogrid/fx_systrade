@@ -4,6 +4,8 @@ import scipy.sparse
 import xgboost as xgb
 import pickle
 import talib as ta
+from datetime import datetime as dt
+import pytz
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
@@ -192,6 +194,15 @@ def get_macd(price_arr, cur_pos, period = 100):
     else:
         return 0
 
+def is_weekend(date_str):
+    tz = pytz.timezone('Asia/Tokyo')
+    tdatetime = dt.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+    tz_time = tz.localize(tdatetime)
+    london_tz = pytz.timezone('Europe/London')
+    london_time = tz_time.astimezone(london_tz)
+    week = london_time.weekday()
+    return (week == 5 or week == 6)
+
 """
 main
 """
@@ -200,7 +211,7 @@ exchange_dates = []
 exchange_rates = []
 for line in rates_fd:
     splited = line.split(",")
-    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
+    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26" and (not is_weekend(splited[0])):
         time = splited[0].replace("/", "-") + " " + splited[1]
         val = float(splited[2])
         exchange_dates.append(time)
