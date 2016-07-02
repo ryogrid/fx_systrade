@@ -14,7 +14,8 @@ from pybrain.structure import FullConnection
 from pybrain.structure import RecurrentNetwork
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import BackpropTrainer    
-
+from datetime import datetime as dt
+import pytz
 
 INPUT_LEN = 25
 OUTPUT_LEN = 5
@@ -154,6 +155,15 @@ def make_code_arr(rates_arr, start_idx, length):
     print(str(ret_arr))
     return ret_arr
 
+def is_weekend(date_str):
+    tz = pytz.timezone('Asia/Tokyo')
+    tdatetime = dt.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+    tz_time = tz.localize(tdatetime)
+    london_tz = pytz.timezone('Europe/London')
+    london_time = tz_time.astimezone(london_tz)
+    week = london_time.weekday()
+    return (week == 5 or week == 6)
+
 """
 main
 """
@@ -165,7 +175,7 @@ exchange_dates = []
 exchange_rates = []
 for line in rates_fd:
     splited = line.split(",")
-    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
+    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26" and (not is_weekend(splited[0])):
         time = splited[0].replace("/", "-") + " " + splited[1]
         val = float(splited[2])
         exchange_dates.append(time)
