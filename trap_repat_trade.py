@@ -20,7 +20,7 @@ print "data size: " + str(data_len)
 
 
 money = 5000000
-HALF_SPREAD = 0.15 #0.015
+HALF_SPREAD = 0.015 #0.015
 
 BUY_LOTS = 1000
 
