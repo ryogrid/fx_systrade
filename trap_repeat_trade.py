@@ -1,4 +1,20 @@
 #!/usr/bin/python
+from math import log
+
+INIT_BALANCE = 500000
+balance = INIT_BALANCE
+MARGIN_RATE = 0.04
+HALF_SPREAD = 0.015 #0.015
+BUY_LOTS = 1000
+WON_PIPS = 0.3
+
+def get_tuned_percent(baseline_price):
+    return 1
+#    return log(150-baseline_price)
+
+def get_baseline_lots(portfolio, cur_price):
+    return BUY_LOTS
+#    return BUY_LOTS * (balance/INIT_BALANCE)
 
 """
 main
@@ -17,12 +33,6 @@ for line in rates_fd:
 data_len = len(exchange_rates)
 
 print "data size: " + str(data_len)
-
-balance = 500000
-MARGIN_RATE = 0.04
-HALF_SPREAD = 0.015 #0.015
-BUY_LOTS = 1000
-WON_PIPS = 0.3
 
 center_val = int(exchange_rates[0])
 traps = []
@@ -47,7 +57,9 @@ for cur in xrange(1, data_len):
     for idx in xrange(len(traps)):
         if traps[idx][1] == True:
             if (exchange_rates[cur]-HALF_SPREAD) - traps[idx][3] > WON_PIPS:
-                balance += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) * BUY_LOTS
+                balance += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) \
+                           * get_baseline_lots(portfolio, exchange_rates[cur]) \
+                           * get_tuned_percent(exchange_rates[cur])
                 traps[idx][1] = False
                 traps[idx][2] = False
                 traps[idx][3] = 0
@@ -57,8 +69,13 @@ for cur in xrange(1, data_len):
     profit_or_loss = 0
     for idx in xrange(len(traps)):
         if traps[idx][1] == True:
-            margin_used += (traps[idx][3] * BUY_LOTS) * MARGIN_RATE
-            profit_or_loss += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) * BUY_LOTS
+            margin_used += (traps[idx][3] *\
+                            get_baseline_lots(portfolio, exchange_rates[cur]) \
+                              * get_tuned_percent(exchange_rates[cur])) * MARGIN_RATE
+            profit_or_loss += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) \
+                              * get_baseline_lots(portfolio, exchange_rates[cur]) \
+                              * get_tuned_percent(exchange_rates[cur])
+            
     portfolio = balance + profit_or_loss - margin_used
 
     if portfolio < 0:
