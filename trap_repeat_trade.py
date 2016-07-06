@@ -10,8 +10,8 @@ WON_PIPS = 0.3
 
 def get_tuned_percent(baseline_price):
     #return 1
-    return 1/((baseline_price/140)*2)
-    #return (140 - (baseline_price - 80))/140
+    #return 1/((baseline_price/140)*2)
+    return (140 - (baseline_price - 80))/140
 
 def get_baseline_lots(portfolio, cur_price):
     return BUY_LOTS
