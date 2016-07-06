@@ -15,7 +15,7 @@ OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
-POSITION_UNITS = 1000
+POSITION_UNITS = 50000
 
 oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
 
@@ -214,7 +214,7 @@ def get_price_ask():
 def exec_order_buy():
     oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
-                                  units=1000,
+                                  units=POSITION_UNITS,
                                   side='buy',
                                   type='market',
                               )
@@ -222,7 +222,7 @@ def exec_order_buy():
 def exec_order_sell():
     oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
-                                  units=1000,
+                                  units=POSITION_UNITS,
                                   side='sell',
                                   type='market',
                               )    
@@ -365,7 +365,7 @@ SONKIRI_PIPS = -5 # convert to pips -> x100
 trade_val = -1
 
 pos_cont_count = 0
-oanda_prices_arr = [106.549, 106.603, 106.576, 106.474, 106.448, 106.583, 106.575, 106.444, 106.416, 106.526, 106.531, 106.448, 106.21, 106.248, 106.081, 105.831, 105.987, 105.972, 103.579, 104.688, 104.724, 104.938, 104.977, 104.642, 104.797, 104.92, 104.906, 104.975, 105.131, 104.952, 105.218, 104.918, 104.97, 104.812, 104.933, 104.867, 104.999, 105.353, 104.896, 104.82, 103.364, 104.248, 103.862, 104.252, 104.77, 104.656, 104.851, 104.866, 104.805, 104.751]
+oanda_prices_arr = [101.234, 101.216, 101.235, 101.192, 101.173, 100.944, 100.994, 100.966, 100.913, 100.889, 100.848, 100.876, 100.961, 100.938, 100.95, 100.92, 100.853, 100.856, 100.647, 100.616, 100.678, 100.662, 100.759, 100.732, 100.741, 100.714, 100.755, 100.706, 100.761, 100.744, 100.742, 100.744, 100.712, 100.71, 100.637, 100.735, 100.988, 100.929, 100.864, 100.854, 100.896, 100.875, 100.877, 100.845, 100.861, 100.75, 100.759, 100.74, 100.809, 100.805]
 total_win_pips = 0
 while 1:
     sleep(300) # 5min

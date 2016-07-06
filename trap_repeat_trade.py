@@ -5,16 +5,16 @@ INIT_BALANCE = 500000
 balance = INIT_BALANCE
 MARGIN_RATE = 0.04
 HALF_SPREAD = 0.015 #0.015
-BUY_LOTS = 1000
+BUY_LOTS = 250 #1000
 WON_PIPS = 0.3
 
 def get_tuned_percent(baseline_price):
     return 1
-#    return log(150-baseline_price)
+#    return log(140-baseline_price) * 0.2
 
 def get_baseline_lots(portfolio, cur_price):
     return BUY_LOTS
-#    return BUY_LOTS * (balance/INIT_BALANCE)
+#    return BUY_LOTS * (balance/INIT_BALANCE) * 0.8
 
 """
 main
@@ -36,11 +36,14 @@ print "data size: " + str(data_len)
 
 center_val = int(exchange_rates[0])
 traps = []
-for price in xrange(80, 120):
-    traps.append([price, False, False, 0])
 
-prev_positions = 0
-cur_positions = 0
+start = 80
+end = 120
+step = 0.1
+for price in xrange(100*start, 100*end, int(100*step)):
+    traps.append([price/100, False, False, 0])
+
+positions = 0
 for cur in xrange(1, data_len):
     is_print = False
     diff = exchange_rates[cur] - exchange_rates[cur-1]
@@ -49,7 +52,8 @@ for cur in xrange(1, data_len):
     for idx in xrange(len(traps)):
         if traps[idx][0] > (exchange_rates[cur-1]+HALF_SPREAD) \
            and traps[idx][0] <= (exchange_rates[cur]+HALF_SPREAD) \
-           and traps[idx][1] == False:
+           and traps[idx][1] == False \
+           and positions <= 100:
             traps[idx][1] = True
             traps[idx][3] = exchange_rates[cur]
 
@@ -58,8 +62,8 @@ for cur in xrange(1, data_len):
         if traps[idx][1] == True:
             if (exchange_rates[cur]-HALF_SPREAD) - traps[idx][3] > WON_PIPS:
                 balance += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) \
-                           * get_baseline_lots(portfolio, exchange_rates[cur]) \
-                           * get_tuned_percent(exchange_rates[cur])
+                           * get_baseline_lots(portfolio, traps[idx][3]) \
+                           * get_tuned_percent(traps[idx][3])
                 traps[idx][1] = False
                 traps[idx][2] = False
                 traps[idx][3] = 0
@@ -67,22 +71,24 @@ for cur in xrange(1, data_len):
 
     margin_used = 0
     profit_or_loss = 0
+    positions = 0
     for idx in xrange(len(traps)):
         if traps[idx][1] == True:
             margin_used += (traps[idx][3] *\
-                            get_baseline_lots(portfolio, exchange_rates[cur]) \
-                              * get_tuned_percent(exchange_rates[cur])) * MARGIN_RATE
+                            get_baseline_lots(portfolio, traps[idx][3]) \
+                              * get_tuned_percent(traps[idx][3])) * MARGIN_RATE
             profit_or_loss += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) \
-                              * get_baseline_lots(portfolio, exchange_rates[cur]) \
-                              * get_tuned_percent(exchange_rates[cur])
+                              * get_baseline_lots(portfolio, traps[idx][3]) \
+                              * get_tuned_percent(traps[idx][3])
+            positions += 1
             
     portfolio = balance + profit_or_loss - margin_used
 
     if portfolio < 0:
-        print exchange_dates[cur] + " " + str(portfolio) + " " + str(balance)
+        print exchange_dates[cur] + " " + str(positions) + " " + str(margin_used) + " " + str(portfolio) + " " + str(balance)
         print "dead"
         break
 
-    # calculate portfolio
+    # print current status
     if is_print == True:
-        print exchange_dates[cur] + " " + str(portfolio) + " " + str(balance)
+        print exchange_dates[cur] + " " + str(positions) + " " + str(margin_used) + " " + str(portfolio) + " " + str(balance)
