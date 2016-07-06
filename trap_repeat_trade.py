@@ -14,8 +14,8 @@ def get_tuned_percent(baseline_price):
     return (140 - (baseline_price - 80))/140
 
 def get_baseline_lots(portfolio, cur_price):
-    return BUY_LOTS
-#    return BUY_LOTS * (balance/INIT_BALANCE) * 0.8
+#    return BUY_LOTS
+    return BUY_LOTS * (balance/INIT_BALANCE) * 0.3
 
 """
 main
