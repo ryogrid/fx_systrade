@@ -5,12 +5,13 @@ INIT_BALANCE = 500000
 balance = INIT_BALANCE
 MARGIN_RATE = 0.04
 HALF_SPREAD = 0.015 #0.015
-BUY_LOTS = 250 #1000
+BUY_LOTS = 1000 #1000
 WON_PIPS = 0.3
 
 def get_tuned_percent(baseline_price):
-    return 1
-#    return log(140-baseline_price) * 0.2
+    #return 1
+    return 1/((baseline_price/140)*2)
+    #return (140 - (baseline_price - 80))/140
 
 def get_baseline_lots(portfolio, cur_price):
     return BUY_LOTS
@@ -53,7 +54,7 @@ for cur in xrange(1, data_len):
         if traps[idx][0] > (exchange_rates[cur-1]+HALF_SPREAD) \
            and traps[idx][0] <= (exchange_rates[cur]+HALF_SPREAD) \
            and traps[idx][1] == False \
-           and positions <= 100:
+           and positions <= 40:
             traps[idx][1] = True
             traps[idx][3] = exchange_rates[cur]
 
