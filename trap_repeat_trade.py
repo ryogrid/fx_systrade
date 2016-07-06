@@ -54,7 +54,7 @@ for cur in xrange(1, data_len):
         if traps[idx][0] > (exchange_rates[cur-1]+HALF_SPREAD) \
            and traps[idx][0] <= (exchange_rates[cur]+HALF_SPREAD) \
            and traps[idx][1] == False \
-           and positions <= 40:
+           and positions <= 50:
             traps[idx][1] = True
             traps[idx][3] = exchange_rates[cur]
 
