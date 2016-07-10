@@ -196,7 +196,8 @@ def get_macd(price_arr, cur_pos, period = 100):
 
 def is_weekend(date_str):
     tz = pytz.timezone('Asia/Tokyo')
-    tdatetime = dt.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+    dstr = date_str.replace(".","-")
+    tdatetime = dt.strptime(dstr, '%Y-%m-%d %H:%M:%S')
     tz_time = tz.localize(tdatetime)
     london_tz = pytz.timezone('Europe/London')
     london_time = tz_time.astimezone(london_tz)
@@ -206,14 +207,16 @@ def is_weekend(date_str):
 """
 main
 """
-rates_fd = open('./hoge.csv', 'r')
+#rates_fd = open('./hoge.csv', 'r')
+rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
 exchange_dates = []
 exchange_rates = []
 for line in rates_fd:
     splited = line.split(",")
     if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26" and (not is_weekend(splited[0])):
         time = splited[0].replace("/", "-") + " " + splited[1]
-        val = float(splited[2])
+        val = float(splited[1])
+#        val = float(splited[2]) #for hoge.csv
         exchange_dates.append(time)
         exchange_rates.append(val)
 
@@ -237,11 +240,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if True:
+if False:
     dump_fd = open("./bst.dump", "r")
     bst = pickle.load(dump_fd)
 
-if False: ### training start
+if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -330,6 +333,7 @@ positions = 0
 trade_val = -1
 
 pos_cont_count = 0
+won_pips = 0
 for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
@@ -338,11 +342,15 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     if pos_kind != NOT_HAVE:
         if pos_kind == LONG:
             cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+            diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
         elif pos_kind == SHORT:
             cur_portfo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
+            diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
         if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
+            won_pips += diff
+            print(str(diff) + "pips " + str(won_pips) + "pips")
             continue
         
     # chart_type = 0
@@ -361,10 +369,16 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
             if pos_kind == LONG:
                 pos_kind = NOT_HAVE
                 portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+                diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
+                won_pips += diff
+                print(str(diff) + "pips " + str(won_pips) + "pips")                
                 print exchange_dates[current_spot] + " " + str(portfolio)
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
                 portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)                
+                won_pips += diff
+                print(str(diff) + "pips " + str(won_pips) + "pips")                                
                 print exchange_dates[current_spot] + " " + str(portfolio)
             pos_cont_count = 0
         else:
