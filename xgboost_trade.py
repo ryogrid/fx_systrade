@@ -208,7 +208,11 @@ def is_weekend(date_str):
 main
 """
 #rates_fd = open('./hoge.csv', 'r')
-rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
+#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
+#rates_fd = open('./EURJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv', 'r')
+#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2008.01.01_2012.01.01.csv', 'r')
+rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2009.01.01_2011.01.01.csv', 'r')
+
 exchange_dates = []
 exchange_rates = []
 for line in rates_fd:
@@ -315,7 +319,7 @@ if True: ### training start
     num_round = 3000 #10 #3000 # 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
-    dump_fd = open("./bst.dump", "w")
+    dump_fd = open("./2009-2011.dump", "w")
     pickle.dump(bst, dump_fd)
 ### training end
 

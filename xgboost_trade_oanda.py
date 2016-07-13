@@ -202,15 +202,22 @@ def get_macd(price_arr, cur_pos, period = 100):
         return 0
 
 def get_price_bid():
-    response = oanda.get_prices(instruments="USD_JPY")
-    prices = response.get("prices")
-    return prices[0].get("bid")
+
+    try:
+        response = oanda.get_prices(instruments="USD_JPY")
+        prices = response.get("prices")
+        return prices[0].get("bid")
+    except:
+        return -1
 
 def get_price_ask():
-    response = oanda.get_prices(instruments="USD_JPY")
-    prices = response.get("prices")    
-    return prices[0].get("ask")    
-
+    try:
+        response = oanda.get_prices(instruments="USD_JPY")
+        prices = response.get("prices")    
+        return prices[0].get("ask")
+    except:
+        return -1
+    
 def exec_order_buy():
     oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
@@ -373,6 +380,9 @@ while 1:
     
     latest_price_bid = get_price_bid()
     latest_price_ask = get_price_ask()
+    # if API failed
+    if latest_price_bid == 1 or latest_price_ask == 1:
+        continue
 
     logger.debug("latest_price_bid " + str(latest_price_bid))
     oanda_prices_arr.insert(len(oanda_prices_arr), latest_price_bid)
