@@ -261,8 +261,8 @@ print "train len: " + str(train_len)
 
 if False:
     dump_fd = open("./keras.dump", "r")
-    bst = pickle.load(dump_fd)
-
+    model = model_from_json(dump_fd.read())
+    
 if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
@@ -325,8 +325,8 @@ if True: ### training start
             tr_angle_mat.append(0)
             
         
-    X = np.array(tr_input_mat)
-    Y = np.array(tr_angle_mat)
+    X = np.array(tr_input_mat, dtype=np.float32)
+    Y = np.array(tr_angle_mat, dtype=np.float32)
 
     X, scaler = preprocess_data(X)
     Y, encoder = preprocess_labels(Y)
@@ -343,36 +343,29 @@ if True: ### training start
     
     # setup deep NN
     model = Sequential()
-    model.add(Dense(dims, neuro_num, init='glorot_uniform'))
-    model.add(PReLU((neuro_num,)))
+    model.add(Dense(neuro_num,input_shape=(dims,), init='uniform', activation="relu"))
     model.add(BatchNormalization((neuro_num,)))
     model.add(Dropout(0.5))
 
-    model.add(Dense(neuro_num, neuro_num, init='glorot_uniform'))
-    model.add(PReLU((neuro_num,)))
-    model.add(BatchNormalization((neuro_num,)))
-    model.add(Dropout(0.5))
-
-    model.add(Dense(neuro_num, neuro_num, init='glorot_uniform'))
-    model.add(PReLU((neuro_num,)))
+    model.add(Dense(neuro_num, init='uniform', activation="relu"))
     model.add(BatchNormalization((neuro_num,)))
     model.add(Dropout(0.5))    
     
-    model.add(Dense(neuro_num, neuro_num/2, init='glorot_uniform'))
-    model.add(PReLU((neuro_num/2,)))
+    model.add(Dense(neuro_num/2, init='uniform', activation="relu"))
     model.add(BatchNormalization((neuro_num/2,)))
     model.add(Dropout(0.5))
     
-    model.add(Dense(neuro_num/2, nb_classes, init='glorot_uniform'))
-    model.add(Activation('sigmoid'))
+    model.add(Dense(nb_classes, init='uniform', activation="sigmoid"))
     
     model.compile(loss='binary_crossentropy', optimizer="adam")
     
     print("Training model...")
     model.fit(X, Y, nb_epoch=30000, batch_size=100, validation_split=0.15)
 
-#    dump_fd = open("./keras.dump", "w")
-#    pickle.dump(model, dump_fd)
+    dump_fd = open("./keras.dump", "w")
+    model_json_str = model.to_json()
+    dump_fd.write(model_json_str)
+    
 ### training end
 
 # trade
@@ -466,7 +459,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 
     ts_input_arr = np.array(ts_input_mat)
 
-    X_test = np.array(ts_input_arr)
+    X_test = np.array(ts_input_arr, dtype=np.float32)
     X_test, _ = preprocess_data(X_test, scaler)
     
     proba = model.predict_proba(X_test, verbose=0)
