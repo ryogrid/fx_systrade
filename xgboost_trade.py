@@ -207,20 +207,20 @@ def is_weekend(date_str):
 """
 main
 """
-#rates_fd = open('./hoge.csv', 'r')
+rates_fd = open('./hoge.csv', 'r')
 #rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
 #rates_fd = open('./EURJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv', 'r')
 #rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2008.01.01_2012.01.01.csv', 'r')
-rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2009.01.01_2011.01.01.csv', 'r')
+#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2009.01.01_2011.01.01.csv', 'r')
 
 exchange_dates = []
 exchange_rates = []
 for line in rates_fd:
     splited = line.split(",")
-    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26" and (not is_weekend(splited[0])):
+    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26": # and (not is_weekend(splited[0])):
         time = splited[0].replace("/", "-") + " " + splited[1]
-        val = float(splited[1])
-#        val = float(splited[2]) #for hoge.csv
+#        val = float(splited[1])
+        val = float(splited[2]) #for hoge.csv
         exchange_dates.append(time)
         exchange_rates.append(val)
 
@@ -331,6 +331,7 @@ NOT_HAVE = 3
 pos_kind = NOT_HAVE
 HALF_SPREAD = 0.0015
 SONKIRI_RATE = 0.05
+RIKAKU_PIPS = 0.60
 
 positions = 0
 
@@ -342,7 +343,21 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
 
-    #sonkiri
+    # #rikaku
+    # if pos_kind != NOT_HAVE:
+    #     if pos_kind == LONG:
+    #         got_pips = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
+    #         cur_portfo = portfolio + (positions * (exchange_rates[current_spot] - HALF_SPREAD) - positions * trade_val)
+    #     elif pos_kind == SHORT:
+    #         got_pips = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
+    #         cur_portfoo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
+    #     if got_pips >= RIKAKU_PIPS:
+    #         portfolio = cur_portfo
+    #         pos_kind = NOT_HAVE
+    #         won_pips += got_pips
+    #         print exchange_dates[current_spot] + " rikaku " + str(got_pips)
+    #         continue    
+
     if pos_kind != NOT_HAVE:
         if pos_kind == LONG:
             cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
@@ -435,11 +450,13 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     # print "predicted_prob " + str(predicted_prob)
     # print "skip_flag:" + str(skip_flag)
     if pos_kind == NOT_HAVE and skip_flag == False:
-        if predicted_prob >= 0.9 and chart_type == 2 :
+        if predicted_prob >= 0.90 and chart_type == 2 :        
+#        if predicted_prob >= 0.90 and predicted_prob <= 0.95 and chart_type == 2 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob <= 0.1 and chart_type == 1:
+        elif predicted_prob <= 0.1 and chart_type == 1:           
+#        elif predicted_prob <= 0.1 and predicted_prob >=0.05 and chart_type == 1:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD

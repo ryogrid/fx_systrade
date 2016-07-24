@@ -347,10 +347,6 @@ if True: ### training start
     model.add(BatchNormalization((neuro_num,)))
     model.add(Dropout(0.5))
 
-    model.add(Dense(neuro_num, init='uniform', activation="relu"))
-    model.add(BatchNormalization((neuro_num,)))
-    model.add(Dropout(0.5))    
-    
     model.add(Dense(neuro_num/2, init='uniform', activation="relu"))
     model.add(BatchNormalization((neuro_num/2,)))
     model.add(Dropout(0.5))
@@ -360,11 +356,12 @@ if True: ### training start
     model.compile(loss='binary_crossentropy', optimizer="adam")
     
     print("Training model...")
-    model.fit(X, Y, nb_epoch=30000, batch_size=100, validation_split=0.15)
+    model.fit(X, Y, nb_epoch=10000, batch_size=100, validation_split=0.15)
 
-    dump_fd = open("./keras.dump", "w")
+    dump_fd = open("./keras.model", "w")
     model_json_str = model.to_json()
     dump_fd.write(model_json_str)
+    model.save_weights("keras.weight")
     
 ### training end
 

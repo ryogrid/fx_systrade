@@ -281,11 +281,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if True:
-    dump_fd = open("./bst.dump", "r")
+if False:
+    dump_fd = open("./oanda.dump", "r")
     bst = pickle.load(dump_fd)
 
-if False: ### training start
+if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -356,7 +356,7 @@ if False: ### training start
     num_round = 3000 #10 #3000 # 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
-    dump_fd = open("./bst.dump", "w")
+    dump_fd = open("./oanda.dump", "w")
     pickle.dump(bst, dump_fd)
 ### training end
 
@@ -372,7 +372,7 @@ SONKIRI_PIPS = -5 # convert to pips -> x100
 trade_val = -1
 
 pos_cont_count = 0
-oanda_prices_arr = []
+oanda_prices_arr = [105.879, 105.854, 105.801, 105.748, 105.751, 105.726, 105.775, 105.697, 105.706, 105.776, 105.779, 106.09, 105.94, 105.938, 105.982, 105.976, 105.983, 105.972, 105.951, 106.011, 105.996, 105.997, 105.996, 105.86, 105.867, 105.798, 105.806, 105.818, 105.882, 105.955, 105.909, 105.878, 105.959, 105.959, 105.989, 105.95, 105.887, 105.909, 105.905, 105.887, 105.79, 105.785, 105.736, 105.704, 105.734, 105.761, 105.684, 105.668, 105.613, 105.639]
 total_win_pips = 0
 while 1:
     sleep(300) # 5min
@@ -381,7 +381,7 @@ while 1:
     latest_price_bid = get_price_bid()
     latest_price_ask = get_price_ask()
     # if API failed
-    if latest_price_bid == 1 or latest_price_ask == 1:
+    if latest_price_bid == -1 or latest_price_ask == -1:
         continue
 
     logger.debug("latest_price_bid " + str(latest_price_bid))
