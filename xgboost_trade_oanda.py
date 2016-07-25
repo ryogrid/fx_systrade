@@ -16,6 +16,7 @@ TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
 POSITION_UNITS =15000
+SONKIRI_PIPS = 5 # convert to pips -> x100
 
 oanda = oandapy.API(environment="live", access_token=oanda_acount_info.ACCESS_TOKEN)
 
@@ -218,20 +219,22 @@ def get_price_ask():
     except:
         return -1
     
-def exec_order_buy():
+def exec_order_buy(cur_price):
     oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
                                   units=POSITION_UNITS,
                                   side='buy',
                                   type='market',
+                                  stopLoss= (cur_price-SONKIRI_PIPS)
                               )
 
-def exec_order_sell():
+def exec_order_sell(cur_price):
     oanda.create_order(oanda_acount_info.ACOUNT_NUM,
                                   instrument="USD_JPY",
                                   units=POSITION_UNITS,
                                   side='sell',
                                   type='market',
+                                  stopLoss= (cur_price+SONKIRI_PIPS)
                               )    
 
 def close_all_positions():
@@ -368,7 +371,7 @@ SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
 PRICES_LEN = 50
-SONKIRI_PIPS = -5 # convert to pips -> x100
+
 
 trade_val = -1
 
@@ -406,7 +409,7 @@ while 1:
         elif pos_kind == SHORT:
             got_pips = trade_val - latest_price_ask
             cur_portfoo = portfolio + (POSITION_UNITS * trade_val - POSITION_UNITS * latest_price_ask)
-        if got_pips < SONKIRI_PIPS:
+        if got_pips < -1 * SONKIRI_PIPS:
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
             close_all_positions()
@@ -503,13 +506,13 @@ while 1:
         if predicted_prob >= 0.9 and chart_type == 2:
            pos_kind = LONG
            trade_val = latest_price_ask
-           exec_order_buy()
+           exec_order_buy(latest_price_ask)
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask)
            logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order buy " + str(latest_price_ask))
         elif predicted_prob <= 0.1 and chart_type == 1:
            pos_kind = SHORT
            trade_val = latest_price_bid
-           exec_order_sell()
+           exec_order_sell(latest_price_bid)
            print datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid)
            logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " order sell " + str(latest_price_bid))
 
