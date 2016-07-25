@@ -281,11 +281,12 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
-    dump_fd = open("./bst.dump", "r")
-    bst = pickle.load(dump_fd)
 
-if True: ### training start
+if True:
+    bst = xgb.Booster({'nthread':4})
+    bst.load_model("./hoge.model") 
+
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -356,8 +357,8 @@ if True: ### training start
     num_round = 3000 #10 #3000 # 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
-    dump_fd = open("./bst.dump", "w")
-    pickle.dump(bst, dump_fd)
+    bst.dump_model('./dump.raw.txt')
+    bst.save_model('./hoge.model')    
 ### training end
 
 # trade
@@ -381,7 +382,7 @@ while 1:
     latest_price_bid = get_price_bid()
     latest_price_ask = get_price_ask()
     # if API failed
-    if latest_price_bid == 1 or latest_price_ask == 1:
+    if latest_price_bid == -1 or latest_price_ask == -1:
         continue
 
     logger.debug("latest_price_bid " + str(latest_price_bid))
