@@ -15,9 +15,9 @@ OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
-POSITION_UNITS = 50000
+POSITION_UNITS =15000
 
-oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
+oanda = oandapy.API(environment="live", access_token=oanda_acount_info.ACCESS_TOKEN)
 
 def merge_csv(out_fname, input_files):
     frslt = open('./hoge.csv', 'w')        
@@ -281,11 +281,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if True:
+if False:
     dump_fd = open("./bst.dump", "r")
     bst = pickle.load(dump_fd)
 
-if False: ### training start
+if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
