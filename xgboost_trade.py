@@ -212,6 +212,7 @@ rates_fd = open('./hoge.csv', 'r')
 #rates_fd = open('./EURJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv', 'r')
 #rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2008.01.01_2012.01.01.csv', 'r')
 #rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2009.01.01_2011.01.01.csv', 'r')
+#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
 
 exchange_dates = []
 exchange_rates = []
@@ -244,11 +245,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
-    dump_fd = open("./bst.dump", "r")
-    bst = pickle.load(dump_fd)
+if True:
+    bst = xgb.Booster({'nthread':4})
+    bst.load_model("./hoge.model") 
 
-if True: ### training start
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -318,9 +319,10 @@ if True: ### training start
     watchlist  = [(dtrain,'train')]
     num_round = 3000 #10 #3000 # 1000
     bst = xgb.train(param, dtrain, num_round, watchlist)
-
-    dump_fd = open("./2009-2011.dump", "w")
-    pickle.dump(bst, dump_fd)
+    
+    bst.dump_model('./dump.raw.txt')
+    bst.save_model('./hoge.model')
+    
 ### training end
 
 # trade
