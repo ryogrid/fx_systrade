@@ -5,11 +5,8 @@ INIT_BALANCE = 500000
 balance = INIT_BALANCE
 MARGIN_RATE = 0.04
 HALF_SPREAD = 0.015 
-BUY_LOTS = 1000
+BUY_LOTS = 900
 WON_PIPS = 0.3
-
-UP = 1
-DOWN = 2
 
 def get_tuned_percent(baseline_price):
     #return 1
@@ -21,7 +18,7 @@ def get_tuned_percent2(baseline_price):
     #return 1
     #return 1/((baseline_price/140)*2)
     #return (130 - (baseline_price - 90))/130
-    return baseline_price/140.0
+    return baseline_price/180.0
 
 def get_baseline_lots(portfolio, cur_price):
     return BUY_LOTS
@@ -57,20 +54,20 @@ traps2 = []
 
 start = 90 # 80
 end = 120 # 120
-step = 0.25 # 0.1
+step = 1.0 # 0.1
 for price in xrange(100*start, 100*end, int(100*step)):
     traps.append([price/100.0, False, False, 0])
 
 start2 = 100 # 80
-end2 = 140 # 120
-step2 = 0.25 # 0.1
+end2 = 180 # 120
+step2 = 1.0 # 0.1
 for price in xrange(100*start2, 100*end2, int(100*step2)):
     traps2.append([price/100.0, False, False, 0])    
 
 positions = 0
 positions2 = 0
-for cur in xrange(960000, data_len):
-#for cur in xrange(1, data_len):    
+#for cur in xrange(960000, data_len):
+for cur in xrange(2, data_len):    
     print("current price1 = " + str(exchange_rates[cur]))
     print("current price2 = " + str(exchange_rates2[cur]))
 
@@ -81,7 +78,7 @@ for cur in xrange(960000, data_len):
            or (traps[idx][0] > (exchange_rates[cur]+HALF_SPREAD) \
            and traps[idx][0] <= (exchange_rates[cur-1]+HALF_SPREAD))) \
            and traps[idx][1] == False \
-           and positions <= 40:
+           and positions <= 30:
             traps[idx][1] = True
             traps[idx][3] = exchange_rates[cur]
 
@@ -92,7 +89,7 @@ for cur in xrange(960000, data_len):
            or (traps2[idx][0] > (exchange_rates2[cur]-HALF_SPREAD) \
            and traps2[idx][0] <= (exchange_rates2[cur-1]-HALF_SPREAD))) \
            and traps2[idx][1] == False \
-           and positions2 <= 40:
+           and positions2 <= 30:
             traps2[idx][1] = True
             traps2[idx][3] = exchange_rates2[cur]
 
@@ -119,7 +116,8 @@ for cur in xrange(960000, data_len):
                 traps2[idx][3] = 0
 
     margin_used = 0
-    profit_or_loss = 0
+    profit_or_loss1 = 0
+    profit_or_loss2 = 0
     positions = 0
     positions2 = 0
     for idx in xrange(len(traps)):
@@ -127,7 +125,7 @@ for cur in xrange(960000, data_len):
             margin_used += (traps[idx][3] *\
                             get_baseline_lots(balance, traps[idx][3]) \
                               * get_tuned_percent(traps[idx][3])) * MARGIN_RATE            
-            profit_or_loss += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) \
+            profit_or_loss1 += ((exchange_rates[cur]-HALF_SPREAD) - traps[idx][3]) \
                               * get_baseline_lots(balance, traps[idx][3]) \
                               * get_tuned_percent(traps[idx][3])
             positions += 1
@@ -137,12 +135,12 @@ for cur in xrange(960000, data_len):
             margin_used += (traps2[idx][3] *\
                             get_baseline_lots(balance, traps2[idx][3]) \
                               * get_tuned_percent2(traps2[idx][3])) * MARGIN_RATE
-            profit_or_loss += (traps2[idx][3] - (exchange_rates2[cur]+HALF_SPREAD)) \
+            profit_or_loss2 += (traps2[idx][3] - (exchange_rates2[cur]+HALF_SPREAD)) \
                               * get_baseline_lots(balance, traps2[idx][3]) \
                               * get_tuned_percent2(traps2[idx][3])
             positions2 += 1
             
-    portfolio = balance + profit_or_loss - margin_used
+    portfolio = balance + profit_or_loss1 + profit_or_loss2 - margin_used
 
     if portfolio < 0:
         print exchange_dates[cur] + " " + str(positions) + " " + str(margin_used) + " " + str(portfolio) + " " + str(balance)
@@ -151,4 +149,4 @@ for cur in xrange(960000, data_len):
 
     # print current status
 #    if is_print == True:
-    print exchange_dates[cur] + " " + str(positions) + " " + str(positions2) + " " + str(margin_used) + " " + str(portfolio) + " " + str(balance)
+    print exchange_dates[cur] + " " + str(positions) + " " + str(positions2) + " " + str(profit_or_loss1) +  " " + str(profit_or_loss2) + " " +  str(margin_used) + " " + str(portfolio) + " " + str(balance)
