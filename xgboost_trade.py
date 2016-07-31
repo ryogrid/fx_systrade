@@ -244,11 +244,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if True:
+if False:
     bst = xgb.Booster({'nthread':4})
     bst.load_model("./hoge.model") 
 
-if False: ### training start
+if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -408,7 +408,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 #    print("hoge")
     # try trade in only linear chart case
 
-    # vorarity = 0
+#     vorarity = 0
     vorarity = get_vorarity(exchange_rates, current_spot)
     if vorarity >= 0.07:
         skip_flag = True
