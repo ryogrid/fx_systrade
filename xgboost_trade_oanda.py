@@ -376,7 +376,7 @@ PRICES_LEN = 50
 trade_val = -1
 
 pos_cont_count = 0
-oanda_prices_arr = []
+oanda_prices_arr = [104.826, 104.856, 104.854, 104.837, 104.837, 104.81, 104.84, 104.813, 104.796, 104.787, 104.841, 104.918, 104.853, 104.821, 104.74, 104.74, 104.728, 104.738, 104.734, 104.706, 104.68, 104.674, 104.673, 104.664, 104.65, 104.679, 104.68, 104.705, 104.673, 104.672, 104.677, 104.613, 104.621, 104.625, 104.627, 104.641, 104.619, 104.613, 104.628, 104.623, 104.634, 104.622, 104.63, 104.622, 104.607, 104.599, 104.634, 104.63, 104.623, 104.622]
 total_win_pips = 0
 while 1:
     sleep(300) # 5min
@@ -388,7 +388,7 @@ while 1:
     if latest_price_bid == -1 or latest_price_ask == -1:
         continue
 
-    logger.debug("latest_price_bid " + str(latest_price_bid))
+    logger.debug(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " latest_price_bid " + str(latest_price_bid))
     oanda_prices_arr.insert(len(oanda_prices_arr), latest_price_bid)
     
     arr_len = len(oanda_prices_arr)
