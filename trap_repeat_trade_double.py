@@ -137,7 +137,7 @@ for cur in xrange(960000, data_len):
             margin_used += (traps2[idx][3] *\
                             get_baseline_lots(balance, traps2[idx][3]) \
                               * get_tuned_percent2(traps2[idx][3])) * MARGIN_RATE
-            profit_or_loss += ((exchange_rates2[cur]-HALF_SPREAD) - traps2[idx][3]) \
+            profit_or_loss += (traps2[idx][3] - (exchange_rates2[cur]+HALF_SPREAD)) \
                               * get_baseline_lots(balance, traps2[idx][3]) \
                               * get_tuned_percent2(traps2[idx][3])
             positions2 += 1
