@@ -21,7 +21,7 @@ def get_tuned_percent2(baseline_price):
     #return 1
     #return 1/((baseline_price/140)*2)
     #return (130 - (baseline_price - 90))/130
-    return baseline_price/120.0
+    return baseline_price/140.0
 
 def get_baseline_lots(portfolio, cur_price):
     return BUY_LOTS
@@ -57,19 +57,20 @@ traps2 = []
 
 start = 90 # 80
 end = 120 # 120
-step = 0.2 # 0.1
+step = 0.25 # 0.1
 for price in xrange(100*start, 100*end, int(100*step)):
     traps.append([price/100.0, False, False, 0])
 
 start2 = 100 # 80
-end2 = 130 # 120
-step2 = 0.2 # 0.1
+end2 = 140 # 120
+step2 = 0.25 # 0.1
 for price in xrange(100*start2, 100*end2, int(100*step2)):
     traps2.append([price/100.0, False, False, 0])    
 
 positions = 0
 positions2 = 0
 for cur in xrange(960000, data_len):
+#for cur in xrange(1, data_len):    
     print("current price1 = " + str(exchange_rates[cur]))
     print("current price2 = " + str(exchange_rates2[cur]))
 
@@ -80,18 +81,18 @@ for cur in xrange(960000, data_len):
            or (traps[idx][0] > (exchange_rates[cur]+HALF_SPREAD) \
            and traps[idx][0] <= (exchange_rates[cur-1]+HALF_SPREAD))) \
            and traps[idx][1] == False \
-           and positions <= 100:
+           and positions <= 40:
             traps[idx][1] = True
             traps[idx][3] = exchange_rates[cur]
 
     #if no position, buy it
     for idx in xrange(len(traps2)):
-        if ((traps[idx][0] > (exchange_rates2[cur-1]-HALF_SPREAD) \
+        if ((traps2[idx][0] > (exchange_rates2[cur-1]-HALF_SPREAD) \
            and traps2[idx][0] <= (exchange_rates2[cur]-HALF_SPREAD)) \
            or (traps2[idx][0] > (exchange_rates2[cur]-HALF_SPREAD) \
            and traps2[idx][0] <= (exchange_rates2[cur-1]-HALF_SPREAD))) \
            and traps2[idx][1] == False \
-           and positions2 <= 100:
+           and positions2 <= 40:
             traps2[idx][1] = True
             traps2[idx][3] = exchange_rates2[cur]
 
