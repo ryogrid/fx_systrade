@@ -54,13 +54,13 @@ traps2 = []
 
 start = 90 # 80
 end = 120 # 120
-step = 1.0 # 0.1
+step = 0.2 # 0.1
 for price in xrange(100*start, 100*end, int(100*step)):
     traps.append([price/100.0, False, False, 0])
 
-start2 = 100 # 80
-end2 = 180 # 120
-step2 = 1.0 # 0.1
+start2 = 90 # 80
+end2 = 120 # 120
+step2 = 0.25 # 0.1
 for price in xrange(100*start2, 100*end2, int(100*step2)):
     traps2.append([price/100.0, False, False, 0])    
 
