@@ -3,9 +3,9 @@ from math import log
 
 INIT_BALANCE = 500000
 balance = INIT_BALANCE
-MARGIN_RATE = 0.04
+MARGIN_RATE = 0.025 #0.04
 HALF_SPREAD = 0.015 
-BUY_LOTS = 900
+BUY_LOTS = 800
 WON_PIPS = 0.3
 
 UP = 1
@@ -91,8 +91,11 @@ def do_trade(currency_str, exchange_rates, cur, traps, up_or_down, last_position
 """
 main
 """
-exchange_rates1, exchange_dates1 = load_data('./USDJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv')
-exchange_rates2, exchange_dates2 = load_data('./EURJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv')
+exchange_rates1, exchange_dates1 = load_data('./USDJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
+exchange_rates2, exchange_dates2 = load_data('./EURJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
+exchange_rates3, exchange_dates3 = load_data('./GBPJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
+exchange_rates4, exchange_dates4 = load_data('./NZDJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
+exchange_rates5, exchange_dates5 = load_data('./AUDJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
 
 data_len = len(exchange_rates1)
 
@@ -100,18 +103,27 @@ print "data size: " + str(data_len)
 
 traps1 = make_trap(90, 120, 0.5)
 traps2 = make_trap(90, 120, 0.5)
+traps3 = make_trap(250, 120, 0.5)
+traps4 = make_trap(70, 90, 0.2)
+traps5 = make_trap(70, 100, 0.2)
 
 
 #for cur in xrange(960000, data_len):
 positions1 = 0
 positions2 = 0
+positions3 = 0
+positions4 = 0
+positions5 = 0
 for cur in xrange(2, data_len):
-    margin_used1, profit_or_loss1, positions1 = do_trade("USDJPY", exchange_rates1, cur, traps1, UP, positions1, 30)
-    margin_used2, profit_or_loss2, positions2 = do_trade("EURJPY", exchange_rates2, cur, traps2, DOWN, positions2, 30)
+    margin_used1, profit_or_loss1, positions1 = do_trade("USDJPY", exchange_rates1, cur, traps1, UP, positions1, 10)
+    margin_used2, profit_or_loss2, positions2 = do_trade("EURJPY", exchange_rates2, cur, traps2, DOWN, positions2, 10)
+    margin_used3, profit_or_loss3, positions3 = do_trade("GBPJPY", exchange_rates3, cur, traps3, UP, positions3, 10)
+    margin_used4, profit_or_loss4, positions4 = do_trade("NDZJPY", exchange_rates4, cur, traps4, DOWN, positions4, 10)
+    margin_used5, profit_or_loss5, positions5 = do_trade("AUDJPY", exchange_rates5, cur, traps5, UP, positions5, 10)
 
-    positions = positions1 + positions2
-    profit_or_loss = profit_or_loss1 + profit_or_loss2
-    margin_used = margin_used1 + margin_used2
+    positions = positions1 + positions2 + positions3 + positions4 + positions5
+    profit_or_loss = profit_or_loss1 + profit_or_loss2 + profit_or_loss3 + profit_or_loss4 + profit_or_loss5
+    margin_used = margin_used1 + margin_used2 + margin_used3 + margin_used4 + margin_used5
     portfolio = balance + profit_or_loss - margin_used
 
     if portfolio < 0:
