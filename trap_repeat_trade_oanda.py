@@ -1,15 +1,11 @@
 #!/usr/bin/python
-from math import log, floor
+from math import log
 import oandapy
 from datetime import datetime
 from time import sleep
 import oanda_acount_info
-import json
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-INIT_BALANCE = 500000
-balance = INIT_BALANCE
-MARGIN_RATE = 0.025 #0.04
 HALF_SPREAD = 0.015 
 POSITION_UNITS = 600
 WON_PIPS = 0.3
@@ -101,8 +97,6 @@ def fill_trap(traps, currency_str, start, end, step, list_resp):
     return len(prices_list)
     
 def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
-    global balance
-
     latest_price_bid = get_price_bid(currency_str)
     latest_price_ask = get_price_ask(currency_str)
     if latest_price_bid == -1 or latest_price_ask == -1:
