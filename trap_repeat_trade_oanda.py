@@ -73,13 +73,6 @@ def exec_order_sell(currency_str, cur_price):
 
 def get_living_pos_list():
     return oanda.get_trades(oanda_acount_info.ACOUNT_NUM)
-
-    
-# def close_position(currency_str, order_id):
-#     oanda.close_position(oanda_acount_info.ACOUNT_NUM,
-#                          instrument=currency_str,
-#                          trade_id=order_id)
-    
     
 def make_trap(start, end, step):
     traps = []
@@ -106,11 +99,6 @@ def fill_trap(traps, currency_str, start, end, step, list_resp):
                 break
 
     return len(prices_list)
-        # if price >= start and price < end:
-        #     idx = int(floor((price - float(start)) / step))
-        #     traps[idx][1] = True
-        #     traps[idx][3] = price
-        #     print str(idx)
     
 def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
     global balance
@@ -130,9 +118,6 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
     print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " price_open " + str(price_open))
 
     positions = server_pos_num
-    # for idx in xrange(len(traps)):
-    #     if traps[idx][1] == True:
-    #         positions += 1
 
     print("positions_from_server " + currency_str + " " + str(positions))
             
@@ -155,17 +140,15 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
     sign = 1 if up_or_down == UP else -1
     
     profit_or_loss = 0
-    # positions = 0
     for idx in xrange(len(traps)):
         if traps[idx][1] == True:
             profit_or_loss += sign * (price_close - traps[idx][3]) \
                               * POSITION_UNITS \
                               * get_tuned_percent(traps[idx][3])
-            # positions += 1
 
     print(str(positions) + " "  + str(profit_or_loss))
     
-    return positions #margin_used, profit_or_loss, positions
+    return positions
 
                        
 """
