@@ -6,7 +6,7 @@ balance = INIT_BALANCE
 MARGIN_RATE = 0.025 #0.04
 HALF_SPREAD = 0.015 
 BUY_LOTS = 1000
-WON_PIPS = 0.3
+WON_PIPS = 0.5 #0.3
 
 UP = 1
 DOWN = 2
@@ -19,7 +19,8 @@ def get_tuned_percent(baseline_price):
 
 def get_baseline_lots(portfolio, cur_price):
     return BUY_LOTS
-#    return BUY_LOTS * (balance/INIT_BALANCE) * 0.3
+#    return BUY_LOTS * (balance/INIT_BALANCE) * 0.9
+#     return BUY_LOTS * (1 + (((balance - INIT_BALANCE)/INIT_BALANCE) * 0.2))
 
 def load_data(filepath):
     #rates_fd = open('./hoge.csv', 'r')
@@ -91,11 +92,11 @@ def do_trade(currency_str, exchange_rates, cur, traps, up_or_down, last_position
 """
 main
 """
-exchange_rates1, exchange_dates1 = load_data('./USDJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
-exchange_rates2, exchange_dates2 = load_data('./EURJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
-exchange_rates3, exchange_dates3 = load_data('./GBPJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
-exchange_rates4, exchange_dates4 = load_data('./NZDJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
-exchange_rates5, exchange_dates5 = load_data('./AUDJPY_UTC_1 Min_Bid_2007.12.31_2016.07.31.csv')
+exchange_rates1, exchange_dates1 = load_data('./USDJPY_UTC_1 Min_Bid_2010.05.10_2016.07.31.csv')
+exchange_rates2, exchange_dates2 = load_data('./EURJPY_UTC_1 Min_Bid_2010.05.10_2016.07.31.csv')
+exchange_rates3, exchange_dates3 = load_data('./TRYJPY_UTC_1 Min_Bid_2010.05.10_2016.07.31.csv')
+exchange_rates4, exchange_dates4 = load_data('./NZDJPY_UTC_1 Min_Bid_2010.05.10_2016.07.31.csv')
+exchange_rates5, exchange_dates5 = load_data('./AUDJPY_UTC_1 Min_Bid_2010.05.10_2016.07.31.csv')
 
 data_len = len(exchange_rates1)
 
@@ -103,8 +104,8 @@ print "data size: " + str(data_len)
 
 traps1 = make_trap(90, 120, 0.5)
 traps2 = make_trap(90, 120, 0.5)
-traps3 = make_trap(250, 120, 0.5)
-traps4 = make_trap(70, 90, 0.2)
+traps3 = make_trap(30, 60, 0.1)
+traps4 = make_trap(50, 90, 0.2)
 traps5 = make_trap(70, 100, 0.2)
 
 
@@ -117,8 +118,8 @@ positions5 = 0
 for cur in xrange(2, data_len):
     margin_used1, profit_or_loss1, positions1 = do_trade("USDJPY", exchange_rates1, cur, traps1, UP, positions1, 10)
     margin_used2, profit_or_loss2, positions2 = do_trade("EURJPY", exchange_rates2, cur, traps2, DOWN, positions2, 10)
-    margin_used3, profit_or_loss3, positions3 = do_trade("GBPJPY", exchange_rates3, cur, traps3, UP, positions3, 10)
-    margin_used4, profit_or_loss4, positions4 = do_trade("NDZJPY", exchange_rates4, cur, traps4, DOWN, positions4, 10)
+    margin_used3, profit_or_loss3, positions3 = do_trade("TRYJPY", exchange_rates3, cur, traps3, UP, positions3, 10)
+    margin_used4, profit_or_loss4, positions4 = do_trade("NZDJPY", exchange_rates4, cur, traps4, DOWN, positions4, 10)
     margin_used5, profit_or_loss5, positions5 = do_trade("AUDJPY", exchange_rates5, cur, traps5, UP, positions5, 10)
 
     positions = positions1 + positions2 + positions3 + positions4 + positions5
