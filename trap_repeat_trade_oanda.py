@@ -117,8 +117,8 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
             
     #if no position, open it
     for idx in xrange(len(traps)):
-        if (price_open >= traps[idx][0] \
-            and price_open < (traps[idx][0] + step)) \
+        if (price_close >= traps[idx][0] \
+            and price_close < (traps[idx][0] + step)) \
             and traps[idx][1] == False \
             and positions <= pos_limit:
             if up_or_down == UP:
@@ -150,9 +150,9 @@ main
 """
 step1=0.5
 step2=0.5
-step3=0.1
-step4=0.2
-step5=0.2
+step3=0.5
+step4=0.5
+step5=0.5
 while 1:
     sleep(15)
 

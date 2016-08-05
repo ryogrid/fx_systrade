@@ -104,9 +104,9 @@ print "data size: " + str(data_len)
 
 traps1 = make_trap(90, 120, 0.5)
 traps2 = make_trap(90, 120, 0.5)
-traps3 = make_trap(30, 60, 0.1)
-traps4 = make_trap(50, 90, 0.2)
-traps5 = make_trap(70, 100, 0.2)
+traps3 = make_trap(30, 60, 0.5)
+traps4 = make_trap(50, 90, 0.5)
+traps5 = make_trap(70, 100, 0.5)
 
 
 #for cur in xrange(960000, data_len):
