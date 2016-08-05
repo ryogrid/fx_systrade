@@ -6,7 +6,6 @@ from time import sleep
 import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-HALF_SPREAD = 0.015 
 POSITION_UNITS = 800
 WON_PIPS = 0.3
 
@@ -19,7 +18,7 @@ _fhandler.setLevel(DEBUG)
 logger.setLevel(DEBUG)
 logger.addHandler(_fhandler)
 
-oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
+oanda = oandapy.API(environment="live", access_token=oanda_acount_info.ACCESS_TOKEN)
 
 def get_tuned_percent(baseline_price):
     return 1
@@ -148,11 +147,11 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
 """
 main
 """
-step1=0.5
-step2=0.5
-step3=0.5
-step4=0.5
-step5=0.5
+step1=0.25
+step2=0.25
+step3=0.25
+step4=0.25
+step5=0.25
 while 1:
     sleep(15)
 
@@ -160,7 +159,7 @@ while 1:
     
     traps1 = make_trap(80, 120, step1)
     pos_num = fill_trap(traps1, "USD_JPY", 80, 120, step1, pos_list_resp)
-    positions1 = do_trade("USD_JPY", traps1, UP, 10, step1, pos_num)
+    positions1 = do_trade("USD_JPY", traps1, DOWN, 10, step1, pos_num)
 
     traps2 = make_trap(90, 120, step2)
     pos_num = fill_trap(traps2, "EUR_JPY", 90, 130, step2, pos_list_resp)
@@ -172,7 +171,7 @@ while 1:
 
     traps4 = make_trap(50, 90, step4)    
     pos_num = fill_trap(traps4, "NZD_JPY", 55, 90, step4, pos_list_resp)    
-    positions4 = do_trade("NZD_JPY", traps4, DOWN, 10, step4, pos_num)
+    positions4 = do_trade("NZD_JPY", traps4, UP, 10, step4, pos_num)
 
     traps5 = make_trap(60, 100, step5)
     pos_num = fill_trap(traps5, "AUD_JPY", 70, 100, step5, pos_list_resp)
