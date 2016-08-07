@@ -106,7 +106,7 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
     latest_price_bid = get_price_bid(currency_str)
     latest_price_ask = get_price_ask(currency_str)
     if latest_price_bid == -1 or latest_price_ask == -1:
-        return
+        return -1
     
     if up_or_down == UP:
         price_open = latest_price_bid
@@ -210,6 +210,11 @@ while 1:
     pos_num = fill_trap(traps5, "AUD_JPY", start5, end5, step5, pos_list_resp)
     positions5 = do_trade("AUD_JPY", traps5, UP, 10, step5, pos_num)
 
+    if positions1 == -1 or positions2 == -1 or positions3 == -1 or positions4 == -1 or positions5 == -1:
+        print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " api returns error")
+        sleep(300) # 5min
+        continue
+    
     positions_all = positions1 + positions2 + positions3 + positions4 + positions5
 
     print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " positions " + str(positions_all))    
