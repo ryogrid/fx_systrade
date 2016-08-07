@@ -1,12 +1,12 @@
 #!/usr/bin/python
 from math import log
 
-INIT_BALANCE = 500000
+INIT_BALANCE = 250000
 balance = INIT_BALANCE
-MARGIN_RATE = 0.025 #0.04
-HALF_SPREAD = 0.015 
-BUY_LOTS = 1000
-WON_PIPS = 0.5 #0.3
+MARGIN_RATE = 0.04 #0.04
+HALF_SPREAD = 0.02
+BUY_LOTS = 800
+WON_PIPS = 0.3 #0.3
 
 UP = 1
 DOWN = 2
@@ -102,11 +102,11 @@ data_len = len(exchange_rates1)
 
 print "data size: " + str(data_len)
 
-traps1 = make_trap(90, 120, 0.5)
-traps2 = make_trap(90, 120, 0.5)
-traps3 = make_trap(30, 60, 0.5)
-traps4 = make_trap(50, 90, 0.5)
-traps5 = make_trap(70, 100, 0.5)
+traps1 = make_trap(80, 120, 0.25)
+traps2 = make_trap(90, 120, 0.25)
+traps3 = make_trap(30, 60, 0.25)
+traps4 = make_trap(50, 90, 0.25)
+traps5 = make_trap(60, 100, 0.25)
 
 
 #for cur in xrange(960000, data_len):
@@ -116,10 +116,10 @@ positions3 = 0
 positions4 = 0
 positions5 = 0
 for cur in xrange(2, data_len):
-    margin_used1, profit_or_loss1, positions1 = do_trade("USDJPY", exchange_rates1, cur, traps1, UP, positions1, 10)
+    margin_used1, profit_or_loss1, positions1 = do_trade("USDJPY", exchange_rates1, cur, traps1, DOWN, positions1, 10)
     margin_used2, profit_or_loss2, positions2 = do_trade("EURJPY", exchange_rates2, cur, traps2, DOWN, positions2, 10)
     margin_used3, profit_or_loss3, positions3 = do_trade("TRYJPY", exchange_rates3, cur, traps3, UP, positions3, 10)
-    margin_used4, profit_or_loss4, positions4 = do_trade("NZDJPY", exchange_rates4, cur, traps4, DOWN, positions4, 10)
+    margin_used4, profit_or_loss4, positions4 = do_trade("NZDJPY", exchange_rates4, cur, traps4, UP, positions4, 10)
     margin_used5, profit_or_loss5, positions5 = do_trade("AUDJPY", exchange_rates5, cur, traps5, UP, positions5, 10)
 
     positions = positions1 + positions2 + positions3 + positions4 + positions5
