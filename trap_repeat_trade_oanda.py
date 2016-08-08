@@ -28,7 +28,7 @@ def get_tuned_percent(baseline_price):
     return 1
 
 def get_baseline_lots(portfolio, cur_price):
-    buyable_pos = (portfolio / MARGIN_RATE) * 0.15
+    buyable_pos = (portfolio / MARGIN_RATE) * 0.3
     left_traps = all_trap_num - positions_all
 
     ret = int((buyable_pos / left_traps) / cur_price)
