@@ -156,8 +156,8 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
 """
 main
 """
-start1=100
-end1=120
+start1=95
+end1=115
 step1=0.25
 
 start2=100
