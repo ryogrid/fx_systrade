@@ -127,8 +127,8 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, s
         price_open = latest_price_ask
         price_close = latest_price_bid
 
-    buy_lots = get_baseline_lots(portfolio, price_close) * get_tuned_percent(start, end, price_open, up_or_down)
-    
+    buy_lots = int(get_baseline_lots(portfolio, price_close) * get_tuned_percent(start, end, price_open, up_or_down))
+
     print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " price_open " + str(price_open))
 
     positions = server_pos_num
