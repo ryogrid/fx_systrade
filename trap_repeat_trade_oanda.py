@@ -22,13 +22,13 @@ _fhandler.setLevel(DEBUG)
 logger.setLevel(DEBUG)
 logger.addHandler(_fhandler)
 
-oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
+oanda = oandapy.API(environment="live", access_token=oanda_acount_info.ACCESS_TOKEN)
 
 def get_tuned_percent(baseline_price):
     return 1
 
 def get_baseline_lots(portfolio, cur_price):
-    buyable_pos = (portfolio / MARGIN_RATE) * 0.15
+    buyable_pos = (portfolio / MARGIN_RATE) * 0.8
     left_traps = all_trap_num - positions_all
 
     ret = int((buyable_pos / left_traps) / cur_price)
@@ -158,23 +158,23 @@ main
 """
 start1=95
 end1=115
-step1=0.25
+step1=0.2
 
 start2=100
 end2=120
-step2=0.25
+step2=0.2
 
 start3=30
 end3=50
-step3=0.25
+step3=0.2
 
 start4=60
 end4=80
-step4=0.25
+step4=0.2
 
 start5=70
 end5=90
-step5=0.25
+step5=0.2
 
 # for all_trap_num
 traps1 = make_trap(start1, end1, step1)
