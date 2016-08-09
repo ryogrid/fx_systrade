@@ -6,7 +6,7 @@ from time import sleep
 import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-POSITION_UNITS = 800
+POSITION_UNITS = 600
 WON_PIPS = 0.3
 
 UP = 1
@@ -28,12 +28,13 @@ def get_tuned_percent(baseline_price):
     return 1
 
 def get_baseline_lots(portfolio, cur_price):
-    buyable_pos = (portfolio / MARGIN_RATE) * 0.8
-    left_traps = all_trap_num - positions_all
+    return POSITION_UNITS
+    # buyable_pos = (portfolio / MARGIN_RATE) * 0.8
+    # left_traps = all_trap_num - positions_all
 
-    ret = int((buyable_pos / left_traps) / cur_price)
+    # ret = int((buyable_pos / left_traps) / cur_price)
 
-    return ret
+    # return ret
     
 def get_price_bid(currency_str):
 
