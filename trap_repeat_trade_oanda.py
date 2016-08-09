@@ -24,8 +24,19 @@ logger.addHandler(_fhandler)
 
 oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
 
-def get_tuned_percent(baseline_price):
-    return 1
+def get_tuned_percent(start, end, cur_price, up_or_down):
+    tmp_end = end - start
+    tmp_cur = cur_price - start
+    center = tmp_end / 2.0
+
+    if up_or_down == UP:
+        sign = -1
+    else: # DOWN
+        sign = 1
+        
+    ret = (sign * 0.5 * (tmp_cur - center) + center) / float(center)
+#    print("tuned percent " + str(ret))
+    return ret
 
 def get_baseline_lots(portfolio, cur_price):
     return POSITION_UNITS
@@ -103,7 +114,7 @@ def fill_trap(traps, currency_str, start, end, step, list_resp):
 def get_yojo():
     return oanda.get_account(oanda_acount_info.ACOUNT_NUM)["marginAvail"]
 
-def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
+def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, start, end):
     latest_price_bid = get_price_bid(currency_str)
     latest_price_ask = get_price_ask(currency_str)
     if latest_price_bid == -1 or latest_price_ask == -1:
@@ -116,7 +127,7 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
         price_open = latest_price_ask
         price_close = latest_price_bid
 
-    base_lots = get_baseline_lots(portfolio, price_close)
+    buy_lots = get_baseline_lots(portfolio, price_close) * get_tuned_percent(start, end, price_open, up_or_down)
     
     print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " price_open " + str(price_open))
 
@@ -131,9 +142,9 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
             and traps[idx][1] == False \
             and positions <= pos_limit:
             if up_or_down == UP:
-                exec_order_buy(currency_str, price_open, base_lots)
+                exec_order_buy(currency_str, price_open, buy_lots)
             else:
-                exec_order_sell(currency_str, price_open, base_lots)
+                exec_order_sell(currency_str, price_open, buy_lots)
             traps[idx][1] = True
             traps[idx][3] = price_open
             print "open_idx" + str(idx)
@@ -145,9 +156,8 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num):
     profit_or_loss = 0
     for idx in xrange(len(traps)):
         if traps[idx][1] == True:
-            profit_or_loss += sign * (price_close - traps[idx][3]) \
-                              * base_lots \
-                              * get_tuned_percent(traps[idx][3])
+            profit_or_loss += sign * (price_close - traps[idx][3]) * buy_lots
+                              
 
     print(str(positions) + " "  + str(profit_or_loss))
     
@@ -193,23 +203,23 @@ while 1:
     
     traps1 = make_trap(start1, end1, step1)
     pos_num = fill_trap(traps1, "USD_JPY", start1, end1, step1, pos_list_resp)
-    positions1 = do_trade("USD_JPY", traps1, DOWN, 10, step1, pos_num)
+    positions1 = do_trade("USD_JPY", traps1, DOWN, 10, step1, pos_num, start1, end1)
 
     traps2 = make_trap(start2, end2, step2)
     pos_num = fill_trap(traps2, "EUR_JPY", start2, end2, step2, pos_list_resp)
-    positions2 = do_trade("EUR_JPY", traps2, DOWN, 10, step2, pos_num)
+    positions2 = do_trade("EUR_JPY", traps2, DOWN, 10, step2, pos_num, start2, end2)
 
     traps3 = make_trap(start3, end3, step3)
     pos_num = fill_trap(traps3, "TRY_JPY", start3, end3, step3, pos_list_resp)    
-    positions3 = do_trade("TRY_JPY", traps3, UP, 10, step3, pos_num)
+    positions3 = do_trade("TRY_JPY", traps3, UP, 10, step3, pos_num, start3, end3)
 
     traps4 = make_trap(start4, end4, step4)    
     pos_num = fill_trap(traps4, "NZD_JPY", start4, end4, step4, pos_list_resp)    
-    positions4 = do_trade("NZD_JPY", traps4, UP, 10, step4, pos_num)
+    positions4 = do_trade("NZD_JPY", traps4, UP, 10, step4, pos_num, start4, end4)
 
     traps5 = make_trap(start5, end5, step5)
     pos_num = fill_trap(traps5, "AUD_JPY", start5, end5, step5, pos_list_resp)
-    positions5 = do_trade("AUD_JPY", traps5, UP, 10, step5, pos_num)
+    positions5 = do_trade("AUD_JPY", traps5, UP, 10, step5, pos_num, start5, end5)
 
     if positions1 == -1 or positions2 == -1 or positions3 == -1 or positions4 == -1 or positions5 == -1:
         print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " api returns error")
