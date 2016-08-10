@@ -7,7 +7,7 @@ import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
 POSITION_UNITS = 600
-WON_PIPS = 0.3
+WON_PIPS = 0.2
 
 UP = 1
 DOWN = 2
