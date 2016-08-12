@@ -7,7 +7,7 @@ import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
 POSITION_UNITS = 600
-WON_PIPS = 0.3
+WON_PIPS = 0.2
 
 UP = 1
 DOWN = 2
@@ -22,7 +22,7 @@ _fhandler.setLevel(DEBUG)
 logger.setLevel(DEBUG)
 logger.addHandler(_fhandler)
 
-oanda = oandapy.API(environment="practice", access_token=oanda_acount_info.ACCESS_TOKEN)
+oanda = oandapy.API(environment="live", access_token=oanda_acount_info.ACCESS_TOKEN)
 
 def get_tuned_percent(start, end, cur_price, up_or_down):
     tmp_end = end - start
