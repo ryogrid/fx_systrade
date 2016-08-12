@@ -38,8 +38,21 @@ def get_tuned_percent(start, end, cur_price, up_or_down):
 #    print("tuned percent " + str(ret))
     return ret
 
-def get_baseline_lots(portfolio, cur_price):
-    return POSITION_UNITS
+def get_baseline_lots(portfolio, cur_price, currency_str):
+    currency_zoom = 1.0
+    if currency_str == "USD_JPY":
+        currency_zoom = 1.0
+    elif currency_str == "EUR_JPY":
+        currency_zoom = 1.0
+    elif currency_str == "TRY_JPY":
+        currency_zoom = 3.0
+    elif currency_str == "NZD_JPY":
+        currency_zoom = 2.0
+    elif  currency_str == "AUD_JPY":
+        currency_zoom = 2.0
+        
+    return int(currency_zoom * POSITION_UNITS)
+
     # buyable_pos = (portfolio / MARGIN_RATE) * 0.8
     # left_traps = all_trap_num - positions_all
 
@@ -127,7 +140,7 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, s
         price_open = latest_price_ask
         price_close = latest_price_bid
 
-    buy_lots = int(get_baseline_lots(portfolio, price_close) * get_tuned_percent(start, end, price_open, up_or_down))
+    buy_lots = int(get_baseline_lots(portfolio, price_close, currency_str) * get_tuned_percent(start, end, price_open, up_or_down))
 
     print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " price_open " + str(price_open))
 
@@ -177,15 +190,15 @@ step2=0.2
 
 start3=30
 end3=50
-step3=0.2
+step3=0.05
 
 start4=60
 end4=80
-step4=0.2
+step4=0.1
 
 start5=70
 end5=90
-step5=0.2
+step5=0.1
 
 # for all_trap_num
 traps1 = make_trap(start1, end1, step1)
@@ -200,7 +213,7 @@ while 1:
 
     portfolio = get_yojo()
     pos_list_resp = get_living_pos_list()
-    
+
     traps1 = make_trap(start1, end1, step1)
     pos_num = fill_trap(traps1, "USD_JPY", start1, end1, step1, pos_list_resp)
     positions1 = do_trade("USD_JPY", traps1, DOWN, 10, step1, pos_num, start1, end1)
