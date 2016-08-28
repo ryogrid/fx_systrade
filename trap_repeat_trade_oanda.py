@@ -6,7 +6,7 @@ from time import sleep
 import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-POSITION_UNITS = 800
+POSITION_UNITS = 600
 WON_PIPS = 0.2
 
 UP = 1
@@ -49,7 +49,7 @@ def get_baseline_lots(portfolio, cur_price, currency_str):
     elif currency_str == "NZD_JPY":
         currency_zoom = 2.0
     elif  currency_str == "AUD_JPY":
-        currency_zoom = 2.0
+        currency_zoom = 0.8
         
     return int(currency_zoom * POSITION_UNITS)
 
@@ -224,11 +224,11 @@ while 1:
 
     traps3 = make_trap(start3, end3, step3)
     pos_num = fill_trap(traps3, "TRY_JPY", start3, end3, step3, pos_list_resp)    
-    positions3 = do_trade("TRY_JPY", traps3, UP, 15, step3, pos_num, start3, end3)
+    positions3 = do_trade("TRY_JPY", traps3, UP, 12, step3, pos_num, start3, end3)
 
     traps4 = make_trap(start4, end4, step4)    
     pos_num = fill_trap(traps4, "NZD_JPY", start4, end4, step4, pos_list_resp)    
-    positions4 = do_trade("NZD_JPY", traps4, UP, 20, step4, pos_num, start4, end4)
+    positions4 = do_trade("NZD_JPY", traps4, UP, 12, step4, pos_num, start4, end4)
 
     traps5 = make_trap(start5, end5, step5)
     pos_num = fill_trap(traps5, "AUD_JPY", start5, end5, step5, pos_list_resp)
