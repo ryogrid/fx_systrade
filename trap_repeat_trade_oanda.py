@@ -6,7 +6,7 @@ from time import sleep
 import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-POSITION_UNITS = 700
+POSITION_UNITS = 600
 WON_PIPS = 0.2
 
 UP = 1
@@ -232,7 +232,7 @@ while 1:
 
     traps5 = make_trap(start5, end5, step5)
     pos_num = fill_trap(traps5, "AUD_JPY", start5, end5, step5, pos_list_resp)
-    positions5 = do_trade("AUD_JPY", traps5, UP, 20, step5, pos_num, start5, end5)
+    positions5 = do_trade("AUD_JPY", traps5, UP, 12, step5, pos_num, start5, end5)
 
     if positions1 == -1 or positions2 == -1 or positions3 == -1 or positions4 == -1 or positions5 == -1:
         print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " api returns error")
