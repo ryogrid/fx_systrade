@@ -11,7 +11,7 @@ WON_PIPS = 0.2
 
 UP = 1
 DOWN = 2
-all_trap_num = 0
+all_trap_num = 500
 positions_all = 0
 portfolio = 0
 MARGIN_RATE = 0.04
@@ -39,26 +39,26 @@ def get_tuned_percent(start, end, cur_price, up_or_down):
     return ret
 
 def get_baseline_lots(portfolio, cur_price, currency_str):
-    currency_zoom = 1.0
-    if currency_str == "USD_JPY":
-        currency_zoom = 1.0
-    elif currency_str == "EUR_JPY":
-        currency_zoom = 1.0
-    elif currency_str == "TRY_JPY":
-        currency_zoom = 3.0
-    elif currency_str == "NZD_JPY":
-        currency_zoom = 2.0
-    elif  currency_str == "AUD_JPY":
-        currency_zoom = 2.0
+    # currency_zoom = 1.0
+    # if currency_str == "USD_JPY":
+    #     currency_zoom = 1.0
+    # elif currency_str == "EUR_JPY":
+    #     currency_zoom = 1.0
+    # elif currency_str == "TRY_JPY":
+    #     currency_zoom = 3.0
+    # elif currency_str == "NZD_JPY":
+    #     currency_zoom = 2.0
+    # elif  currency_str == "AUD_JPY":
+    #     currency_zoom = 2.0
         
-    return int(currency_zoom * POSITION_UNITS)
+    # return int(currency_zoom * POSITION_UNITS)
 
-    # buyable_pos = (portfolio / MARGIN_RATE) * 0.8
-    # left_traps = all_trap_num - positions_all
+    buyable_pos = (portfolio / MARGIN_RATE) * 0.8
+    left_traps = all_trap_num - positions_all
 
-    # ret = int((buyable_pos / left_traps) / cur_price)
+    ret = int((buyable_pos / left_traps) / cur_price)
 
-    # return ret
+    return ret
     
 def get_price_bid(currency_str):
 
@@ -216,23 +216,23 @@ while 1:
 
     traps1 = make_trap(start1, end1, step1)
     pos_num = fill_trap(traps1, "USD_JPY", start1, end1, step1, pos_list_resp)
-    positions1 = do_trade("USD_JPY", traps1, DOWN, 12, step1, pos_num, start1, end1)
+    positions1 = do_trade("USD_JPY", traps1, DOWN, 80, step1, pos_num, start1, end1)
 
     traps2 = make_trap(start2, end2, step2)
     pos_num = fill_trap(traps2, "EUR_JPY", start2, end2, step2, pos_list_resp)
-    positions2 = do_trade("EUR_JPY", traps2, DOWN, 12, step2, pos_num, start2, end2)
+    positions2 = do_trade("EUR_JPY", traps2, DOWN, 80, step2, pos_num, start2, end2)
 
     traps3 = make_trap(start3, end3, step3)
     pos_num = fill_trap(traps3, "TRY_JPY", start3, end3, step3, pos_list_resp)    
-    positions3 = do_trade("TRY_JPY", traps3, UP, 12, step3, pos_num, start3, end3)
+    positions3 = do_trade("TRY_JPY", traps3, UP, 80, step3, pos_num, start3, end3)
 
     traps4 = make_trap(start4, end4, step4)    
     pos_num = fill_trap(traps4, "NZD_JPY", start4, end4, step4, pos_list_resp)    
-    positions4 = do_trade("NZD_JPY", traps4, UP, 12, step4, pos_num, start4, end4)
+    positions4 = do_trade("NZD_JPY", traps4, UP, 80, step4, pos_num, start4, end4)
 
     traps5 = make_trap(start5, end5, step5)
     pos_num = fill_trap(traps5, "AUD_JPY", start5, end5, step5, pos_list_resp)
-    positions5 = do_trade("AUD_JPY", traps5, UP, 12, step5, pos_num, start5, end5)
+    positions5 = do_trade("AUD_JPY", traps5, UP, 80, step5, pos_num, start5, end5)
 
     if positions1 == -1 or positions2 == -1 or positions3 == -1 or positions4 == -1 or positions5 == -1:
         print(datetime.now().strftime("%Y/%m/%d %H:%M:%S") + " api returns error")
