@@ -6,7 +6,7 @@ from time import sleep
 import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-POSITION_UNITS = 600
+POSITION_UNITS = 60
 WON_PIPS = 0.2
 
 UP = 1
@@ -39,26 +39,26 @@ def get_tuned_percent(start, end, cur_price, up_or_down):
     return ret
 
 def get_baseline_lots(portfolio, cur_price, currency_str):
-    # currency_zoom = 1.0
-    # if currency_str == "USD_JPY":
-    #     currency_zoom = 1.0
-    # elif currency_str == "EUR_JPY":
-    #     currency_zoom = 1.0
-    # elif currency_str == "TRY_JPY":
-    #     currency_zoom = 3.0
-    # elif currency_str == "NZD_JPY":
-    #     currency_zoom = 2.0
-    # elif  currency_str == "AUD_JPY":
-    #     currency_zoom = 2.0
+    currency_zoom = 1.0
+    if currency_str == "USD_JPY":
+        currency_zoom = 1.0
+    elif currency_str == "EUR_JPY":
+        currency_zoom = 1.0
+    elif currency_str == "TRY_JPY":
+        currency_zoom = 3.0
+    elif currency_str == "NZD_JPY":
+        currency_zoom = 2.0
+    elif  currency_str == "AUD_JPY":
+        currency_zoom = 2.0
         
-    # return int(currency_zoom * POSITION_UNITS)
+    return int(currency_zoom * POSITION_UNITS)
 
-    buyable_pos = (portfolio / MARGIN_RATE) * 0.8
-    left_traps = all_trap_num - positions_all
+    # buyable_pos = (portfolio / MARGIN_RATE) * 0.8
+    # left_traps = all_trap_num - positions_all
 
-    ret = int((buyable_pos / left_traps) / cur_price)
+    # ret = int((buyable_pos / left_traps) / cur_price)
 
-    return ret
+    # return ret
     
 def get_price_bid(currency_str):
 
