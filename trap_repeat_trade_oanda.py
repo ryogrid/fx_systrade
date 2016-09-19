@@ -15,6 +15,7 @@ all_trap_num = 500
 positions_all = 0
 portfolio = 0
 MARGIN_RATE = 0.04
+SLIPAGE = 0.01
 
 logger = getLogger(__name__)
 _fhandler = FileHandler("./log/trap_repeat_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".log",'w')
@@ -150,8 +151,8 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, s
             
     #if no position, open it
     for idx in xrange(len(traps)):
-        if (price_close >= traps[idx][0] \
-            and price_close < (traps[idx][0] + step)) \
+        if (price_close >= traps[idx][0] + SLIPAGE \
+            and price_close < (traps[idx][0] + step - SLIPAGE)) \
             and traps[idx][1] == False \
             and positions <= pos_limit:
             if up_or_down == UP:
