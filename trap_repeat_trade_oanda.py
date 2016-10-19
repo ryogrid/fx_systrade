@@ -7,16 +7,16 @@ import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
 POSITION_UNITS = 60
-WON_PIPS = 0.2
+WON_PIPS = 0.5
 
 UP = 1
 DOWN = 2
-all_trap_num = 250
+all_trap_num = 175
 positions_all = 0
 portfolio = 0
 MARGIN_RATE = 0.04
 SLIPAGE = 0.01
-NOKOSU_YOJO = 2000
+NOKOSU_YOJO = 20000
 
 logger = getLogger(__name__)
 _fhandler = FileHandler("./log/trap_repeat_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".log",'w')
@@ -183,10 +183,10 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, s
 main
 """
 start1=95
-end1=115
+end1=110
 step1=0.2
 
-start2=100
+start2=105
 end2=120
 step2=0.2
 
@@ -194,7 +194,7 @@ start3=30
 end3=50
 step3=0.05
 
-start4=60
+start4=65
 end4=80
 step4=0.1
 
