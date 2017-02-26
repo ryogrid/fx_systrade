@@ -406,7 +406,7 @@ def eval_fitness(genomes):
             
         
         # evaluate the fitness
-        g.fitness = float(correct_cnt) / float(train_len)
+        g.fitness = float(correct_cnt) / float(train_len*2)
         print(g.fitness)
            
 """
