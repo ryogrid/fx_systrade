@@ -344,9 +344,30 @@ def trade(period_start, period_end, input_arr, exchange_rates, exchange_dates, n
         vorarity = get_vorarity(exchange_rates, current_spot)
         if vorarity >= 0.07:
             skip_flag = True
+
+        ts_input_mat = []
+        ts_input_mat.append(
+            [exchange_rates[current_spot],
+             (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
+             get_rsi(exchange_rates, current_spot),
+             get_ma(exchange_rates, current_spot),
+             get_ma_kairi(exchange_rates, current_spot),
+             get_bb_1(exchange_rates, current_spot),
+             get_bb_2(exchange_rates, current_spot),
+             get_ema(exchange_rates, current_spot),
+             get_ema_rsi(exchange_rates, current_spot),
+             get_cci(exchange_rates, current_spot),
+             get_mo(exchange_rates, current_spot),
+             get_lw(exchange_rates, current_spot),
+             get_ss(exchange_rates, current_spot),
+             get_dmi(exchange_rates, current_spot),
+             vorarity,
+             get_macd(exchange_rates, current_spot),
+             chart_type
+         ])
         
         # prediction    
-        output = nn.serial_activate(input_arr[current_spot])
+        output = nn.serial_activate(ts_input_mat[0])
         output = np.clip(output, 0, 1)
 
         if pos_kind == NOT_HAVE and skip_flag == False:
@@ -376,7 +397,7 @@ def eval_fitness(genomes):
         net = nn.create_feed_forward_phenotype(g)
 
         correct_cnt = 0        
-        for ii in xrange(train_len):
+        for ii in xrange(train_len*2):
             # prediction    
             output = net.serial_activate(input_arr[ii])
             output = np.clip(output, 0, 1)
@@ -403,4 +424,4 @@ winner = pop.statistics.best_genome()
 del pop
 winningnet = nn.create_feed_forward_phenotype(winner)
 
-trade(train_len + OUTPUT_LEN, data_len - (train_len + OUTPUT_LEN), input_arr, exchange_rates, exchange_dates, winningnet, is_output=True)
+trade(train_len + OUTPUT_LEN, data_len - (train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
