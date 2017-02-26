@@ -198,7 +198,7 @@ def is_weekend(date_str):
     return (week == 5 or week == 6)
 
 def get_exchange_rates_dates():
-    rates_fd = open('./hoge.csv', 'r')
+    rates_fd = open('./hoge10000.csv', 'r')
 
     exchange_dates = []
     exchange_rates = []
@@ -227,8 +227,35 @@ def get_exchange_rates_dates():
                     
     return exchange_rates, exchange_dates
 
+def get_input_arr(exchange_rates):
+    tr_input_arr = []
+    all_len = len(exchange_rates)
+    for i in xrange(100, all_len):
+        tr_input_arr.append(
+            [exchange_rates[i],
+             (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
+             get_rsi(exchange_rates, i),
+             get_ma(exchange_rates, i),
+             get_ma_kairi(exchange_rates, i),
+             get_bb_1(exchange_rates, i),
+             get_bb_2(exchange_rates, i),
+             get_ema(exchange_rates, i),
+             get_ema_rsi(exchange_rates, i),
+             get_cci(exchange_rates, i),
+             get_mo(exchange_rates, i),
+             get_lw(exchange_rates, i),
+             get_ss(exchange_rates, i),
+             get_dmi(exchange_rates, i),
+             get_vorarity(exchange_rates, i),
+             get_macd(exchange_rates, i),
+             judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i])
+         ]
+        )
+
+    return tr_input_arr
+
 # returns last portfolio
-def trade(period_start, period_end, exchange_rates, exchange_dates, nn, is_output = False):
+def trade(period_start, period_end, input_arr, exchange_rates, exchange_dates, nn, is_output = False):
     portfolio = 1000000
     positions = 0
     trade_val = -1
@@ -289,30 +316,7 @@ def trade(period_start, period_end, exchange_rates, exchange_dates, nn, is_outpu
             skip_flag = True
         
         # prediction    
-        ts_input_mat = []
-        ts_input_mat.append(
-            [exchange_rates[current_spot],
-             (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
-             get_rsi(exchange_rates, current_spot),
-             get_ma(exchange_rates, current_spot),
-             get_ma_kairi(exchange_rates, current_spot),
-             get_bb_1(exchange_rates, current_spot),
-             get_bb_2(exchange_rates, current_spot),
-             get_ema(exchange_rates, current_spot),
-             get_ema_rsi(exchange_rates, current_spot),
-             get_cci(exchange_rates, current_spot),
-             get_mo(exchange_rates, current_spot),
-             get_lw(exchange_rates, current_spot),
-             get_ss(exchange_rates, current_spot),
-             get_dmi(exchange_rates, current_spot),
-             vorarity,
-             get_macd(exchange_rates, current_spot),
-             chart_type
-         ]        
-        )
-
-        # active neurons
-        output = nn.serial_activate(ts_input_mat[0])
+        output = nn.serial_activate(input_arr[current_spot])
 
         if pos_kind == NOT_HAVE and skip_flag == False:
             if output >= 0.90 and chart_type == 2 :        
@@ -328,11 +332,7 @@ def trade(period_start, period_end, exchange_rates, exchange_dates, nn, is_outpu
 
 ########            
 exchange_rates, exchange_dates = get_exchange_rates_dates()
-train_rates = []
-# for elem in exchange_rates:
-#     train_rates.append(elem)
-# for elem in reverse_exchange_rates:
-#     train_rates.append(elem)
+input_arr = get_input_arr(exchange_rates)
     
 data_len = len(exchange_rates)
 train_len = len(exchange_rates)/TRAINDATA_DIV
@@ -341,11 +341,9 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 def eval_fitness(genomes):
     for g in genomes:
         net = nn.create_feed_forward_phenotype(g)
-        fitness = 0
-        reward = 0
 
         # evaluate the fitness
-        g.fitness = trade(100, train_len, exchange_rates, exchange_dates, net)
+        g.fitness = trade(100, train_len, input_arr, exchange_rates, exchange_dates, net)
         print(g.fitness)
            
 """
@@ -363,4 +361,4 @@ winner = pop.statistics.best_genome()
 del pop
 winningnet = nn.create_feed_forward_phenotype(winner)
 
-trade(100 + train_len + OUTPUT_LEN, data_len - (100 + train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
+trade(100 + train_len + OUTPUT_LEN, data_len - (100 + train_len + OUTPUT_LEN), input_arr, exchange_rates, exchange_dates, winningnet, is_output=True)
