@@ -12,7 +12,7 @@ from neat import nn, population, statistics
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 100
+TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
 LONG = 1
@@ -198,7 +198,7 @@ def is_weekend(date_str):
     return (week == 5 or week == 6)
 
 def get_exchange_rates_dates():
-    rates_fd = open('./hoge10000.csv', 'r')
+    rates_fd = open('./hoge.csv', 'r')
 
     exchange_dates = []
     exchange_rates = []
@@ -211,67 +211,21 @@ def get_exchange_rates_dates():
             exchange_dates.append(time)
             exchange_rates.append(val)
 
-            reverse_exchange_rates = []
-            prev_org = -1
-            prev = -1
-            for rate in exchange_rates:
-                if prev_org != -1:
-                    diff = rate - prev_org
-                    reverse_exchange_rates.append(prev - diff)
-                    prev_org = rate
-                    prev = prev - diff
-                else:
-                    reverse_exchange_rates.append(rate)
-                    prev_org = rate
-                    prev = rate
+            # reverse_exchange_rates = []
+            # prev_org = -1
+            # prev = -1
+            # for rate in exchange_rates:
+            #     if prev_org != -1:
+            #         diff = rate - prev_org
+            #         reverse_exchange_rates.append(prev - diff)
+            #         prev_org = rate
+            #         prev = prev - diff
+            #     else:
+            #         reverse_exchange_rates.append(rate)
+            #         prev_org = rate
+            #         prev = rate
                     
     return exchange_rates, exchange_dates
-
-def get_input_arr(length, exchange_rates):
-    tr_input_mat = []
-    for i in xrange(1000, train_len, OUTPUT_LEN):
-        tr_input_mat.append(
-            [exchange_rates[i],
-             (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
-             get_rsi(exchange_rates, i),
-             get_ma(exchange_rates, i),
-             get_ma_kairi(exchange_rates, i),
-             get_bb_1(exchange_rates, i),
-             get_bb_2(exchange_rates, i),
-             get_ema(exchange_rates, i),
-             get_ema_rsi(exchange_rates, i),
-             get_cci(exchange_rates, i),
-             get_mo(exchange_rates, i),
-             get_lw(exchange_rates, i),
-             get_ss(exchange_rates, i),
-             get_dmi(exchange_rates, i),
-             get_vorarity(exchange_rates, i),
-             get_macd(exchange_rates, i),
-             judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i])
-         ]
-            )
-        tr_input_mat.append(
-            [reverse_exchange_rates[i],
-             (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1])/reverse_exchange_rates[i - 1],
-             get_rsi(reverse_exchange_rates, i),
-             get_ma(reverse_exchange_rates, i),
-             get_ma_kairi(reverse_exchange_rates, i),
-             get_bb_1(reverse_exchange_rates, i),
-             get_bb_2(reverse_exchange_rates, i),
-             get_ema(reverse_exchange_rates, i),
-             get_ema_rsi(reverse_exchange_rates, i),
-             get_cci(reverse_exchange_rates, i),
-             get_mo(reverse_exchange_rates, i),
-             get_lw(reverse_exchange_rates, i),
-             get_ss(reverse_exchange_rates, i),
-             get_dmi(reverse_exchange_rates, i),
-             get_vorarity(reverse_exchange_rates, i),
-             get_macd(reverse_exchange_rates, i),
-             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])             
-         ]
-            )        
-        
-    return tr_input_mat
 
 # returns last portfolio
 def trade(period_start, period_end, exchange_rates, exchange_dates, nn, is_output = False):
@@ -335,43 +289,51 @@ def trade(period_start, period_end, exchange_rates, exchange_dates, nn, is_outpu
             skip_flag = True
         
         # prediction    
-    ts_input_mat = []
-    ts_input_mat.append(
-        [exchange_rates[current_spot],
-         (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
-         get_rsi(exchange_rates, current_spot),
-         get_ma(exchange_rates, current_spot),
-         get_ma_kairi(exchange_rates, current_spot),
-         get_bb_1(exchange_rates, current_spot),
-         get_bb_2(exchange_rates, current_spot),
-         get_ema(exchange_rates, current_spot),
-         get_ema_rsi(exchange_rates, current_spot),
-         get_cci(exchange_rates, current_spot),
-         get_mo(exchange_rates, current_spot),
-         get_lw(exchange_rates, current_spot),
-         get_ss(exchange_rates, current_spot),
-         get_dmi(exchange_rates, current_spot),
-         vorarity,
-         get_macd(exchange_rates, current_spot),
-         chart_type
-     ]        
-    )
+        ts_input_mat = []
+        ts_input_mat.append(
+            [exchange_rates[current_spot],
+             (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
+             get_rsi(exchange_rates, current_spot),
+             get_ma(exchange_rates, current_spot),
+             get_ma_kairi(exchange_rates, current_spot),
+             get_bb_1(exchange_rates, current_spot),
+             get_bb_2(exchange_rates, current_spot),
+             get_ema(exchange_rates, current_spot),
+             get_ema_rsi(exchange_rates, current_spot),
+             get_cci(exchange_rates, current_spot),
+             get_mo(exchange_rates, current_spot),
+             get_lw(exchange_rates, current_spot),
+             get_ss(exchange_rates, current_spot),
+             get_dmi(exchange_rates, current_spot),
+             vorarity,
+             get_macd(exchange_rates, current_spot),
+             chart_type
+         ]        
+        )
 
-    # active neurons
-    output = nn.serial_activate(ts_input_mat[0])
+        # active neurons
+        output = nn.serial_activate(ts_input_mat[0])
 
-    if pos_kind == NOT_HAVE and skip_flag == False:
-        if predicted_prob >= 0.90 and chart_type == 2 :        
-            pos_kind = LONG
-            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
-            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob <= 0.1 and chart_type == 1:           
-            pos_kind = SHORT
-            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
-            trade_val = exchange_rates[current_spot] - HALF_SPREAD           
+        if pos_kind == NOT_HAVE and skip_flag == False:
+            if output >= 0.90 and chart_type == 2 :        
+                pos_kind = LONG
+                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
+                trade_val = exchange_rates[current_spot] + HALF_SPREAD
+            elif output <= 0.1 and chart_type == 1:           
+                pos_kind = SHORT
+                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+                trade_val = exchange_rates[current_spot] - HALF_SPREAD
+
+    return portfolio
 
 ########            
-exchange_rates, exchange_dates = get_exchange_rates_dates()           
+exchange_rates, exchange_dates = get_exchange_rates_dates()
+train_rates = []
+# for elem in exchange_rates:
+#     train_rates.append(elem)
+# for elem in reverse_exchange_rates:
+#     train_rates.append(elem)
+    
 data_len = len(exchange_rates)
 train_len = len(exchange_rates)/TRAINDATA_DIV
 #######
@@ -383,7 +345,7 @@ def eval_fitness(genomes):
         reward = 0
 
         # evaluate the fitness
-        g.fitness = trade(0, train_len, exchange_rates, exchange_dates, net)
+        g.fitness = trade(100, train_len, exchange_rates, exchange_dates, net)
         print(g.fitness)
            
 """
@@ -401,4 +363,4 @@ winner = pop.statistics.best_genome()
 del pop
 winningnet = nn.create_feed_forward_phenotype(winner)
 
-trade(train_len + OUTPUT_LEN, data_len - (train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
+trade(100 + train_len + OUTPUT_LEN, data_len - (100 + train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
