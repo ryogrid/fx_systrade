@@ -6,15 +6,17 @@ from time import sleep
 import oanda_acount_info
 from logging import getLogger,FileHandler,DEBUG,INFO
 
-POSITION_UNITS = 700
-WON_PIPS = 0.2
+POSITION_UNITS = 60
+WON_PIPS = 0.5
 
 UP = 1
 DOWN = 2
-all_trap_num = 0
+all_trap_num = 175
 positions_all = 0
 portfolio = 0
 MARGIN_RATE = 0.04
+SLIPAGE = 0.01
+NOKOSU_YOJO = 20000
 
 logger = getLogger(__name__)
 _fhandler = FileHandler("./log/trap_repeat_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".log",'w')
@@ -39,26 +41,26 @@ def get_tuned_percent(start, end, cur_price, up_or_down):
     return ret
 
 def get_baseline_lots(portfolio, cur_price, currency_str):
-    currency_zoom = 1.0
-    if currency_str == "USD_JPY":
-        currency_zoom = 1.0
-    elif currency_str == "EUR_JPY":
-        currency_zoom = 1.0
-    elif currency_str == "TRY_JPY":
-        currency_zoom = 3.0
-    elif currency_str == "NZD_JPY":
-        currency_zoom = 2.0
-    elif  currency_str == "AUD_JPY":
-        currency_zoom = 2.0
+    # currency_zoom = 1.0
+    # if currency_str == "USD_JPY":
+    #     currency_zoom = 1.0
+    # elif currency_str == "EUR_JPY":
+    #     currency_zoom = 1.0
+    # elif currency_str == "TRY_JPY":
+    #     currency_zoom = 3.0
+    # elif currency_str == "NZD_JPY":
+    #     currency_zoom = 2.0
+    # elif  currency_str == "AUD_JPY":
+    #     currency_zoom = 2.0
         
-    return int(currency_zoom * POSITION_UNITS)
+    # return int(currency_zoom * POSITION_UNITS)
 
-    # buyable_pos = (portfolio / MARGIN_RATE) * 0.8
-    # left_traps = all_trap_num - positions_all
+    buyable_pos = ((portfolio - NOKOSU_YOJO)/ MARGIN_RATE)
+    left_traps = all_trap_num - positions_all
 
-    # ret = int((buyable_pos / left_traps) / cur_price)
+    ret = int((buyable_pos / left_traps) / cur_price)
 
-    # return ret
+    return ret
     
 def get_price_bid(currency_str):
 
@@ -150,8 +152,8 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, s
             
     #if no position, open it
     for idx in xrange(len(traps)):
-        if (price_close >= traps[idx][0] \
-            and price_close < (traps[idx][0] + step)) \
+        if (price_close >= traps[idx][0] + SLIPAGE \
+            and price_close < (traps[idx][0] + step - SLIPAGE)) \
             and traps[idx][1] == False \
             and positions <= pos_limit:
             if up_or_down == UP:
@@ -181,10 +183,10 @@ def do_trade(currency_str, traps, up_or_down, pos_limit, step, server_pos_num, s
 main
 """
 start1=95
-end1=115
+end1=110
 step1=0.2
 
-start2=100
+start2=105
 end2=120
 step2=0.2
 
@@ -192,7 +194,7 @@ start3=30
 end3=50
 step3=0.05
 
-start4=60
+start4=65
 end4=80
 step4=0.1
 
@@ -216,19 +218,19 @@ while 1:
 
     traps1 = make_trap(start1, end1, step1)
     pos_num = fill_trap(traps1, "USD_JPY", start1, end1, step1, pos_list_resp)
-    positions1 = do_trade("USD_JPY", traps1, DOWN, 12, step1, pos_num, start1, end1)
+    positions1 = do_trade("USD_JPY", traps1, DOWN, 50, step1, pos_num, start1, end1)
 
     traps2 = make_trap(start2, end2, step2)
     pos_num = fill_trap(traps2, "EUR_JPY", start2, end2, step2, pos_list_resp)
-    positions2 = do_trade("EUR_JPY", traps2, DOWN, 12, step2, pos_num, start2, end2)
+    positions2 = do_trade("EUR_JPY", traps2, DOWN, 50, step2, pos_num, start2, end2)
 
     traps3 = make_trap(start3, end3, step3)
     pos_num = fill_trap(traps3, "TRY_JPY", start3, end3, step3, pos_list_resp)    
-    positions3 = do_trade("TRY_JPY", traps3, UP, 12, step3, pos_num, start3, end3)
+    positions3 = do_trade("TRY_JPY", traps3, UP, 50, step3, pos_num, start3, end3)
 
     traps4 = make_trap(start4, end4, step4)    
     pos_num = fill_trap(traps4, "NZD_JPY", start4, end4, step4, pos_list_resp)    
-    positions4 = do_trade("NZD_JPY", traps4, UP, 12, step4, pos_num, start4, end4)
+    positions4 = do_trade("NZD_JPY", traps4, UP, 50, step4, pos_num, start4, end4)
 
     traps5 = make_trap(start5, end5, step5)
     pos_num = fill_trap(traps5, "AUD_JPY", start5, end5, step5, pos_list_resp)
