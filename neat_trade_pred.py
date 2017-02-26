@@ -10,6 +10,8 @@ import itertools
 import os
 from neat import nn, population, statistics
 
+import pickle
+
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
@@ -425,3 +427,6 @@ del pop
 winningnet = nn.create_feed_forward_phenotype(winner)
 
 trade(train_len + OUTPUT_LEN, data_len - (train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
+
+with open('neat_net.bin', mode='wb') as f:
+    pickle.dump(winningnet, f)
