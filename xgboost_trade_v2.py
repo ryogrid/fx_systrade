@@ -208,10 +208,6 @@ def is_weekend(date_str):
 main
 """
 rates_fd = open('./hoge.csv', 'r')
-#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
-#rates_fd = open('./EURJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv', 'r')
-#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2008.01.01_2012.01.01.csv', 'r')
-#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2009.01.01_2011.01.01.csv', 'r')
 
 exchange_dates = []
 exchange_rates = []
@@ -244,11 +240,11 @@ train_len = len(exchange_rates)/TRAINDATA_DIV
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
+if True:
     bst = xgb.Booster({'nthread':4})
     bst.load_model("./hoge.model") 
 
-if True: ### training start
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
@@ -332,7 +328,8 @@ NOT_HAVE = 3
 pos_kind = NOT_HAVE
 HALF_SPREAD = 0.0015
 SONKIRI_RATE = 0.05
-RIKAKU_PIPS = 0.60
+COOL_DOWN_RATE = 0.005
+COOL_DOWN_PERIOD = 12 * 6 # cool down 6h
 
 positions = 0
 
@@ -340,24 +337,13 @@ trade_val = -1
 
 pos_cont_count = 0
 won_pips = 0
+loscat_skip = 0
 for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
-
-    # #rikaku
-    # if pos_kind != NOT_HAVE:
-    #     if pos_kind == LONG:
-    #         got_pips = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
-    #         cur_portfo = portfolio + (positions * (exchange_rates[current_spot] - HALF_SPREAD) - positions * trade_val)
-    #     elif pos_kind == SHORT:
-    #         got_pips = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
-    #         cur_portfoo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
-    #     if got_pips >= RIKAKU_PIPS:
-    #         portfolio = cur_portfo
-    #         pos_kind = NOT_HAVE
-    #         won_pips += got_pips
-    #         print exchange_dates[current_spot] + " rikaku " + str(got_pips)
-    #         continue    
+    if loscat_skip > 0:
+        loscat_skip -= 1
+        continue
 
     if pos_kind != NOT_HAVE:
         if pos_kind == LONG:
@@ -370,7 +356,8 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
             won_pips += diff
-            print(str(diff) + "pips " + str(won_pips) + "pips")
+            print("loscat:" + str(diff) + "pips " + str(won_pips) + "pips")
+            loscat_skip = COOL_DOWN_PERIOD
             continue
         
     # chart_type = 0
@@ -381,45 +368,44 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
             # if liner trend keep position
             continue
         
-        
-    # print "state1 " + str(pos_kind)    
     if pos_kind != NOT_HAVE:
-        # print "pos_cont_count " + str(pos_cont_count)
         if pos_cont_count >= (OUTPUT_LEN-1):
             if pos_kind == LONG:
                 pos_kind = NOT_HAVE
-                portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+                cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
                 diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
                 won_pips += diff
                 print(str(diff) + "pips " + str(won_pips) + "pips")                
                 print exchange_dates[current_spot] + " " + str(portfolio)
+                if (cur_portfo - portfolio)/float(portfolio) < -1*COOL_DOWN_RATE:
+                    loscat_skip = COOL_DOWN_PERIOD
+                    print("start cool down")
+                portfolio = cur_portfo
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
-                portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                cur_portfo = portfolio + positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
                 diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)                
                 won_pips += diff
                 print(str(diff) + "pips " + str(won_pips) + "pips")                                
                 print exchange_dates[current_spot] + " " + str(portfolio)
+                if (cur_portfo - portfolio)/float(portfolio) < -1*COOL_DOWN_RATE:
+                    loscat_skip = COOL_DOWN_PERIOD
+                    print("start cool down")
+                portfolio = cur_portfo                    
             pos_cont_count = 0
         else:
             pos_cont_count += 1
         continue
 
-#    print("hoge")
-    # try trade in only linear chart case
-
-#     vorarity = 0
     vorarity = get_vorarity(exchange_rates, current_spot)
     if vorarity >= 0.07:
         skip_flag = True
-#    print("vorarity: " + str(vorarity))
     
     # prediction    
     ts_input_mat = []
     ts_input_mat.append(
        [exchange_rates[current_spot],
         (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
-#        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
         get_rsi(exchange_rates, current_spot),
         get_ma(exchange_rates, current_spot),
         get_ma_kairi(exchange_rates, current_spot),
@@ -429,7 +415,6 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         get_ema_rsi(exchange_rates, current_spot),
         get_cci(exchange_rates, current_spot),
         get_mo(exchange_rates, current_spot),
-#        get_po(exchange_rates, current_spot),
         get_lw(exchange_rates, current_spot),
         get_ss(exchange_rates, current_spot),
         get_dmi(exchange_rates, current_spot),
@@ -438,7 +423,6 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         chart_type
     ]        
     )
-#    print("vorarity: " + str(get_vorarity(exchange_rates, current_spot)))
 
     ts_input_arr = np.array(ts_input_mat)
     dtest = xgb.DMatrix(ts_input_arr)
@@ -447,17 +431,12 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 
     predicted_prob = pred[0]
 
-    # print "state2 " + str(pos_kind)
-    # print "predicted_prob " + str(predicted_prob)
-    # print "skip_flag:" + str(skip_flag)
     if pos_kind == NOT_HAVE and skip_flag == False:
         if predicted_prob >= 0.90 and chart_type == 2 :        
-#        if predicted_prob >= 0.90 and predicted_prob <= 0.95 and chart_type == 2 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
         elif predicted_prob <= 0.1 and chart_type == 1:           
-#        elif predicted_prob <= 0.1 and predicted_prob >=0.05 and chart_type == 1:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
