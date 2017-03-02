@@ -198,7 +198,7 @@ def is_weekend(date_str):
     return (week == 5 or week == 6)
 
 def get_exchange_rates_dates():
-    rates_fd = open('./hoge10000.csv', 'r')
+    rates_fd = open('./hoge.csv', 'r')
 
     exchange_dates = []
     exchange_rates = []
@@ -211,19 +211,19 @@ def get_exchange_rates_dates():
             exchange_dates.append(time)
             exchange_rates.append(val)
 
-            reverse_exchange_rates = []
-            prev_org = -1
-            prev = -1
-            for rate in exchange_rates:
-                if prev_org != -1:
-                    diff = rate - prev_org
-                    reverse_exchange_rates.append(prev - diff)
-                    prev_org = rate
-                    prev = prev - diff
-                else:
-                    reverse_exchange_rates.append(rate)
-                    prev_org = rate
-                    prev = rate
+    reverse_exchange_rates = []
+    prev_org = -1
+    prev = -1
+    for rate in exchange_rates:
+        if prev_org != -1:
+            diff = rate - prev_org
+            reverse_exchange_rates.append(prev - diff)
+            prev_org = rate
+            prev = prev - diff
+        else:
+            reverse_exchange_rates.append(rate)
+            prev_org = rate
+            prev = rate
                     
     return exchange_rates, reverse_exchange_rates, exchange_dates
 
@@ -287,7 +287,7 @@ def get_input_output_arr(exchange_rates, reverse_exchange_rates):
     return tr_input_mat, tr_angle_mat
 
 # returns last portfolio
-def trade(period_start, period_end, input_arr, exchange_rates, exchange_dates, nn, is_output = False):
+def trade(period_start, period_end, exchange_rates, exchange_dates, nn, is_output = False):
     portfolio = 1000000
     positions = 0
     trade_val = -1
@@ -399,7 +399,7 @@ def eval_fitness(genomes):
         net = nn.create_feed_forward_phenotype(g)
 
         correct_cnt = 0        
-        for ii in xrange(train_len*2):
+        for ii in xrange(int(train_len*2/OUTPUT_LEN)):
             # prediction    
             output = net.serial_activate(input_arr[ii])
             output = np.clip(output, 0, 1)
@@ -408,7 +408,7 @@ def eval_fitness(genomes):
             
         
         # evaluate the fitness
-        g.fitness = float(correct_cnt) / float(train_len*2)
+        g.fitness = float(correct_cnt) / int(train_len*2/OUTPUT_LEN)
         print(g.fitness)
            
 """
@@ -426,7 +426,9 @@ winner = pop.statistics.best_genome()
 del pop
 winningnet = nn.create_feed_forward_phenotype(winner)
 
-trade(train_len + OUTPUT_LEN, data_len - (train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
-
 with open('neat_net.bin', mode='wb') as f:
     pickle.dump(winningnet, f)
+    
+trade(train_len + OUTPUT_LEN, data_len - (train_len + OUTPUT_LEN), exchange_rates, exchange_dates, winningnet, is_output=True)
+
+
