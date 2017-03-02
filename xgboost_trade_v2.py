@@ -6,12 +6,41 @@ import pickle
 import talib as ta
 from datetime import datetime as dt
 import pytz
+import Queue
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
+class ResultRate():
+    Q_LEN = 10
+    LOSE_THRESH = -1 # count -3
+    q = Queue.Queue(Q_LEN)
+    sum_pips = 0
+
+    def __init__(self):
+        for ii in xrange(self.Q_LEN):
+            self.q.put(0)
+    
+    def is_tradable(self):
+        if self.sum_pips < self.LOSE_THRESH:
+            print("not tradable")
+            return False
+        else:
+            return True
+
+    def add_new_val(self, val):
+        if val >= 0:
+            result = 1
+        else:
+            result = -1
+        
+        old_val = self.q.get()
+        self.q.put(result)
+        self.sum_pips -= old_val
+        self.sum_pips += result
+        
 def merge_csv(out_fname, input_files):
     frslt = open('./hoge.csv', 'w')        
     frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
@@ -328,8 +357,6 @@ NOT_HAVE = 3
 pos_kind = NOT_HAVE
 HALF_SPREAD = 0.0015
 SONKIRI_RATE = 0.05
-COOL_DOWN_RATE = 0.005
-COOL_DOWN_PERIOD = 12 * 6 # cool down 6h
 
 positions = 0
 
@@ -337,13 +364,10 @@ trade_val = -1
 
 pos_cont_count = 0
 won_pips = 0
-loscat_skip = 0
+q = ResultRate()
 for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
-    if loscat_skip > 0:
-        loscat_skip -= 1
-        continue
 
     if pos_kind != NOT_HAVE:
         if pos_kind == LONG:
@@ -353,11 +377,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
             cur_portfo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
             diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
         if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
+            q.add_new_val(diff)
             portfolio = cur_portfo
             pos_kind = NOT_HAVE
             won_pips += diff
-            print("loscat:" + str(diff) + "pips " + str(won_pips) + "pips")
-            loscat_skip = COOL_DOWN_PERIOD
+            print("loscat:" + str(diff*100) + "pips " + str(won_pips*100) + "pips")
             continue
         
     # chart_type = 0
@@ -375,23 +399,18 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
                 cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
                 diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
                 won_pips += diff
-                print(str(diff) + "pips " + str(won_pips) + "pips")                
+                print(str(diff*100) + "pips " + str(won_pips*100) + "pips")                
                 print exchange_dates[current_spot] + " " + str(portfolio)
-                if (cur_portfo - portfolio)/float(portfolio) < -1*COOL_DOWN_RATE:
-                    loscat_skip = COOL_DOWN_PERIOD
-                    print("start cool down")
                 portfolio = cur_portfo
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
                 cur_portfo = portfolio + positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
                 diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)                
                 won_pips += diff
-                print(str(diff) + "pips " + str(won_pips) + "pips")                                
+                print(str(diff*100) + "pips " + str(won_pips*100) + "pips")                                
                 print exchange_dates[current_spot] + " " + str(portfolio)
-                if (cur_portfo - portfolio)/float(portfolio) < -1*COOL_DOWN_RATE:
-                    loscat_skip = COOL_DOWN_PERIOD
-                    print("start cool down")
-                portfolio = cur_portfo                    
+                portfolio = cur_portfo
+            q.add_new_val(diff)                
             pos_cont_count = 0
         else:
             pos_cont_count += 1
@@ -432,11 +451,17 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     predicted_prob = pred[0]
 
     if pos_kind == NOT_HAVE and skip_flag == False:
-        if predicted_prob >= 0.90 and chart_type == 2 :        
-           pos_kind = LONG
-           positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
-           trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob <= 0.1 and chart_type == 1:           
-           pos_kind = SHORT
-           positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
-           trade_val = exchange_rates[current_spot] - HALF_SPREAD
+        if predicted_prob >= 0.90 and chart_type == 2:
+            if q.is_tradable() == False:
+                q.add_new_val(1)
+                continue
+            pos_kind = LONG
+            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
+            trade_val = exchange_rates[current_spot] + HALF_SPREAD
+        elif predicted_prob <= 0.1 and chart_type == 1:
+            if q.is_tradable() == False:
+                q.add_new_val(1)
+                continue            
+            pos_kind = SHORT
+            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+            trade_val = exchange_rates[current_spot] - HALF_SPREAD
