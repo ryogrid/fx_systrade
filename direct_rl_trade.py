@@ -7,7 +7,7 @@ import talib as ta
 from datetime import datetime as dt
 import pytz
 
-OUTPUT_LEN = 12 * 2 # 2h
+OUTPUT_LEN = 12 * 6 # 2h
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 HALF_SPREAD = 0.0015
@@ -271,12 +271,12 @@ if True: ### training start
             )        
 
         tmp = (exchange_rates[i+OUTPUT_LEN] + HALF_SPREAD) - exchange_rates[i] - HALF_SPREAD
-        if tmp >= 0:
+        if tmp >= 0.05:
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
         tmp = (reverse_exchange_rates[i+OUTPUT_LEN] + HALF_SPREAD) - reverse_exchange_rates[i] - HALF_SPREAD
-        if tmp >= 0:
+        if tmp >= 0.05:
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
@@ -345,7 +345,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         get_dmi(exchange_rates, current_spot),
         get_vorarity(exchange_rates, current_spot),
         get_macd(exchange_rates, current_spot),
-        judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:current_spot])
+        judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
     ]        
     )
 
