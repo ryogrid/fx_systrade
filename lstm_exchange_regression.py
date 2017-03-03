@@ -6,7 +6,7 @@ num_of_input_nodes = 1
 num_of_hidden_nodes = 80
 num_of_output_nodes = 1
 length_of_sequences = 10
-num_of_training_epochs = 5000
+num_of_training_epochs = 10000
 size_of_mini_batch = 100
 num_of_prediction_epochs = 100
 learning_rate = 0.01
@@ -30,10 +30,10 @@ def get_batch(batch_size, X, t):
 
 def create_data(nb_of_samples, sequence_len):
     X = np.zeros((nb_of_samples, sequence_len))
-    t = np.zeros((nb_of_samples, 1))
+    t = np.zeros((nb_of_samples))
     for row_idx in range(nb_of_samples):
         X[row_idx, :] = exchange_rates[row_idx:row_idx+sequence_len]
-        t[row_idx, :] = exchange_rates[row_idx+sequence_len+1]
+        t[row_idx] = exchange_rates[row_idx+sequence_len+1]
 
     # X = np.zeros((nb_of_samples, sequence_len))
     # for row_idx in range(nb_of_samples):
@@ -101,13 +101,13 @@ def calc_accuracy(output_op, prints=False):
     def print_result(i, p, q):
         for x in i:
             print(list(x)[0]) 
-        print("output: %f, correct: %d" % (p, q))
+        print("output: %f, correct: %f" % (p, q))
     if prints:
         [print_result(i, p, q) for i, p, q in zip(inputs, output[0], ts)]
 
     opt = abs(output - ts)[0]
-    total = sum([1 if x[0] < 0.05 else 0 for x in opt])
-    print("accuracy %f" % (total / float(len(ts))))
+    total = sum([x[0] for x in opt])
+    print("diff %f" % (total / float(len(ts))))
     return output
 
 random.seed(0)
