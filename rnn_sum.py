@@ -49,19 +49,19 @@ def inference(input_ph, istate_ph):
         in1 = tf.transpose(input_ph, [1, 0, 2])
         in2 = tf.reshape(in1, [-1, num_of_input_nodes])
         in3 = tf.matmul(in2, weight1_var) + bias1_var
-        in4 = tf.split(0, length_of_sequences, in3)
+        in4 = tf.split(in3, length_of_sequences)
 
-        cell = tf.nn.rnn_cell.BasicLSTMCell(
+        cell = tf.contrib.rnn.BasicLSTMCell(
             num_of_hidden_nodes, forget_bias=forget_bias, state_is_tuple=False)
-        rnn_output, states_op = tf.nn.rnn(cell, in4, initial_state=istate_ph)
+        rnn_output, states_op = tf.contrib.rnn.static_rnn(cell, in4, initial_state=istate_ph)
         output_op = tf.matmul(rnn_output[-1], weight2_var) + bias2_var
 
         # Add summary ops to collect data
-        w1_hist = tf.histogram_summary("weights1", weight1_var)
-        w2_hist = tf.histogram_summary("weights2", weight2_var)
-        b1_hist = tf.histogram_summary("biases1", bias1_var)
-        b2_hist = tf.histogram_summary("biases2", bias2_var)
-        output_hist = tf.histogram_summary("output",  output_op)
+        w1_hist = tf.summary.histogram("weights1", weight1_var)
+        w2_hist = tf.summary.histogram("weights2", weight2_var)
+        b1_hist = tf.summary.histogram("biases1", bias1_var)
+        b2_hist = tf.summary.histogram("biases2", bias2_var)
+        output_hist = tf.summary.histogram("output",  output_op)
         results = [weight1_var, weight2_var, bias1_var,  bias2_var]
         return output_op, states_op, results
 
@@ -70,7 +70,7 @@ def loss(output_op, supervisor_ph):
     with tf.name_scope("loss") as scope:
         square_error = tf.reduce_mean(tf.square(output_op - supervisor_ph))
         loss_op = square_error
-        tf.scalar_summary("loss", loss_op)
+        tf.summary.scalar("loss", loss_op)
         return loss_op
 
 
@@ -90,7 +90,8 @@ def calc_accuracy(output_op, prints=False):
     output = sess.run([output_op], feed_dict=pred_dict)
 
     def print_result(i, p, q):
-        [print(list(x)[0]) for x in i]
+        for x in i:
+            print(list(x)[0]) 
         print("output: %f, correct: %d" % (p, q))
     if prints:
         [print_result(i, p, q) for i, p, q in zip(inputs, output[0], ts)]
@@ -117,12 +118,12 @@ with tf.Graph().as_default():
     loss_op = loss(output_op, supervisor_ph)
     training_op = training(loss_op)
 
-    summary_op = tf.merge_all_summaries()
+    summary_op = tf.summary.merge_all()
     init = tf.initialize_all_variables()
 
     with tf.Session() as sess:
         saver = tf.train.Saver()
-        summary_writer = tf.train.SummaryWriter("/tmp/tensorflow_log", graph=sess.graph)
+        summary_writer = tf.summary.FileWriter("/tmp/tensorflow_log", graph=sess.graph)
         sess.run(init)
 
         for epoch in range(num_of_training_epochs):
