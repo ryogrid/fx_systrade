@@ -15,7 +15,7 @@ import chainer.functions  as F
 
 mod = np
 n_epoch   = 20 # # 39   # number of epochs
-n_units   = 200 # 650  # number of units per layer
+n_units   = 64 # 650  # number of units per layer
 batchsize = 20   # minibatch size
 bprop_len = 35   # length of truncated BPTT
 grad_clip = 5    # gradient norm threshold to clip
