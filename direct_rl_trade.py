@@ -7,7 +7,7 @@ import talib as ta
 from datetime import datetime as dt
 import pytz
 
-OUTPUT_LEN = 5
+OUTPUT_LEN = 12 * 2 # 2h
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 HALF_SPREAD = 0.0015
