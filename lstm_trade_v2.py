@@ -1,242 +1,18 @@
 #!/usr/bin/python
 import numpy as np
 import scipy.sparse
-import xgboost as xgb
 import pickle
-import talib as ta
 from datetime import datetime as dt
-import pytz
-import Queue
 
-INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 2
-CHART_TYPE_JDG_LEN = 25
-
-class ResultRate():
-    Q_LEN = 10
-    LOSE_THRESH = -1 # count -3
-    q = Queue.Queue(Q_LEN)
-    sum_pips = 0
-
-    def __init__(self):
-        for ii in xrange(self.Q_LEN):
-            self.q.put(0)
-    
-    def is_tradable(self):
-        if self.sum_pips < self.LOSE_THRESH:
-            print("not tradable")
-            return False
-        else:
-            return True
-
-    def add_new_val(self, val):
-        if val >= 0:
-            result = 1
-        else:
-            result = -1
-        
-        old_val = self.q.get()
-        self.q.put(result)
-        self.sum_pips -= old_val
-        self.sum_pips += result
-        
-def merge_csv(out_fname, input_files):
-    frslt = open('./hoge.csv', 'w')        
-    frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
-
-    for iname in input_files:
-        fd = open(iname, 'r')
-        for trxline in fd:
-            splited = trxline.split(",")
-            if splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
-                time = splited[0].replace("/", "-") + " " + splited[1]
-                val = splited[2]
-
-                frslt.write(str(time) + "," + str(val) + "," + \
-                            str(val) + "," + str(val) + \
-                            "," + str(val) + ",1000000,"+ str(val) + "\n")
-
-    frslt.close()
-
-# 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
-def judge_chart_type(data_arr):
-    max_val = 0
-    min_val = float("inf")
-
-    last_idx = len(data_arr)-1
-    
-    for idx in xrange(len(data_arr)):
-        if data_arr[idx] > max_val:
-            max_val = data_arr[idx]
-            max_idx = idx
-
-        if data_arr[idx] < min_val:
-            min_val = data_arr[idx]
-            min_idx = idx
 
 
-    if max_val == min_val:
-        return 0
-    
-    if min_idx == 0 and max_idx == last_idx:
-        return 1
-
-    if max_idx == 0 and min_idx == last_idx:
-        return 2
-
-    if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
-        return 0
-    
-    if max_idx != 0 and max_idx != last_idx:
-        return 3
-
-    if min_idx != 0 and min_idx != last_idx:
-        return 4
-        
-    return 0
-
-def get_rsi(price_arr, cur_pos, period = 40):
-    if cur_pos <= period:
-#        s = 0
-        return 0
-    else:
-        s = cur_pos - (period + 1)
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.RSI(prices, timeperiod = period)[-1]
-
-def get_ma(price_arr, cur_pos, period = 20):
-    if cur_pos <= period:
-        s = 0
-    else:
-        s = cur_pos - period
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.SMA(prices, timeperiod = period)[-1]
-
-def get_ma_kairi(price_arr, cur_pos, period = None):
-    ma = get_ma(price_arr, cur_pos)
-    return ((price_arr[cur_pos] - ma) / ma) * 100.0
-    return 0
-
-def get_bb_1(price_arr, cur_pos, period = 40):
-    if cur_pos <= period:
-        s = 0
-    else:
-        s = cur_pos - period
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.BBANDS(prices, timeperiod = period)[0][-1]
-
-def get_bb_2(price_arr, cur_pos, period = 40):
-    if cur_pos <= period:
-        s = 0
-    else:
-        s = cur_pos - period
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.BBANDS(prices, timeperiod = period)[2][-1]
-
-def get_ema(price_arr, cur_pos, period = 20):
-    if cur_pos <= period:
-        s = 0
-    else:
-        s = cur_pos - period
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.EMA(prices, timeperiod = period)[-1]    
-
-
-def get_ema_rsi(price_arr, cur_pos, period = None):
-    return 0
-
-def get_cci(price_arr, cur_pos, period = None):
-    return 0
-
-def get_mo(price_arr, cur_pos, period = 20):
-    if cur_pos <= (period + 1):
-#        s = 0
-        return 0
-    else:
-        s = cur_pos - (period + 1)
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.CMO(prices, timeperiod = period)[-1]        
-
-def get_po(price_arr, cur_pos, period = 10):
-    if cur_pos <= period:
-        s = 0
-    else:
-        s = cur_pos - period
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    return ta.PPO(prices)[-1]
-
-def get_lw(price_arr, cur_pos, period = None):
-    return 0
-
-def get_ss(price_arr, cur_pos, period = None):
-    return 0
-
-def get_dmi(price_arr, cur_pos, period = None):
-    return 0
-
-def get_vorarity(price_arr, cur_pos, period = None):
-    tmp_arr = []
-    prev = -1
-    for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
-        if prev == -1:
-            tmp_arr.append(0)
-        else:
-            tmp_arr.append(val - prev)
-        prev = val
-        
-    return np.std(tmp_arr)
-
-def get_macd(price_arr, cur_pos, period = 100):
-    if cur_pos <= period:
-        s = 0
-    else:
-        s = cur_pos - period
-    tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
-    prices = np.array(tmp_arr, dtype=float)
-
-    macd, macdsignal, macdhist = ta.MACD(prices,fastperiod=12, slowperiod=26, signalperiod=9)
-    if macd[-1] > macdsignal[-1]:
-        return 1
-    else:
-        return 0
-
-def is_weekend(date_str):
-    tz = pytz.timezone('Asia/Tokyo')
-    dstr = date_str.replace(".","-")
-    tdatetime = dt.strptime(dstr, '%Y-%m-%d %H:%M:%S')
-    tz_time = tz.localize(tdatetime)
-    london_tz = pytz.timezone('Europe/London')
-    london_time = tz_time.astimezone(london_tz)
-    week = london_time.weekday()
-    return (week == 5 or week == 6)
 
 """
 main
 """
-rates_fd = open('./hoge7.csv', 'r')
+rates_fd = open('./hoge.csv', 'r')
 
 exchange_dates = []
 exchange_rates = []
@@ -249,29 +25,12 @@ for line in rates_fd:
         exchange_dates.append(time)
         exchange_rates.append(val)
 
-reverse_exchange_rates = []
-prev_org = -1
-prev = -1
-for rate in exchange_rates:
-    if prev_org != -1:
-        diff = rate - prev_org
-        reverse_exchange_rates.append(prev - diff)
-        prev_org = rate
-        prev = prev - diff
-    else:
-        reverse_exchange_rates.append(rate)
-        prev_org = rate
-        prev = rate
-
 data_len = len(exchange_rates)
 train_len = len(exchange_rates)/TRAINDATA_DIV
 
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
-    bst = xgb.Booster({'nthread':4})
-    bst.load_model("./hoge.model") 
 
 if True: ### training start
     tr_input_mat = []
