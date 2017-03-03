@@ -3,9 +3,9 @@ import numpy as np
 import random
 
 num_of_input_nodes = 1
-num_of_hidden_nodes = 80
+num_of_hidden_nodes = 128
 num_of_output_nodes = 1
-length_of_sequences = 10
+length_of_sequences = 30
 num_of_training_epochs = 10000
 size_of_mini_batch = 100
 num_of_prediction_epochs = 100
@@ -44,7 +44,7 @@ def create_data(nb_of_samples, sequence_len):
     return X, t
 
 def make_prediction(nb_of_samples):
-    sequence_len = 10
+    sequence_len = length_of_sequences
     xs, ts = create_data(nb_of_samples, sequence_len)
     return np.array([[[y] for y in x] for x in xs]), np.array([[x] for x in ts])
 
