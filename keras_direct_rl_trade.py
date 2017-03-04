@@ -120,7 +120,7 @@ if True: ### training start
     model.compile(loss='binary_crossentropy', optimizer="adam")
     
     print("Training model...")
-    model.fit(X, Y, nb_epoch=10000, batch_size=100, validation_split=0.15)
+    model.fit(X, Y, nb_epoch=2000, batch_size=100, validation_split=0.15)
 
     dump_fd = open("./keras_direct2.model", "w")
     model_json_str = model.to_json()
@@ -169,8 +169,8 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     ts_input_arr = np.array(ts_input_mat)
 
     X_test = np.array(ts_input_arr, dtype=np.float32)
-    # X_test, _ = preprocess_data(X_test, scaler)
-    X_test, _ = preprocess_data(X_test)    
+    X_test, _ = preprocess_data(X_test, scaler)
+    # X_test, _ = preprocess_data(X_test)
     
     proba = model.predict_proba(X_test, verbose=0)
 
