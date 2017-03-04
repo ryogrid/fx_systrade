@@ -3,15 +3,15 @@ import numpy as np
 import random
 
 num_of_input_nodes = 1
-num_of_hidden_nodes = 128
+num_of_hidden_nodes = 64
 num_of_output_nodes = 1
 length_of_sequences = 30
 num_of_training_epochs = 10000
 size_of_mini_batch = 100
-num_of_prediction_epochs = 100
+num_of_prediction_samples = 100
 learning_rate = 0.01
 forget_bias = 0.8
-num_of_sample = 1000
+num_of_sample = 10000
 
 rates_fd = open('./hoge.csv', 'r')
 exchange_rates = []
@@ -28,18 +28,17 @@ def get_batch(batch_size, X, t):
     ts = np.array([[t[r]] for r in rnum])
     return xs, ts
 
-def create_data(nb_of_samples, sequence_len):
+def create_data(nb_of_samples, sequence_len, start = 0):
     X = np.zeros((nb_of_samples, sequence_len))
     t = np.zeros((nb_of_samples))
     for row_idx in range(nb_of_samples):
-        X[row_idx, :] = exchange_rates[row_idx:row_idx+sequence_len]
-        t[row_idx] = exchange_rates[row_idx+sequence_len+1]
-
-    # X = np.zeros((nb_of_samples, sequence_len))
-    # for row_idx in range(nb_of_samples):
-    #     X[row_idx, :] = np.around(np.random.rand(sequence_len)).astype(int)
-    # # Create the targets for each sequence
-    # t = np.sum(X, axis=1)
+        pos = row_idx + start
+        X[pos, :] = exchange_rates[pos:pos+sequence_len]
+        diff = exchange_rates[pos+sequence_len+1] - exchange_rates[pos+sequence_len]
+        if diff > 0:
+            t[pos] = 1
+        else:
+            t[pos] = 0
     
     return X, t
 
@@ -76,7 +75,6 @@ def inference(input_ph, istate_ph):
         results = [weight1_var, weight2_var, bias1_var,  bias2_var]
         return output_op, states_op, results
 
-
 def loss(output_op, supervisor_ph):
     with tf.name_scope("loss") as scope:
         square_error = tf.reduce_mean(tf.square(output_op - supervisor_ph))
@@ -90,11 +88,11 @@ def training(loss_op):
         return training_op
 
 def calc_accuracy(output_op, prints=False):
-    inputs, ts = make_prediction(num_of_prediction_epochs)
+    inputs, ts = make_prediction(num_of_prediction_samples)
     pred_dict = {
         input_ph:  inputs,
         supervisor_ph: ts,
-        istate_ph:    np.zeros((num_of_prediction_epochs, num_of_hidden_nodes * 2)),
+        istate_ph:    np.zeros((num_of_prediction_samples, num_of_hidden_nodes * 2)),
     }
     output = sess.run([output_op], feed_dict=pred_dict)
 
@@ -105,9 +103,16 @@ def calc_accuracy(output_op, prints=False):
     if prints:
         [print_result(i, p, q) for i, p, q in zip(inputs, output[0], ts)]
 
-    opt = abs(output - ts)[0]
-    total = sum([x[0] for x in opt])
-    print("diff %f" % (total / float(len(ts))))
+    # opt = abs(output - ts)[0]
+    # total = sum([x[0] for x in opt])
+    total = 0
+    for ii in xrange(len(output)):
+        if output[0][ii] > 0.5 and ts[ii] == 1:
+            total += 1
+        if output[0][ii] <= 0.5 and ts[ii] == 0:
+            total += 1
+    
+    print("correct rate %f" % (total / float(len(ts))))
     return output
 
 random.seed(0)
