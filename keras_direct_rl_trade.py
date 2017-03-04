@@ -9,7 +9,7 @@ import talib as ta
 
 import pandas as pd
 
-from keras.models import Sequential
+from keras.models import Sequential, model_from_json
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import PReLU
@@ -21,6 +21,7 @@ from sklearn.preprocessing import StandardScaler
 INPUT_LEN = 12 # 1h
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
+HALF_SPREAD = 0.0015
 
 def preprocess_data(X, scaler=None):
     if not scaler:
@@ -64,8 +65,9 @@ print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
 if False:
-    dump_fd = open("./keras_direct.dump", "r")
+    dump_fd = open("./keras_direct2.model", "r")
     model = model_from_json(dump_fd.read())
+    model.load_weights("./keras_direct2.weight")
     
 if True: ### training start
     tr_input_mat = []
@@ -74,14 +76,18 @@ if True: ### training start
         tmp_arr = []
         cur_pos = 0
         for jj in xrange(INPUT_LEN):
-            tmp_arr.append(exchange_rates_diff[i-INPUT_LEN+jj])
+            tmp_arr.append(exchange_rates_diff[ii-INPUT_LEN+jj])
         tr_input_mat.append(tmp_arr)
 
-        long_case = (exchange_rates[(ii+OUTPUT_LEN] - HALF_SPREAD) - (exchange_rates[i] + HALF_SPREAD))
+        long_case = (exchange_rates[ii+OUTPUT_LEN] - HALF_SPREAD) - (exchange_rates[ii] + HALF_SPREAD)
+        short_case =  (exchange_rates[ii+OUTPUT_LEN] + HALF_SPREAD) - (exchange_rates[ii] - HALF_SPREAD)
         if long_case >= 0.1:
+            tr_angle_mat.append(0)
+        elif short_case <= -0.1:
             tr_angle_mat.append(1)
         else:
-            tr_angle_mat.append(0)
+            tr_angle_mat.append(2)
+            
         
     X = np.array(tr_input_mat, dtype=np.float32)
     Y = np.array(tr_angle_mat, dtype=np.float32)
@@ -91,7 +97,7 @@ if True: ### training start
 
     np.random.seed(1337) # for reproducibility
 
-    nb_classes = Y.shape[1]
+    nb_classes = 3
     print(nb_classes, 'classes')
 
     dims = X.shape[1]
@@ -116,10 +122,10 @@ if True: ### training start
     print("Training model...")
     model.fit(X, Y, nb_epoch=10000, batch_size=100, validation_split=0.15)
 
-    dump_fd = open("./keras_direct.model", "w")
+    dump_fd = open("./keras_direct2.model", "w")
     model_json_str = model.to_json()
     dump_fd.write(model_json_str)
-    model.save_weights("keras_direct.weight")
+    model.save_weights("keras_direct2.weight")
     
 ### training end
 
@@ -129,7 +135,7 @@ LONG = 1
 SHORT = 2
 NOT_HAVE = 3
 pos_kind = NOT_HAVE
-HALF_SPREAD = 0.0015
+
 
 positions = 0
 trade_val = -1
@@ -144,6 +150,10 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
                 pos_kind = NOT_HAVE
                 portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
                 print exchange_dates[current_spot] + " " + str(portfolio)
+            elif pos_kind == SHORT:
+                pos_kind = NOT_HAVE
+                portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                print exchange_dates[current_spot] + " " + str(portfolio)
             pos_cont_count = 0
         else:
             pos_cont_count += 1
@@ -151,14 +161,16 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 
     # prediction    
     ts_input_mat = []
+    tmp_arr = []
     for jj in xrange(INPUT_LEN):
             tmp_arr.append(exchange_rates_diff[current_spot-INPUT_LEN+jj])
-    tr_input_mat.append(tmp_arr)    
+    ts_input_mat.append(tmp_arr)    
 
     ts_input_arr = np.array(ts_input_mat)
 
     X_test = np.array(ts_input_arr, dtype=np.float32)
-    X_test, _ = preprocess_data(X_test, scaler)
+    # X_test, _ = preprocess_data(X_test, scaler)
+    X_test, _ = preprocess_data(X_test)    
     
     proba = model.predict_proba(X_test, verbose=0)
 
@@ -167,3 +179,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
+        elif proba[0][1] >= 0.9:
+           pos_kind = SHORT
+           positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+           trade_val = exchange_rates[current_spot] - HALF_SPREAD
