@@ -5,8 +5,8 @@ import random
 num_of_input_nodes = 1
 num_of_hidden_nodes = 64
 num_of_output_nodes = 1
-length_of_sequences = 30
-num_of_training_epochs = 10000
+length_of_sequences = 4
+num_of_training_epochs = 100000
 size_of_mini_batch = 100
 num_of_prediction_samples = 100
 learning_rate = 0.01
@@ -25,6 +25,19 @@ for line in rates_fd:
 def get_batch(batch_size, X, t):
     rnum = [random.randint(0, len(X) - 1) for x in range(batch_size)]
     xs = np.array([[[y] for y in list(X[r])] for r in rnum])
+    # tmp_arr = [[[y] for y in list(X[r])] for r in rnum]
+    # xs_arr = []
+    # for val in tmp_arr: #batch_size
+    #     max_val = 0
+    #     for elem in val:
+    #         if elem[0] > max_val:
+    #             max_val = elem[0]
+    #     elem_arr = []                
+    #     for elem in val:
+    #         elem_arr.append([elem[0]/float(max_val)])
+    #     xs_arr.append(elem_arr)
+    # xs = np.array(xs_arr)
+    # print(xs)
     ts = np.array([[t[r]] for r in rnum])
     return xs, ts
 
@@ -45,7 +58,9 @@ def create_data(nb_of_samples, sequence_len, start = 0):
 def make_prediction(nb_of_samples):
     sequence_len = length_of_sequences
     xs, ts = create_data(nb_of_samples, sequence_len)
-    return np.array([[[y] for y in x] for x in xs]), np.array([[x] for x in ts])
+    xs = np.array([[[y] for y in x] for x in xs]),
+    ts = np.array([[x] for x in ts])
+    return xs, ts
 
 def inference(input_ph, istate_ph):
     with tf.name_scope("inference") as scope:
@@ -89,6 +104,7 @@ def training(loss_op):
 
 def calc_accuracy(output_op, prints=False):
     inputs, ts = make_prediction(num_of_prediction_samples)
+    # inputs, ts = get_batch(len(inputs), inputs, ts)
     pred_dict = {
         input_ph:  inputs,
         supervisor_ph: ts,
