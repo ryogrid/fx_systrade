@@ -103,24 +103,24 @@ if True: ### training start
     dims = X.shape[1]
     print(dims, 'dims')
 
-    neuro_num = 64
+    neuro_num = dims
     
     # setup deep NN
     model = Sequential()
     model.add(Dense(neuro_num,input_shape=(dims,), init='uniform', activation="relu"))
-    model.add(BatchNormalization((neuro_num,)))
-    model.add(Dropout(0.5))
+    # model.add(BatchNormalization((neuro_num,)))
+    # model.add(Dropout(0.5))
 
-    model.add(Dense(neuro_num/2, init='uniform', activation="relu"))
-    model.add(BatchNormalization((neuro_num/2,)))
-    model.add(Dropout(0.5))
+    # model.add(Dense(neuro_num/2, init='uniform', activation="relu"))
+    # model.add(BatchNormalization((neuro_num/2,)))
+    # model.add(Dropout(0.5))
     
     model.add(Dense(nb_classes, init='uniform', activation="sigmoid"))
     
     model.compile(loss='binary_crossentropy', optimizer="adam")
     
     print("Training model...")
-    model.fit(X, Y, nb_epoch=2000, batch_size=100, validation_split=0.15)
+    model.fit(X, Y, nb_epoch=10000, batch_size=100, validation_split=0.15)
 
     dump_fd = open("./keras_direct2.model", "w")
     model_json_str = model.to_json()
@@ -175,11 +175,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     proba = model.predict_proba(X_test, verbose=0)
 
     if pos_kind == NOT_HAVE:
-        if proba[0][0] >= 0.9 :
+        if proba[0][0] >= 0.8 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif proba[0][1] >= 0.9:
+        elif proba[0][1] >= 0.8:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
