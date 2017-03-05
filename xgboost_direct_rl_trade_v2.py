@@ -232,7 +232,7 @@ if True: ### training start
              get_dmi(exchange_rates, ii),
              get_vorarity(exchange_rates, ii),
              get_macd(exchange_rates, ii),
-             judge_chart_type(exchange_rates[ii-CHART_TYPE_JDG_LEN:i])
+             judge_chart_type(exchange_rates[ii-CHART_TYPE_JDG_LEN:ii])
          ]
             )
 
