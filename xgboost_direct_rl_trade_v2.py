@@ -197,7 +197,7 @@ for line in rates_fd:
 
 data_len = len(exchange_rates)
 # train_len = len(exchange_rates)/TRAINDATA_DIV
-train_len = 1000
+train_len = 1100
 
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
@@ -210,7 +210,7 @@ if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     prev_pred = 0
-    for ii in xrange(30, train_len):
+    for ii in xrange(100, train_len):
         print("step " + str(ii))
         tmp_arr = [prev_pred]
         cur_pos = 0
