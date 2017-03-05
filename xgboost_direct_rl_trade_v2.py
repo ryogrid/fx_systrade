@@ -356,14 +356,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
 
     predicted_prob = pred[0]
 
-    if pos_kind == NOT_HAVE:
-        if predicted_prob >= 0.90:
+    if pos_kind == NOT_HAVE and skip_flag == False:
+        if predicted_prob >= 0.90 and chart_type == 2:
             pos_kind = LONG
             positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
             trade_val = exchange_rates[current_spot] + HALF_SPREAD
-            prev_pred = 1
-        else:
-            prev_pred = 0
 
     # for next input
     if predicted_prob >= 0.90:
