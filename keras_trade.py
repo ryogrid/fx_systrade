@@ -470,7 +470,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif proba[0][1] >= 0.9:
+        elif proba[0][2] >= 0.9:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
            trade_val = exchange_rates[current_spot] - HALF_SPREAD
