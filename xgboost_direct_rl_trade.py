@@ -15,7 +15,7 @@ HALF_SPREAD = 0.0015
 """
 main
 """
-rates_fd = open('./hoge10000.csv', 'r')
+rates_fd = open('./hoge.csv', 'r')
 
 exchange_dates = []
 exchange_rates = []
@@ -32,16 +32,17 @@ for line in rates_fd:
         prev = val
 
 data_len = len(exchange_rates)
-train_len = len(exchange_rates)/TRAINDATA_DIV
+# train_len = len(exchange_rates)/TRAINDATA_DIV
+train_len = 1000
 
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
+if True:
     bst = xgb.Booster({'nthread':4})
     bst.load_model("./xdirect2.model") 
 
-if True: ### training start
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     prev_pred = 0
