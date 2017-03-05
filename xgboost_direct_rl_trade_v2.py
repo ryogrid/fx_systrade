@@ -202,11 +202,11 @@ train_len = 1100
 print "data size: " + str(data_len)
 print "train len: " + str(train_len)
 
-if False:
+if True:
     bst = xgb.Booster({'nthread':4})
     bst.load_model("./xdirect_v2_1.model") 
 
-if True: ### training start
+if False: ### training start
     tr_input_mat = []
     tr_angle_mat = []
     prev_pred = 0
@@ -324,7 +324,11 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         else:
             pos_cont_count += 1
             continue
-    
+
+    vorarity = get_vorarity(exchange_rates, current_spot)
+    if vorarity >= 0.07:
+        skip_flag = True
+        
     # prediction    
     ts_input_mat = []
     ts_input_mat.append(
