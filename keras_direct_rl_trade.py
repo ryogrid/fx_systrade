@@ -72,11 +72,12 @@ if False:
 if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
-    for ii in xrange(1000, train_len, OUTPUT_LEN):
+    for ii in xrange(1000, train_len):
         tmp_arr = []
         cur_pos = 0
         for jj in xrange(INPUT_LEN):
             tmp_arr.append(exchange_rates_diff[ii-INPUT_LEN+jj])
+        
         tr_input_mat.append(tmp_arr)
 
         long_case = (exchange_rates[ii+OUTPUT_LEN] - HALF_SPREAD) - (exchange_rates[ii] + HALF_SPREAD)
@@ -87,7 +88,7 @@ if True: ### training start
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(2)
-            
+        # label 0 means can't win
         
     X = np.array(tr_input_mat, dtype=np.float32)
     Y = np.array(tr_angle_mat, dtype=np.float32)
