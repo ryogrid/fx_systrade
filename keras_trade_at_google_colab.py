@@ -3,7 +3,6 @@ from __future__ import absolute_import
 
 import numpy as np
 import scipy.sparse
-import xgboost as xgb
 import pickle
 import talib as ta
 
@@ -23,13 +22,19 @@ OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
+trade_log_fd = None
+
+exchange_dates = None
+exchange_rates = None
+reverse_exchange_rates = None
+
 def preprocess_data(X, scaler=None):
     if not scaler:
         scaler = StandardScaler()
         scaler.fit(X)
     X = scaler.transform(X)
     return X, scaler
-    
+
 def preprocess_labels(labels, encoder=None, categorical=True):
     if not encoder:
         encoder = LabelEncoder()
@@ -39,32 +44,13 @@ def preprocess_labels(labels, encoder=None, categorical=True):
         y = np_utils.to_categorical(y)
     return y, encoder
 
-
-def merge_csv(out_fname, input_files):
-    frslt = open('./hoge.csv', 'w')        
-    frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
-
-    for iname in input_files:
-        fd = open(iname, 'r')
-        for trxline in fd:
-            splited = trxline.split(",")
-            if splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
-                time = splited[0].replace("/", "-") + " " + splited[1]
-                val = splited[2]
-
-                frslt.write(str(time) + "," + str(val) + "," + \
-                            str(val) + "," + str(val) + \
-                            "," + str(val) + ",1000000,"+ str(val) + "\n")
-
-    frslt.close()
-
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
     max_val = 0
     min_val = float("inf")
 
     last_idx = len(data_arr)-1
-    
+
     for idx in xrange(len(data_arr)):
         if data_arr[idx] > max_val:
             max_val = data_arr[idx]
@@ -77,7 +63,7 @@ def judge_chart_type(data_arr):
 
     if max_val == min_val:
         return 0
-    
+
     if min_idx == 0 and max_idx == last_idx:
         return 1
 
@@ -86,18 +72,17 @@ def judge_chart_type(data_arr):
 
     if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
         return 0
-    
+
     if max_idx != 0 and max_idx != last_idx:
         return 3
 
     if min_idx != 0 and min_idx != last_idx:
         return 4
-        
+
     return 0
 
 def get_rsi(price_arr, cur_pos, period = 40):
     if cur_pos <= period:
-#        s = 0
         return 0
     else:
         s = cur_pos - (period + 1)
@@ -154,7 +139,7 @@ def get_ema(price_arr, cur_pos, period = 20):
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
-    return ta.EMA(prices, timeperiod = period)[-1]    
+    return ta.EMA(prices, timeperiod = period)[-1]
 
 
 def get_ema_rsi(price_arr, cur_pos, period = None):
@@ -165,7 +150,6 @@ def get_cci(price_arr, cur_pos, period = None):
 
 def get_mo(price_arr, cur_pos, period = 20):
     if cur_pos <= (period + 1):
-#        s = 0
         return 0
     else:
         s = cur_pos - (period + 1)
@@ -173,7 +157,7 @@ def get_mo(price_arr, cur_pos, period = 20):
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
-    return ta.CMO(prices, timeperiod = period)[-1]        
+    return ta.CMO(prices, timeperiod = period)[-1]
 
 def get_po(price_arr, cur_pos, period = 10):
     if cur_pos <= period:
@@ -204,7 +188,7 @@ def get_vorarity(price_arr, cur_pos, period = None):
         else:
             tmp_arr.append(val - prev)
         prev = val
-        
+
     return np.std(tmp_arr)
 
 def get_macd(price_arr, cur_pos, period = 100):
@@ -222,55 +206,51 @@ def get_macd(price_arr, cur_pos, period = 100):
     else:
         return 0
 
-"""
-main
-"""
-arr = ["USDJPY_M5_2001.txt","USDJPY_M5_2002.txt","USDJPY_M5_2003.txt","USDJPY_M5_2004.txt","USDJPY_M5_2005.txt","USDJPY_M5_2006.txt","USDJPY_M5_2007.txt","USDJPY_M5_2008.txt"]
-merge_csv("hoge", arr)
+def logfile_writeln(log_str):
+    trade_log_fd.write(log_str + "\n")
 
-rates_fd = open('./hoge.csv', 'r')
-exchange_dates = []
-exchange_rates = []
-for line in rates_fd:
-    splited = line.split(",")
-    if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
-        time = splited[0].replace("/", "-") + " " + splited[1]
-        val = float(splited[2])
-        exchange_dates.append(time)
-        exchange_rates.append(val)
 
-reverse_exchange_rates = []
-prev_org = -1
-prev = -1
-for rate in exchange_rates:
-    if prev_org != -1:
-        diff = rate - prev_org
-        reverse_exchange_rates.append(prev - diff)
-        prev_org = rate
-        prev = prev - diff
-    else:
-        reverse_exchange_rates.append(rate)
-        prev_org = rate
-        prev = rate
+def setup_historical_fx_data():
+    exchange_dates = []
+    exchange_rates = []
+    reverse_exchange_rates = []
 
-data_len = len(exchange_rates)
-train_len = len(exchange_rates)/TRAINDATA_DIV
+    rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
+    for line in rates_fd:
+        splited = line.split(",")
+        if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
+            time = splited[0].replace("/", "-") + " " + splited[1]
+            val = float(splited[2])
+            exchange_dates.append(time)
+            exchange_rates.append(val)
 
-print "data size: " + str(data_len)
-print "train len: " + str(train_len)
 
-if False:
-    dump_fd = open("./keras.dump", "r")
-    model = model_from_json(dump_fd.read())
-    
-if True: ### training start
+    prev_org = -1
+    prev = -1
+    for rate in exchange_rates:
+        if prev_org != -1:
+            diff = rate - prev_org
+            reverse_exchange_rates.append(prev - diff)
+            prev_org = rate
+            prev = prev - diff
+        else:
+            reverse_exchange_rates.append(rate)
+            prev_org = rate
+            prev = rate
+
+    data_len = len(exchange_rates)
+    train_len = len(exchange_rates)/TRAINDATA_DIV
+
+    print("data size: " + str(data_len))
+    print()"train len: " + str(train_len))
+
+def train_and_generate_model():
     tr_input_mat = []
     tr_angle_mat = []
     for i in xrange(1000, train_len, OUTPUT_LEN):
         tr_input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
-#             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
              get_ma_kairi(exchange_rates, i),
@@ -280,7 +260,6 @@ if True: ### training start
              get_ema_rsi(exchange_rates, i),
              get_cci(exchange_rates, i),
              get_mo(exchange_rates, i),
-#             get_po(exchange_rates, i),
              get_lw(exchange_rates, i),
              get_ss(exchange_rates, i),
              get_dmi(exchange_rates, i),
@@ -292,7 +271,6 @@ if True: ### training start
         tr_input_mat.append(
             [reverse_exchange_rates[i],
              (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1])/reverse_exchange_rates[i - 1],
-#             (reverse_exchange_rates[i] - reverse_exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
              get_rsi(reverse_exchange_rates, i),
              get_ma(reverse_exchange_rates, i),
              get_ma_kairi(reverse_exchange_rates, i),
@@ -302,16 +280,14 @@ if True: ### training start
              get_ema_rsi(reverse_exchange_rates, i),
              get_cci(reverse_exchange_rates, i),
              get_mo(reverse_exchange_rates, i),
-#             get_po(reverse_exchange_rates, i),
              get_lw(reverse_exchange_rates, i),
              get_ss(reverse_exchange_rates, i),
              get_dmi(reverse_exchange_rates, i),
              get_vorarity(reverse_exchange_rates, i),
              get_macd(reverse_exchange_rates, i),
-             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])             
+             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])
          ]
-            )        
-#        print tr_input_mat
+            )
 
         tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
         if tmp >= 0:
@@ -323,8 +299,7 @@ if True: ### training start
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
-            
-        
+
     X = np.array(tr_input_mat, dtype=np.float32)
     Y = np.array(tr_angle_mat, dtype=np.float32)
 
@@ -340,7 +315,7 @@ if True: ### training start
     print(dims, 'dims')
 
     neuro_num = 50
-    
+
     # setup deep NN
     model = Sequential()
     model.add(Dense(neuro_num,input_shape=(dims,), init='uniform', activation="relu"))
@@ -350,127 +325,126 @@ if True: ### training start
     model.add(Dense(neuro_num/2, init='uniform', activation="relu"))
     model.add(BatchNormalization((neuro_num/2,)))
     model.add(Dropout(0.5))
-    
+
     model.add(Dense(nb_classes, init='uniform', activation="sigmoid"))
-    
+
     model.compile(loss='binary_crossentropy', optimizer="adam")
-    
+
     print("Training model...")
     model.fit(X, Y, nb_epoch=10000, batch_size=100, validation_split=0.15)
 
-    dump_fd = open("./keras.model", "w")
+    dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
     dump_fd.write(model_json_str)
-    model.save_weights("keras.weight")
-    
-### training end
+    model.save_weights("./keras.weight")
 
-# trade
-portfolio = 1000000
-LONG = 1
-SHORT = 2
-NOT_HAVE = 3
-pos_kind = NOT_HAVE
-HALF_SPREAD = 0.0015
-SONKIRI_RATE = 0.05
+def run_backtest():
+    # trade
+    portfolio = 1000000
+    LONG = "LONG"
+    SHORT = "SHORT"
+    NOT_HAVE = "NOT_HAVE"
+    pos_kind = NOT_HAVE
+    HALF_SPREAD = 0.0015
+    SONKIRI_RATE = 0.05
+    positions = 0
+    trade_val = -1
+    trade_log_fd = open("./backtest_log.txt", mode = "w")
 
-positions = 0
+    model_fd = open("./keras.model.json", "r")
+    model = model_from_json(model_fd.read())
+    model.load_waight("./keras.weight")
 
-trade_val = -1
+    pos_cont_count = 0
+    for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
+        current_spot = train_len + window_s + OUTPUT_LEN
+        skip_flag = False
 
-pos_cont_count = 0
-for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
-    current_spot = train_len + window_s + OUTPUT_LEN
-    skip_flag = False
-
-    #sonkiri
-    if pos_kind != NOT_HAVE:
-        if pos_kind == LONG:
-            cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
-        elif pos_kind == SHORT:
-            cur_portfo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
-        if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
-            portfolio = cur_portfo
-            pos_kind = NOT_HAVE
-            continue
-        
-    # chart_type = 0
-    chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
-    if chart_type != 1 and chart_type != 2:
-        skip_flag = True
+        #sonkiri
         if pos_kind != NOT_HAVE:
-            # if liner trend keep position
-            continue
-        
-    # print "state1 " + str(pos_kind)    
-    if pos_kind != NOT_HAVE:
-        # print "pos_cont_count " + str(pos_cont_count)
-        if pos_cont_count >= (OUTPUT_LEN-1):
             if pos_kind == LONG:
-                pos_kind = NOT_HAVE
-                portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
-                print exchange_dates[current_spot] + " " + str(portfolio)
+                cur_portfo = positions * (exchange_rates[current_spot] - HALF_SPREAD)
             elif pos_kind == SHORT:
+                cur_portfo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
+            if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
+                portfolio = cur_portfo
                 pos_kind = NOT_HAVE
-                portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
-                print exchange_dates[current_spot] + " " + str(portfolio)
-            pos_cont_count = 0
-        else:
-            pos_cont_count += 1
-        continue
+                continue
 
-#    print("hoge")
-    # try trade in only linear chart case
+        chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
+        if chart_type != 1 and chart_type != 2:
+            skip_flag = True
+            if pos_kind != NOT_HAVE:
+                # if liner trend keep position
+                continue
 
-    # vorarity = 0
-    vorarity = get_vorarity(exchange_rates, current_spot)
-    if vorarity >= 0.07:
-        skip_flag = True
-#    print("vorarity: " + str(vorarity))
-    
-    # prediction    
-    ts_input_mat = []
-    ts_input_mat.append(
-       [exchange_rates[current_spot],
-        (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
-#        (exchange_rates[current_spot] - exchange_rates[current_spot - OUTPUT_LEN])/float(OUTPUT_LEN),
-        get_rsi(exchange_rates, current_spot),
-        get_ma(exchange_rates, current_spot),
-        get_ma_kairi(exchange_rates, current_spot),
-        get_bb_1(exchange_rates, current_spot),
-        get_bb_2(exchange_rates, current_spot),
-        get_ema(exchange_rates, current_spot),
-        get_ema_rsi(exchange_rates, current_spot),
-        get_cci(exchange_rates, current_spot),
-        get_mo(exchange_rates, current_spot),
-#        get_po(exchange_rates, current_spot),
-        get_lw(exchange_rates, current_spot),
-        get_ss(exchange_rates, current_spot),
-        get_dmi(exchange_rates, current_spot),
-        vorarity,
-        get_macd(exchange_rates, current_spot),
-        chart_type
-    ]        
-    )
-#    print("vorarity: " + str(get_vorarity(exchange_rates, current_spot)))
+        if pos_kind != NOT_HAVE:
+            if pos_cont_count >= (OUTPUT_LEN-1):
+                if pos_kind == LONG:
+                    pos_kind = NOT_HAVE
+                    portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+                    logfile_writeln("position close (LONG) " + exchange_dates[current_spot] + " " + str(portfolio))
+                elif pos_kind == SHORT:
+                    pos_kind = NOT_HAVE
+                    portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                    logfile_writeln("position close (SHORT) " + exchange_dates[current_spot] + " " + str(portfolio))
+                pos_cont_count = 0
+            else:
+                pos_cont_count += 1
+            continue
 
-    ts_input_arr = np.array(ts_input_mat)
+        vorarity = get_vorarity(exchange_rates, current_spot)
+        if vorarity >= 0.07:
+            skip_flag = True
 
-    X_test = np.array(ts_input_arr, dtype=np.float32)
-    X_test, _ = preprocess_data(X_test, scaler)
-    
-    proba = model.predict_proba(X_test, verbose=0)
-#    print(str(proba))
-    
-    # print "state2 " + str(pos_kind)
-    # print "predicted_prob " + str(predicted_prob)
-    # print "skip_flag:" + str(skip_flag)
-    if pos_kind == NOT_HAVE and skip_flag == False:
-        if proba[0][0] >= 0.9 :
-           pos_kind = LONG
-           positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
-           trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif proba[0][2] >= 0.9:
-           pos_kind = SHORT
-           positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
-           trade_val = exchange_rates[current_spot] - HALF_SPREAD
+        # prediction
+        ts_input_mat = []
+        ts_input_mat.append(
+           [exchange_rates[current_spot],
+            (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
+            get_rsi(exchange_rates, current_spot),
+            get_ma(exchange_rates, current_spot),
+            get_ma_kairi(exchange_rates, current_spot),
+            get_bb_1(exchange_rates, current_spot),
+            get_bb_2(exchange_rates, current_spot),
+            get_ema(exchange_rates, current_spot),
+            get_ema_rsi(exchange_rates, current_spot),
+            get_cci(exchange_rates, current_spot),
+            get_mo(exchange_rates, current_spot),
+            get_lw(exchange_rates, current_spot),
+            get_ss(exchange_rates, current_spot),
+            get_dmi(exchange_rates, current_spot),
+            vorarity,
+            get_macd(exchange_rates, current_spot),
+            chart_type
+        ]
+        )
+
+        ts_input_arr = np.array(ts_input_mat)
+
+        X_test = np.array(ts_input_arr, dtype=np.float32)
+        X_test, _ = preprocess_data(X_test, scaler)
+
+        proba = model.predict_proba(X_test, verbose=0)
+
+        logfile_writeln("state " + str(pos_kind))
+        logfile_writeln("predicted probability -> UP: " + str(proba[0][0]) + ", DOWN: " + str(proba[0][2]))
+
+        if pos_kind == NOT_HAVE and skip_flag == False:
+            if proba[0][0] >= 0.9 :
+               pos_kind = LONG
+               positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
+               trade_val = exchange_rates[current_spot] + HALF_SPREAD
+            elif proba[0][2] >= 0.9:
+               pos_kind = SHORT
+               positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+               trade_val = exchange_rates[current_spot] - HALF_SPREAD
+
+        logfile_writeln("current portfolio " + exchange_dates[current_spot] + " " + str(portfolio))
+
+def run_script(mode):
+
+
+
+
+if __name__ == '__main__':
