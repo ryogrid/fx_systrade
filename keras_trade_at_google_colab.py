@@ -211,6 +211,10 @@ def logfile_writeln(log_str):
 
 
 def setup_historical_fx_data():
+    global exchange_dates
+    global exchange_rates
+    global reverse_exchange_rates
+
     exchange_dates = []
     exchange_rates = []
     reverse_exchange_rates = []
@@ -339,6 +343,8 @@ def train_and_generate_model():
     model.save_weights("./keras.weight")
 
 def run_backtest():
+    global trade_log_fd
+
     # trade
     portfolio = 1000000
     LONG = "LONG"
