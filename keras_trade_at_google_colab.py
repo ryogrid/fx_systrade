@@ -4,7 +4,7 @@ import pickle
 import talib as ta
 import os
 
-from tensorflow import keras
+#from tensorflow import keras
 
 from tensorflow.keras.models import Sequential
 #from tensorflow.keras.layers.core import Dense, Dropout, Activation
@@ -329,7 +329,7 @@ def train_and_generate_model():
     # setup deep NN
     model = Sequential()
     #model.add(Dense(neuro_num,input_shape=(dims,), activation="relu"))
-    model.add(Dense(neuro_num, activation="relu"))    
+    model.add(Dense(neuro_num, activation="relu"))
     #model.add(BatchNormalization((neuro_num,)))
     model.add(BatchNormalization())
     model.add(Dropout(0.5))
@@ -344,10 +344,10 @@ def train_and_generate_model():
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
     # # TPU
-    tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
-    tpu_cluster_resolver = tensorflow.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
-    strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
-    model = tensorflow.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
+    # tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
+    # tpu_cluster_resolver = tensorflow.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
+    # strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
+    # model = tensorflow.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
     model.fit(X, Y, nb_epoch=3000, batch_size=100, validation_split=0.15)
