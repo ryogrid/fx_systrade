@@ -328,17 +328,17 @@ def train_and_generate_model():
 
     # setup deep NN
     model = Sequential()
-    model.add(Dense(neuro_num,input_shape=(dims,), init='uniform', activation="relu"))
+    model.add(Dense(neuro_num,input_shape=(dims,), activation="relu"))
     #model.add(BatchNormalization((neuro_num,)))
     model.add(BatchNormalization())
     model.add(Dropout(0.5))
 
-    model.add(Dense(int(neuro_num/2), init='uniform', activation="relu"))
+    model.add(Dense(int(neuro_num/2), activation="relu"))
     #model.add(BatchNormalization((neuro_num/2,)))
     model.add(BatchNormalization())
     model.add(Dropout(0.5))
 
-    model.add(Dense(nb_classes, init='uniform', activation="sigmoid"))
+    model.add(Dense(nb_classes, activation="sigmoid"))
 
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
