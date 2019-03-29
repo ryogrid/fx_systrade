@@ -50,7 +50,7 @@ def judge_chart_type(data_arr):
 
     last_idx = len(data_arr)-1
 
-    for idx in xrange(len(data_arr)):
+    for idx in range(len(data_arr)):
         if data_arr[idx] > max_val:
             max_val = data_arr[idx]
             max_idx = idx
@@ -241,16 +241,16 @@ def setup_historical_fx_data():
             prev_org = rate
             prev = rate
 
+def train_and_generate_model():
     data_len = len(exchange_rates)
     train_len = len(exchange_rates)/TRAINDATA_DIV
 
     print("data size: " + str(data_len))
     print("train len: " + str(train_len))
 
-def train_and_generate_model():
     tr_input_mat = []
     tr_angle_mat = []
-    for i in xrange(1000, train_len, OUTPUT_LEN):
+    for i in range(1000, train_len, OUTPUT_LEN):
         tr_input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
@@ -362,7 +362,7 @@ def run_backtest():
     model.load_waight("./keras.weight")
 
     pos_cont_count = 0
-    for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
+    for window_s in range((data_len - train_len) - (OUTPUT_LEN)):
         current_spot = train_len + window_s + OUTPUT_LEN
         skip_flag = False
 
