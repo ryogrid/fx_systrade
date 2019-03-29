@@ -13,7 +13,7 @@ from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.layers import BatchNormalization
 #from tensorflow.keras.layers.advanced_activations import PReLU
 from tensorflow.keras.layers import PReLU
-from tensorflow.keras.utils import np_utils, generic_utils
+from keras.utils import np_utils, generic_utils
 
 import tensorflow.keras.backend as K
 from tensorflow.contrib.tpu.python.tpu import keras_support
