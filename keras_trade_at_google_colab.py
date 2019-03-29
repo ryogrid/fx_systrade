@@ -243,7 +243,7 @@ def setup_historical_fx_data():
 
 def train_and_generate_model():
     data_len = len(exchange_rates)
-    train_len = len(exchange_rates)/TRAINDATA_DIV
+    train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     print("data size: " + str(data_len))
     print("train len: " + str(train_len))
@@ -322,11 +322,13 @@ def train_and_generate_model():
     # setup deep NN
     model = Sequential()
     model.add(Dense(neuro_num,input_shape=(dims,), init='uniform', activation="relu"))
-    model.add(BatchNormalization((neuro_num,)))
+    #model.add(BatchNormalization((neuro_num,)))
+    model.add(BatchNormalization())
     model.add(Dropout(0.5))
 
-    model.add(Dense(neuro_num/2, init='uniform', activation="relu"))
-    model.add(BatchNormalization((neuro_num/2,)))
+    model.add(Dense(int(neuro_num/2), init='uniform', activation="relu"))
+    #model.add(BatchNormalization((neuro_num/2,)))
+    model.add(BatchNormalization())
     model.add(Dropout(0.5))
 
     model.add(Dense(nb_classes, init='uniform', activation="sigmoid"))
