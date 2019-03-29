@@ -3,7 +3,7 @@ import scipy.sparse
 import pickle
 import talib as ta
 import os
-import tensorflow
+import tensorflow as tf
 
 #from tensorflow import keras
 
@@ -346,9 +346,9 @@ def train_and_generate_model():
 
     # # TPU
     tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
-    tpu_cluster_resolver = tensorflow.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
+    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
     strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
-    model = tensorflow.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
+    model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
     model.fit(X, Y, nb_epoch=3000, batch_size=100, validation_split=0.15)
