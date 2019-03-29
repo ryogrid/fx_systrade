@@ -332,7 +332,7 @@ def train_and_generate_model():
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
     print("Training model...")
-    model.fit(X, Y, nb_epoch=10000, batch_size=100, validation_split=0.15)
+    model.fit(X, Y, nb_epoch=3000, batch_size=100, validation_split=0.15)
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
