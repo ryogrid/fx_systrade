@@ -1,12 +1,11 @@
 #!/usr/bin/python
-from __future__ import absolute_import
+
+#from __future__ import absolute_import
 
 import numpy as np
 import scipy.sparse
 import pickle
 import talib as ta
-
-import pandas as pd
 
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
@@ -246,7 +245,7 @@ def setup_historical_fx_data():
     train_len = len(exchange_rates)/TRAINDATA_DIV
 
     print("data size: " + str(data_len))
-    print()"train len: " + str(train_len))
+    print("train len: " + str(train_len))
 
 def train_and_generate_model():
     tr_input_mat = []
@@ -341,6 +340,7 @@ def train_and_generate_model():
     model_json_str = model.to_json()
     dump_fd.write(model_json_str)
     model.save_weights("./keras.weight")
+    dump_fd.close()
 
 def run_backtest():
     global trade_log_fd
@@ -449,8 +449,17 @@ def run_backtest():
         logfile_writeln("current portfolio " + exchange_dates[current_spot] + " " + str(portfolio))
 
 def run_script(mode):
-
-
-
+    if mode == "TRAIN":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        train_and_generate_model()
+    elif mode == "TRADE":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        run_backtest()
+    else:
+        raise Exception(str(mode) + " mode is invalid.")
 
 if __name__ == '__main__':
+    run_script("TRAIN")
+    run_script("TRADE")
