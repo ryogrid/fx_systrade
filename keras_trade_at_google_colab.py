@@ -3,6 +3,7 @@ import scipy.sparse
 import pickle
 import talib as ta
 import os
+import tensorflow
 
 #from tensorflow import keras
 
