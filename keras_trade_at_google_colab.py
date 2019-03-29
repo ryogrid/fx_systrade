@@ -2,12 +2,21 @@ import numpy as np
 import scipy.sparse
 import pickle
 import talib as ta
+import os
 
-from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Activation
-from keras.layers.normalization import BatchNormalization
-from keras.layers.advanced_activations import PReLU
-from keras.utils import np_utils, generic_utils
+from tensorflow import keras
+
+from tensorflow.keras.models import Sequential
+#from tensorflow.keras.layers.core import Dense, Dropout, Activation
+from tensorflow.keras.layers import Dense, Dropout, Activation
+#from tensorflow.keras.layers.normalization import BatchNormalization
+from tensorflow.keras.layers import BatchNormalization
+#from tensorflow.keras.layers.advanced_activations import PReLU
+from tensorflow.keras.layers import PReLU
+from tensorflow.keras.utils import np_utils, generic_utils
+
+import tensorflow.keras.backend as K
+from tensorflow.contrib.tpu.python.tpu import keras_support
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
@@ -238,6 +247,8 @@ def setup_historical_fx_data():
             prev = rate
 
 def train_and_generate_model():
+    K.clear_session()
+
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
@@ -330,6 +341,12 @@ def train_and_generate_model():
     model.add(Dense(nb_classes, init='uniform', activation="sigmoid"))
 
     model.compile(loss='binary_crossentropy', optimizer="adam")
+
+    # # TPU
+    # tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
+    # tpu_cluster_resolver = tensorflow.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
+    # strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
+    # model = tensorflow.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
     model.fit(X, Y, nb_epoch=3000, batch_size=100, validation_split=0.15)
