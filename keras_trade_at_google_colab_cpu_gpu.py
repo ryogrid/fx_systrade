@@ -488,5 +488,5 @@ def run_script(mode):
         raise Exception(str(mode) + " mode is invalid.")
 
 if __name__ == '__main__':
-    #run_script("TRAIN")
+    run_script("TRAIN")
     run_script("TRADE")
