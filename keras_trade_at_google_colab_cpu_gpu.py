@@ -7,7 +7,7 @@ import tensorflow as tf
 
 #from tensorflow import keras
 
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, model_from_json
 #from tensorflow.keras.layers.core import Dense, Dropout, Activation
 from tensorflow.keras.layers import Dense, Dropout, Activation
 #from tensorflow.keras.layers.normalization import BatchNormalization
@@ -21,6 +21,7 @@ from tensorflow.contrib.tpu.python.tpu import keras_support
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
+from sklearn.externals import joblib
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
@@ -32,6 +33,7 @@ trade_log_fd = None
 exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
+#scaler = None
 
 def preprocess_data(X, scaler=None):
     if not scaler:
@@ -213,6 +215,7 @@ def get_macd(price_arr, cur_pos, period = 100):
 
 def logfile_writeln(log_str):
     trade_log_fd.write(log_str + "\n")
+    trade_log_fd.flush()
 
 
 def setup_historical_fx_data():
@@ -249,6 +252,7 @@ def setup_historical_fx_data():
 
 def train_and_generate_model():
     #K.clear_session()
+    #global scaler
 
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
@@ -317,6 +321,8 @@ def train_and_generate_model():
     X, scaler = preprocess_data(X)
     Y, encoder = preprocess_labels(Y)
 
+    joblib.dump(scaler, "./sklearn.scaler.dump")
+
     np.random.seed(1337) # for reproducibility
 
     nb_classes = Y.shape[1]
@@ -351,7 +357,7 @@ def train_and_generate_model():
     # model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
-    model.fit(X, Y, nb_epoch=3000, batch_size=100, validation_split=0.15)
+    model.fit(X, Y, nb_epoch=100, batch_size=100, validation_split=0.15)
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
@@ -361,6 +367,9 @@ def train_and_generate_model():
 
 def run_backtest():
     global trade_log_fd
+
+    data_len = len(exchange_rates)
+    train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     # trade
     portfolio = 1000000
@@ -376,7 +385,8 @@ def run_backtest():
 
     model_fd = open("./keras.model.json", "r")
     model = model_from_json(model_fd.read())
-    model.load_waight("./keras.weight")
+    model.load_weights("./keras.weight")
+    scaler = joblib.load("./sklearn.scaler.dump")
 
     pos_cont_count = 0
     for window_s in range((data_len - train_len) - (OUTPUT_LEN)):
@@ -451,17 +461,17 @@ def run_backtest():
         proba = model.predict_proba(X_test, verbose=0)
 
         logfile_writeln("state " + str(pos_kind))
-        logfile_writeln("predicted probability -> UP: " + str(proba[0][0]) + ", DOWN: " + str(proba[0][2]))
+        logfile_writeln("predicted probability -> UP: " + str(proba[0][0]) + ", DOWN: " + str(proba[0][1]))
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if proba[0][0] >= 0.9 :
-               pos_kind = LONG
-               positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
-               trade_val = exchange_rates[current_spot] + HALF_SPREAD
-            elif proba[0][2] >= 0.9:
-               pos_kind = SHORT
-               positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
-               trade_val = exchange_rates[current_spot] - HALF_SPREAD
+            if proba[0][0] >= 0.9:
+                pos_kind = LONG
+                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
+                trade_val = exchange_rates[current_spot] + HALF_SPREAD
+            elif proba[0][1] >= 0.9:
+                pos_kind = SHORT
+                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+                trade_val = exchange_rates[current_spot] - HALF_SPREAD
 
         logfile_writeln("current portfolio " + exchange_dates[current_spot] + " " + str(portfolio))
 
@@ -478,5 +488,5 @@ def run_script(mode):
         raise Exception(str(mode) + " mode is invalid.")
 
 if __name__ == '__main__':
-    run_script("TRAIN")
+    #run_script("TRAIN")
     run_script("TRADE")
