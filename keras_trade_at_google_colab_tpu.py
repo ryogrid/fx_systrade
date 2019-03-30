@@ -7,7 +7,7 @@ import tensorflow as tf
 
 #from tensorflow import keras
 
-from tensorflow.keras.models import Sequential, , model_from_json
+from tensorflow.keras.models import Sequential, model_from_json
 #from tensorflow.keras.layers.core import Dense, Dropout, Activation
 from tensorflow.keras.layers import Dense, Dropout, Activation
 #from tensorflow.keras.layers.normalization import BatchNormalization
