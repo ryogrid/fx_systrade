@@ -329,8 +329,8 @@ def train_and_generate_model():
 
     # setup deep NN
     model = Sequential()
-    #model.add(Dense(neuro_num,input_shape=(dims,), activation="relu"))
-    model.add(Dense(neuro_num, activation="relu"))
+    model.add(Dense(neuro_num, input_shape=(dims,), activation="relu"))
+    #model.add(Dense(neuro_num, activation="relu"))
     #model.add(BatchNormalization((neuro_num,)))
     model.add(BatchNormalization())
     model.add(Dropout(0.5))
