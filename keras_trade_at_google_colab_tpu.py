@@ -16,7 +16,7 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import PReLU
 from keras.utils import np_utils, generic_utils
 
-#import tensorflow.keras.backend as K
+import tensorflow.keras.backend as K
 from tensorflow.contrib.tpu.python.tpu import keras_support
 
 from sklearn.preprocessing import LabelEncoder
@@ -248,7 +248,7 @@ def setup_historical_fx_data():
             prev = rate
 
 def train_and_generate_model():
-    #K.clear_session()
+    K.clear_session()
 
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
@@ -344,11 +344,11 @@ def train_and_generate_model():
 
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
-    # TPU
-    # tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
-    # tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
-    # strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
-    # model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
+    # # TPU
+    tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
+    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
+    strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
+    model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
     model.fit(X, Y, nb_epoch=3000, batch_size=100, validation_split=0.15)
