@@ -358,7 +358,7 @@ def train_and_generate_model():
     model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
-    model.fit(X, Y, nb_epoch=3000, batch_size=1000, validation_split=0.15)
+    model.fit(X, Y, nb_epoch=3000, batch_size=5000, validation_split=0.15)
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
