@@ -360,7 +360,7 @@ def train_and_generate_model():
     # model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
-    progbar_cbk = keras.callbacks.ProgbarLogger(count_mode='steps')
+    progbar_cbk = ProgbarLogger(count_mode='steps')
     model.fit(X, Y, batch_size=1024, epochs=3000, verbose=0, validation_split=0.15, callbacks=[progbar_cbk])
 
     dump_fd = open("./keras.model.json", "w")
