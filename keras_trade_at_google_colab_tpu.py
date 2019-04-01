@@ -360,19 +360,18 @@ def train_and_generate_model():
     tpu_grpc_url = "grpc://"+os.environ["COLAB_TPU_ADDR"]
     tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(tpu_grpc_url)
     strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
-    model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
-
+    tpu_model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
     start = time.time()
-    model.fit(X, Y, batch_size=1024, epochs=1000, verbose=2, validation_split=0.15)
+    tpu_model.fit(X, Y, batch_size=1024, epochs=1000, verbose=2, validation_split=0.15)
     process_time = time.time() - start
     print("excecution time of training: " + str(process_time))
 
     dump_fd = open("./keras.model.json", "w")
-    model_json_str = model.to_json()
+    model_json_str = tpu_model.to_json()
     dump_fd.write(model_json_str)
-    model.save_weights("./keras.weight")
+    tpu_model.save_weights("./keras.weight")
     dump_fd.close()
 
 def run_backtest():
