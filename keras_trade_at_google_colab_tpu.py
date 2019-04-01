@@ -359,8 +359,10 @@ def train_and_generate_model():
     strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
     model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
+
     print("Training model...")
-    model.fit(X, Y, batch_size=1024, epochs=3000, verbose=2, validation_split=0.15)
+    progbar_cbk = keras.callbacks.ProgbarLogger(count_mode='steps')
+    model.fit(X, Y, batch_size=1024, epochs=3000, verbose=0, validation_split=0.15, callbacks=[progbar_cbk])
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
