@@ -14,6 +14,7 @@ from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.layers import BatchNormalization
 #from tensorflow.keras.layers.advanced_activations import PReLU
 from tensorflow.keras.layers import PReLU
+from tensorflow.keras.callbacks import ProgbarLogger
 from keras.utils import np_utils, generic_utils
 
 import tensorflow.keras.backend as K
@@ -22,6 +23,8 @@ from tensorflow.contrib.tpu.python.tpu import keras_support
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
+
+import time
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
@@ -350,7 +353,7 @@ def train_and_generate_model():
     model.add(Dense(nb_classes, activation="sigmoid"))
 
     model.summary()
-    
+
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
     # # TPU
@@ -359,8 +362,12 @@ def train_and_generate_model():
     strategy = keras_support.TPUDistributionStrategy(tpu_cluster_resolver)
     model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
+
     print("Training model...")
-    model.fit(X, Y, nb_epoch=10000, batch_size=1024, validation_split=0.15, verbose=1)
+    start = time.time()
+    model.fit(X, Y, batch_size=1024, epochs=1000, verbose=2, validation_split=0.15)
+    process_time = time.time() - start
+    print("excecution time of training: " + str(process_time))
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()

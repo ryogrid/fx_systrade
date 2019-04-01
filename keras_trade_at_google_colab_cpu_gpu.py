@@ -23,6 +23,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
 
+import time
+
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
@@ -359,7 +361,11 @@ def train_and_generate_model():
     # model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
-    model.fit(X, Y, nb_epoch=3000, batch_size=1024, validation_split=0.15, verbose=1)
+
+    start = time.time()
+    model.fit(X, Y, batch_size=1024, epochs=1000, verbose=2, validation_split=0.15, use_multiprocessing=True, workers=0)
+    process_time = time.time() - start
+    print("excecution time of training: " + str(process_time))
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
