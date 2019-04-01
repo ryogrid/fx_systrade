@@ -371,7 +371,7 @@ def train_and_generate_model():
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
     dump_fd.write(model_json_str)
-    tpu_model.save_weights("./keras.weight")
+    model.save_weights("./keras.weight")
     dump_fd.close()
 
 def run_backtest():
