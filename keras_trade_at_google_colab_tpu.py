@@ -24,6 +24,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
 
+import time
+
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
@@ -362,8 +364,10 @@ def train_and_generate_model():
 
 
     print("Training model...")
-    progbar_cbk = ProgbarLogger(count_mode='steps')
-    model.fit(X, Y, batch_size=1024, epochs=3000, verbose=0, validation_split=0.15, callbacks=[progbar_cbk])
+    start = time.time()
+    model.fit(X, Y, batch_size=1024, epochs=1000, verbose=1, validation_split=0.15)
+    process_time = time.time() - start
+    print("excecution time of training: " + str(process_time))
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
