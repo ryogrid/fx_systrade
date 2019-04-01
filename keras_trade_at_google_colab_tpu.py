@@ -350,7 +350,7 @@ def train_and_generate_model():
     model.add(Dense(nb_classes, activation="sigmoid"))
 
     model.summary()
-    
+
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
     # # TPU
@@ -360,7 +360,7 @@ def train_and_generate_model():
     model = tf.contrib.tpu.keras_to_tpu_model(model, strategy=strategy)
 
     print("Training model...")
-    model.fit(X, Y, nb_epoch=10000, batch_size=1024, validation_split=0.15, verbose=1)
+    model.fit(X, Y, batch_size=1024, epochs=3000, verbose=2, validation_split=0.15)
 
     dump_fd = open("./keras.model.json", "w")
     model_json_str = model.to_json()
