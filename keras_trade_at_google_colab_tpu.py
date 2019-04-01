@@ -349,6 +349,8 @@ def train_and_generate_model():
 
     model.add(Dense(nb_classes, activation="sigmoid"))
 
+    model.summary()
+    
     model.compile(loss='binary_crossentropy', optimizer="adam")
 
     # # TPU
