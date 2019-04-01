@@ -14,6 +14,7 @@ from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.layers import BatchNormalization
 #from tensorflow.keras.layers.advanced_activations import PReLU
 from tensorflow.keras.layers import PReLU
+from tensorflow.keras.callbacks import ProgbarLogger
 from keras.utils import np_utils, generic_utils
 
 #import tensorflow.keras.backend as K
