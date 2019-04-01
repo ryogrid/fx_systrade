@@ -365,7 +365,7 @@ def train_and_generate_model():
 
     print("Training model...")
     start = time.time()
-    model.fit(X, Y, batch_size=1024, epochs=1000, verbose=2, validation_split=0.15, use_multiprocessing=True, workers=0)
+    model.fit(X, Y, batch_size=1024, epochs=1000, verbose=2, validation_split=0.15)
     process_time = time.time() - start
     print("excecution time of training: " + str(process_time))
 
