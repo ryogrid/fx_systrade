@@ -7,6 +7,8 @@ import talib as ta
 from datetime import datetime as dt
 import pytz
 
+import time
+
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
@@ -307,9 +309,12 @@ def train_and_generate_model():
 
     watchlist  = [(dtrain,'train')]
     #num_round = 3000
-    num_round = 100
+    num_round = 10000
     print("num_round: " + str(num_round))
+    start = time.time()
     bst = xgb.train(param, dtrain, num_round, watchlist)
+    process_time = time.time() - start
+    print("excecution time of training: " + str(process_time))
 
     bst.dump_model('./xgb_model.raw.txt')
     bst.save_model('./xgb.model')
@@ -346,6 +351,7 @@ def run_backtest():
 
     pos_cont_count = 0
     won_pips = 0
+    start = time.time()
     for window_s in range((data_len - train_len) - (OUTPUT_LEN)):
         current_spot = train_len + window_s + OUTPUT_LEN
         skip_flag = False
@@ -454,6 +460,8 @@ def run_backtest():
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
 
     print("finished backtest.")
+    process_time = time.time() - start
+    print("excecution time of backtest: " + str(process_time))    
 
 def run_script(mode):
     global is_use_gpu
