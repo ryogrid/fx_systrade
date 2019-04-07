@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import numpy as np
 import scipy.sparse
-import xgboost as xgb
+from catboost import CatBoostClassifier
 import pickle
 import talib as ta
 from datetime import datetime as dt
@@ -293,26 +293,37 @@ def train_and_generate_model():
         else:
             tr_angle_mat.append(0)
 
+    #cat_features = [0, 1]
+    #tr_input_arr = np.array(tr_input_mat)
+    #tr_angle_arr = np.array(tr_angle_mat)
+    model = CatBoostClassifier(
+     iterations=10,
+     learning_rate=0.03,
+     depth=6,
+     thread_count=4,
+     task_type='CPU' #'GPU'
+     )
+    model.fit(
+        tr_input_mat, tr_angle_mat #, cat_features, verbose = 10
+    )
+    model.save_model("cab.model")
+    # dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
+    # param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
+    # if is_use_gpu:
+    #     param['tree_method'] = 'gpu_hist'
+    #     param['max_bin'] = 16
+    #     param['gpu_id'] = 0
+    # else:
+    #     param['nthread'] = 4
 
-    tr_input_arr = np.array(tr_input_mat)
-    tr_angle_arr = np.array(tr_angle_mat)
-    dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
-    if is_use_gpu:
-        param['tree_method'] = 'gpu_hist'
-        param['max_bin'] = 16
-        param['gpu_id'] = 0
-    else:
-        param['nthread'] = 4
-
-    watchlist  = [(dtrain,'train')]
-    #num_round = 3000
-    num_round = 100
-    print("num_round: " + str(num_round))
-    bst = xgb.train(param, dtrain, num_round, watchlist)
-
-    bst.dump_model('./xgb_model.raw.txt')
-    bst.save_model('./xgb.model')
+    # watchlist  = [(dtrain,'train')]
+    # #num_round = 3000
+    # num_round = 100
+    # print("num_round: " + str(num_round))
+    # bst = xgb.train(param, dtrain, num_round, watchlist)
+    #
+    # bst.dump_model('./xgb_model.raw.txt')
+    # bst.save_model('./xgb.model')
 
     print("finished training and saved model.")
 
@@ -325,12 +336,13 @@ def run_backtest():
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     trade_log_fd = open("./backtest_log.txt", mode = "w")
-    if is_use_gpu:
-        bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
-    else:
-        bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': 4})
+    # if is_use_gpu:
+    #     bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
+    # else:
+    #     bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': 4})
 
-    bst.load_model("./xgb.model")
+    model = CatBoostClassifier()
+    model.load_model("./cab.model")
     portfolio = 1000000
     LONG = "LONG"
     SHORT = "SHORT"
@@ -436,22 +448,22 @@ def run_backtest():
         ]
         )
 
-        ts_input_arr = np.array(ts_input_mat)
-        dtest = xgb.DMatrix(ts_input_arr)
+        #ts_input_arr = np.array(ts_input_mat)
+        #dtest = xgb.DMatrix(ts_input_arr)
 
-        pred = bst.predict(dtest)
-
-        predicted_prob = pred[0]
+        predicted_prob = model.predict_proba(ts_input_mat)
+        #print(str(predcted_prob))
+        #predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob >= 0.90 and chart_type == 2 :
-               pos_kind = LONG
-               positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
-               trade_val = exchange_rates[current_spot] + HALF_SPREAD
-            elif predicted_prob <= 0.1 and chart_type == 1:
-               pos_kind = SHORT
-               positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
-               trade_val = exchange_rates[current_spot] - HALF_SPREAD
+            if predicted_prob[0][1] >= 0.90 and chart_type == 2 :
+                pos_kind = LONG
+                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
+                trade_val = exchange_rates[current_spot] + HALF_SPREAD
+            elif predicted_prob[0][0] <= 0.1 and chart_type == 1:
+                pos_kind = SHORT
+                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
+                trade_val = exchange_rates[current_spot] - HALF_SPREAD
 
     print("finished backtest.")
 
