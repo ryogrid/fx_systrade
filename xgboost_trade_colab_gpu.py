@@ -471,6 +471,11 @@ def run_script(mode):
         if exchange_dates == None:
             setup_historical_fx_data()
         run_backtest()
+    elif mode == "TRADE_GPU":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        is_use_gpu = True            
+        run_backtest()
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
