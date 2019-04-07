@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import numpy as np
 import scipy.sparse
-from catboost import CatBoostClassifier
+from catboost import CatBoostClassifier, CatBoostRegressor
 import pickle
 import talib as ta
 from datetime import datetime as dt
@@ -298,14 +298,25 @@ def train_and_generate_model():
     #cat_features = [0, 1]
     #tr_input_arr = np.array(tr_input_mat)
     #tr_angle_arr = np.array(tr_angle_mat)
-    model = CatBoostClassifier(
+
+    # model = CatBoostClassifier(
+    #  iterations=10000,
+    #  learning_rate=0.1,
+    #  depth=6,
+    #  thread_count=4,
+    #  task_type='GPU', #'CPU'
+    #  eval_metric='Accuracy'
+    #  )
+    model = CatBoostRegressor(
      iterations=10000,
-     learning_rate=0.1,
-     depth=6,
+     #learning_rate=0.1,
+     learning_rate=0.05,
+     #depth=6,
      thread_count=4,
-     task_type='GPU', #'CPU'
-     eval_metric='Accuracy'
-     )
+     task_type= 'GPU' #'CPU'
+     #eval_metric='Accuracy',
+     loss_function='RMSE'
+    )
     start = time.time()
     model.fit(
         tr_input_mat, tr_angle_mat #, cat_features, verbose = 10
@@ -458,16 +469,18 @@ def run_backtest():
         #ts_input_arr = np.array(ts_input_mat)
         #dtest = xgb.DMatrix(ts_input_arr)
 
-        predicted_prob = model.predict_proba(ts_input_mat)
-        #print(str(predcted_prob))
-        #predicted_prob = pred[0]
+        #predicted_prob = model.predict_proba(ts_input_mat)
+        predicted_prob = model.predict(ts_input_mat)
+        #print("predicted_prob:" + str(predicted_prob))
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob[0][1] >= 0.90 and chart_type == 2 :
+            #if predicted_prob[0][1] >= 0.90 and chart_type == 2 :
+            if predicted_prob >= 0.90 and chart_type == 2 :
                 pos_kind = LONG
                 positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                 trade_val = exchange_rates[current_spot] + HALF_SPREAD
-            elif predicted_prob[0][0] <= 0.1 and chart_type == 1:
+            #elif predicted_prob[0][0] <= 0.1 and chart_type == 1:
+            elif predicted_prob <= 0.1 and chart_type == 1:
                 pos_kind = SHORT
                 positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                 trade_val = exchange_rates[current_spot] - HALF_SPREAD
