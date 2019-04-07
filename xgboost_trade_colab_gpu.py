@@ -307,7 +307,7 @@ def train_and_generate_model():
 
     watchlist  = [(dtrain,'train')]
     #num_round = 3000
-    num_round = 10
+    num_round = 100
     print("num_round: " + str(num_round))
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
