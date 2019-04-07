@@ -17,6 +17,7 @@ trade_log_fd = None
 exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
+is_use_gpu = False
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -297,10 +298,17 @@ def train_and_generate_model():
     tr_angle_arr = np.array(tr_angle_mat)
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
+    if is_use_gpu:
+        param['updater'] = 'grow_gpu_hist'
+        param['max_bin'] = 16
+        param['gpu_id'] = 0
+    else:
+        param['nthread'] = 4
 
     watchlist  = [(dtrain,'train')]
     #num_round = 3000
     num_round = 10
+    print("num_round: " + str(num_round))
     bst = xgb.train(param, dtrain, num_round, watchlist)
 
     bst.dump_model('./xgb_model.raw.txt')
@@ -315,9 +323,13 @@ def run_backtest():
 
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
-    
+
     trade_log_fd = open("./backtest_log.txt", mode = "w")
-    bst = xgb.Booster({'nthread':4})
+    if is_use_gpu:
+        bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
+    else:
+        bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': 4})
+
     bst.load_model("./xgb.model")
     portfolio = 1000000
     LONG = "LONG"
@@ -441,10 +453,19 @@ def run_backtest():
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
 
+    print("finished backtest.")
+
 def run_script(mode):
+    global is_use_gpu
+
     if mode == "TRAIN":
         if exchange_dates == None:
             setup_historical_fx_data()
+        train_and_generate_model()
+    elif mode == "TRAIN_GPU":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        is_use_gpu = True
         train_and_generate_model()
     elif mode == "TRADE":
         if exchange_dates == None:
