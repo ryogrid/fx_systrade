@@ -299,7 +299,7 @@ def train_and_generate_model():
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
     if is_use_gpu:
-        param['updater'] = 'grow_gpu_hist'
+        param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
     else:
@@ -474,7 +474,7 @@ def run_script(mode):
     elif mode == "TRADE_GPU":
         if exchange_dates == None:
             setup_historical_fx_data()
-        is_use_gpu = True            
+        is_use_gpu = True
         run_backtest()
     else:
         raise Exception(str(mode) + " mode is invalid.")
