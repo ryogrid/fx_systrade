@@ -313,7 +313,7 @@ def train_and_generate_model():
      learning_rate=0.05,
      #depth=6,
      thread_count=4,
-     task_type= 'GPU' #'CPU'
+     task_type= 'GPU', #'CPU'
      #eval_metric='Accuracy',
      loss_function='RMSE'
     )
