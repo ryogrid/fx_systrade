@@ -311,7 +311,7 @@ def train_and_generate_model():
      iterations=10000,
      #learning_rate=0.1,
      learning_rate=0.05,
-     #depth=6,
+     depth=6,
      thread_count=4,
      task_type= 'GPU', #'CPU'
      #eval_metric='Accuracy',
