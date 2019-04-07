@@ -300,10 +300,11 @@ def train_and_generate_model():
     #tr_angle_arr = np.array(tr_angle_mat)
     model = CatBoostClassifier(
      iterations=10000,
-     learning_rate=0.03,
+     learning_rate=0.1,
      depth=6,
      thread_count=4,
-     task_type='GPU' #'CPU'
+     task_type='GPU', #'CPU'
+     eval_metric='Accuracy'
      )
     start = time.time()
     model.fit(
