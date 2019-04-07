@@ -12,32 +12,14 @@ OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
 
-def merge_csv(out_fname, input_files):
-    frslt = open('./hoge.csv', 'w')        
-    frslt.write("Date Time,Open,High,Low,Close,Volume,Adj Close\n")
-
-    for iname in input_files:
-        fd = open(iname, 'r')
-        for trxline in fd:
-            splited = trxline.split(",")
-            if splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
-                time = splited[0].replace("/", "-") + " " + splited[1]
-                val = splited[2]
-
-                frslt.write(str(time) + "," + str(val) + "," + \
-                            str(val) + "," + str(val) + \
-                            "," + str(val) + ",1000000,"+ str(val) + "\n")
-
-    frslt.close()
-
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
     max_val = 0
     min_val = float("inf")
 
     last_idx = len(data_arr)-1
-    
-    for idx in xrange(len(data_arr)):
+
+    for idx in range(len(data_arr)):
         if data_arr[idx] > max_val:
             max_val = data_arr[idx]
             max_idx = idx
@@ -49,7 +31,7 @@ def judge_chart_type(data_arr):
 
     if max_val == min_val:
         return 0
-    
+
     if min_idx == 0 and max_idx == last_idx:
         return 1
 
@@ -58,13 +40,13 @@ def judge_chart_type(data_arr):
 
     if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
         return 0
-    
+
     if max_idx != 0 and max_idx != last_idx:
         return 3
 
     if min_idx != 0 and min_idx != last_idx:
         return 4
-        
+
     return 0
 
 def get_rsi(price_arr, cur_pos, period = 40):
@@ -126,7 +108,7 @@ def get_ema(price_arr, cur_pos, period = 20):
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
-    return ta.EMA(prices, timeperiod = period)[-1]    
+    return ta.EMA(prices, timeperiod = period)[-1]
 
 
 def get_ema_rsi(price_arr, cur_pos, period = None):
@@ -145,7 +127,7 @@ def get_mo(price_arr, cur_pos, period = 20):
     tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
-    return ta.CMO(prices, timeperiod = period)[-1]        
+    return ta.CMO(prices, timeperiod = period)[-1]
 
 def get_po(price_arr, cur_pos, period = 10):
     if cur_pos <= period:
@@ -176,7 +158,7 @@ def get_vorarity(price_arr, cur_pos, period = None):
         else:
             tmp_arr.append(val - prev)
         prev = val
-        
+
     return np.std(tmp_arr)
 
 def get_macd(price_arr, cur_pos, period = 100):
@@ -207,11 +189,7 @@ def is_weekend(date_str):
 """
 main
 """
-rates_fd = open('./hoge.csv', 'r')
-#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2003.05.04_2016.07.09.csv', 'r')
-#rates_fd = open('./EURJPY_UTC_5 Mins_Bid_2003.08.03_2016.07.09.csv', 'r')
-#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2008.01.01_2012.01.01.csv', 'r')
-#rates_fd = open('./USDJPY_UTC_5 Mins_Bid_2009.01.01_2011.01.01.csv', 'r')
+rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
 
 exchange_dates = []
 exchange_rates = []
@@ -239,23 +217,23 @@ for rate in exchange_rates:
         prev = rate
 
 data_len = len(exchange_rates)
-train_len = len(exchange_rates)/TRAINDATA_DIV
+train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
-print "data size: " + str(data_len)
-print "train len: " + str(train_len)
+print("data size: " + str(data_len))
+print("train len: " + str(train_len))
 
 if False:
     bst = xgb.Booster({'nthread':4})
-    bst.load_model("./hoge.model") 
+    bst.load_model("./xgb.model")
 
 if True: ### training start
     tr_input_mat = []
     tr_angle_mat = []
-    for i in xrange(1000, train_len, OUTPUT_LEN):
+    for i in range(1000, train_len, OUTPUT_LEN):
         tr_input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
-#             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
+#             (exchange_rates[i] - exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),
              get_rsi(exchange_rates, i),
              get_ma(exchange_rates, i),
              get_ma_kairi(exchange_rates, i),
@@ -277,7 +255,7 @@ if True: ### training start
         tr_input_mat.append(
             [reverse_exchange_rates[i],
              (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1])/reverse_exchange_rates[i - 1],
-#             (reverse_exchange_rates[i] - reverse_exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),             
+#             (reverse_exchange_rates[i] - reverse_exchange_rates[i - OUTPUT_LEN])/float(OUTPUT_LEN),
              get_rsi(reverse_exchange_rates, i),
              get_ma(reverse_exchange_rates, i),
              get_ma_kairi(reverse_exchange_rates, i),
@@ -293,9 +271,9 @@ if True: ### training start
              get_dmi(reverse_exchange_rates, i),
              get_vorarity(reverse_exchange_rates, i),
              get_macd(reverse_exchange_rates, i),
-             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])             
+             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])
          ]
-            )        
+            )
 #        print tr_input_mat
 
         tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
@@ -308,20 +286,21 @@ if True: ### training start
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
-            
-        
+
+
     tr_input_arr = np.array(tr_input_mat)
     tr_angle_arr = np.array(tr_angle_mat)
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
 
     watchlist  = [(dtrain,'train')]
-    num_round = 3000 #10 #3000 # 1000
+    #num_round = 3000 #10 #3000 # 1000
+    num_round = 10
     bst = xgb.train(param, dtrain, num_round, watchlist)
-    
-    bst.dump_model('./dump.raw.txt')
-    bst.save_model('./hoge.model')
-    
+
+    bst.dump_model('./xgb_model.raw.txt')
+    bst.save_model('./xgb.model')
+
 ### training end
 
 # trade
@@ -340,7 +319,7 @@ trade_val = -1
 
 pos_cont_count = 0
 won_pips = 0
-for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
+for window_s in range((data_len - train_len) - (OUTPUT_LEN)):
     current_spot = train_len + window_s + OUTPUT_LEN
     skip_flag = False
 
@@ -357,7 +336,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     #         pos_kind = NOT_HAVE
     #         won_pips += got_pips
     #         print exchange_dates[current_spot] + " rikaku " + str(got_pips)
-    #         continue    
+    #         continue
 
     if pos_kind != NOT_HAVE:
         if pos_kind == LONG:
@@ -372,7 +351,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
             won_pips += diff
             print(str(diff) + "pips " + str(won_pips) + "pips")
             continue
-        
+
     # chart_type = 0
     chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
     if chart_type != 1 and chart_type != 2:
@@ -380,9 +359,9 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         if pos_kind != NOT_HAVE:
             # if liner trend keep position
             continue
-        
-        
-    # print "state1 " + str(pos_kind)    
+
+
+    # print "state1 " + str(pos_kind)
     if pos_kind != NOT_HAVE:
         # print "pos_cont_count " + str(pos_cont_count)
         if pos_cont_count >= (OUTPUT_LEN-1):
@@ -391,15 +370,15 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
                 portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
                 diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
                 won_pips += diff
-                print(str(diff) + "pips " + str(won_pips) + "pips")                
-                print exchange_dates[current_spot] + " " + str(portfolio)
+                print(str(diff) + "pips " + str(won_pips) + "pips")
+                print(exchange_dates[current_spot] + " " + str(portfolio))
             elif pos_kind == SHORT:
                 pos_kind = NOT_HAVE
                 portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
-                diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)                
+                diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
                 won_pips += diff
-                print(str(diff) + "pips " + str(won_pips) + "pips")                                
-                print exchange_dates[current_spot] + " " + str(portfolio)
+                print(str(diff) + "pips " + str(won_pips) + "pips")
+                print(exchange_dates[current_spot] + " " + str(portfolio))
             pos_cont_count = 0
         else:
             pos_cont_count += 1
@@ -413,8 +392,8 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     if vorarity >= 0.07:
         skip_flag = True
 #    print("vorarity: " + str(vorarity))
-    
-    # prediction    
+
+    # prediction
     ts_input_mat = []
     ts_input_mat.append(
        [exchange_rates[current_spot],
@@ -436,7 +415,7 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
         vorarity,
         get_macd(exchange_rates, current_spot),
         chart_type
-    ]        
+    ]
     )
 #    print("vorarity: " + str(get_vorarity(exchange_rates, current_spot)))
 
@@ -451,12 +430,12 @@ for window_s in xrange((data_len - train_len) - (OUTPUT_LEN)):
     # print "predicted_prob " + str(predicted_prob)
     # print "skip_flag:" + str(skip_flag)
     if pos_kind == NOT_HAVE and skip_flag == False:
-        if predicted_prob >= 0.90 and chart_type == 2 :        
+        if predicted_prob >= 0.90 and chart_type == 2 :
 #        if predicted_prob >= 0.90 and predicted_prob <= 0.95 and chart_type == 2 :
            pos_kind = LONG
            positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
            trade_val = exchange_rates[current_spot] + HALF_SPREAD
-        elif predicted_prob <= 0.1 and chart_type == 1:           
+        elif predicted_prob <= 0.1 and chart_type == 1:
 #        elif predicted_prob <= 0.1 and predicted_prob >=0.05 and chart_type == 1:
            pos_kind = SHORT
            positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
