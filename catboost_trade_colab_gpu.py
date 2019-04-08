@@ -6,6 +6,7 @@ import pickle
 import talib as ta
 from datetime import datetime as dt
 import pytz
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 import time
 
@@ -286,37 +287,75 @@ def train_and_generate_model():
 
         tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
         if tmp >= 0:
-            tr_angle_mat.append(1)
+            tr_angle_mat.append(1) # this is orignal
         else:
-            tr_angle_mat.append(0)
+            tr_angle_mat.append(0) # this is original
         tmp = (reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i])/float(OUTPUT_LEN)
         if tmp >= 0:
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
 
+
     #cat_features = [0, 1]
     #tr_input_arr = np.array(tr_input_mat)
     #tr_angle_arr = np.array(tr_angle_mat)
 
+    skf = StratifiedKFold(n_splits=10,
+                          shuffle=True,
+                          random_state=0)
+
+    param_grid = {'depth': [4, 7, 10],
+         'learning_rate' : [0.01, 0.1, 0.15],
+         'l2_leaf_reg': [1,4,9],
+         'iterations': [100]}
+
+    model = CatBoostClassifier(
+     #iterations=1000,
+     #learning_rate=0.05,
+     #depth=6,
+     thread_count=4,
+     task_type='CPU', #'GPU'
+     eval_metric='Accuracy',
+     loss_function='Logloss'
+     )
+
+    grid_result = GridSearchCV(estimator = model,
+                               param_grid = param_grid,
+                               scoring = 'accuracy',
+                               cv = skf,
+                               verbose=3,
+                               return_train_score = True,
+                               n_jobs = -1)
+
+    grid_result.fit(tr_input_mat, tr_angle_mat)
+
+    print(grid_search.best_score_)
+    print(grid_search.best_params_)
+
+    quit()
+
+
     # model = CatBoostClassifier(
-    #  iterations=10000,
-    #  learning_rate=0.1,
+    #  iterations=10,
+    #  learning_rate=0.05,
     #  depth=6,
     #  thread_count=4,
-    #  task_type='GPU', #'CPU'
-    #  eval_metric='Accuracy'
+    #  task_type='CPU', #'GPU'
+    #  eval_metric='Accuracy',
+    #  loss_function='Logloss'
     #  )
-    model = CatBoostRegressor(
-     iterations=10000,
-     #learning_rate=0.1,
-     learning_rate=0.05,
-     depth=6,
-     thread_count=4,
-     task_type= 'GPU', #'CPU'
-     #eval_metric='Accuracy',
-     loss_function='RMSE'
-    )
+
+    # model = CatBoostRegressor(
+    #  iterations=100000,
+    #  #learning_rate=0.1,
+    #  learning_rate=0.05,
+    #  depth=6,
+    #  thread_count=4,
+    #  task_type= 'CPU', #'GPU'
+    #  #eval_metric='Accuracy',
+    #  loss_function='RMSE'
+    # )
     start = time.time()
     model.fit(
         tr_input_mat, tr_angle_mat #, cat_features, verbose = 10
@@ -469,18 +508,19 @@ def run_backtest():
         #ts_input_arr = np.array(ts_input_mat)
         #dtest = xgb.DMatrix(ts_input_arr)
 
-        #predicted_prob = model.predict_proba(ts_input_mat)
-        predicted_prob = model.predict(ts_input_mat)
+        predicted_prob = model.predict_proba(ts_input_mat)
+        print(predicted_prob)
+        #predicted_prob = model.predict(ts_input_mat)
         #print("predicted_prob:" + str(predicted_prob))
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            #if predicted_prob[0][1] >= 0.90 and chart_type == 2 :
-            if predicted_prob >= 0.90 and chart_type == 2 :
+            if predicted_prob[0][1] >= 0.90 and chart_type == 2 :
+            #if predicted_prob >= 0.90 and chart_type == 2 :
                 pos_kind = LONG
                 positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                 trade_val = exchange_rates[current_spot] + HALF_SPREAD
-            #elif predicted_prob[0][0] <= 0.1 and chart_type == 1:
-            elif predicted_prob <= 0.1 and chart_type == 1:
+            elif predicted_prob[0][0] <= 0.1 and chart_type == 1:
+            #elif predicted_prob <= 0.1 and chart_type == 1:
                 pos_kind = SHORT
                 positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                 trade_val = exchange_rates[current_spot] - HALF_SPREAD
