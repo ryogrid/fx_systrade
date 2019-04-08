@@ -330,7 +330,7 @@ def train_and_generate_model():
      learning_rate=0.15,
      depth=7,
      thread_count=4,
-     task_type='GPU' #'CPU'
+     task_type='GPU', #'CPU'
      eval_metric='Accuracy',
      loss_function='Logloss',
      l2_leaf_reg=1
