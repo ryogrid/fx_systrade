@@ -326,11 +326,11 @@ def train_and_generate_model():
     # print(grid_result.best_params_)
 
     model = CatBoostClassifier(
-     iterations=1000000,
+     iterations=300000,
      learning_rate=0.15,
      depth=7,
      thread_count=4,
-     task_type='GPU', #'CPU'
+     task_type='GPU', #'CPU',
      eval_metric='Accuracy',
      loss_function='Logloss',
      l2_leaf_reg=1
@@ -348,7 +348,7 @@ def train_and_generate_model():
     # )
     start = time.time()
     model.fit(
-        tr_input_mat, tr_angle_mat #, cat_features, verbose = 10
+        tr_input_mat, tr_angle_mat, logging_level = 'Silent' # cat_features, verbose = 10
     )
     process_time = time.time() - start
     print("excecution time of training: " + str(process_time))
