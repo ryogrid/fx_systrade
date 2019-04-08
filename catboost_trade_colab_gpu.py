@@ -296,55 +296,45 @@ def train_and_generate_model():
         else:
             tr_angle_mat.append(0)
 
-
-    #cat_features = [0, 1]
-    #tr_input_arr = np.array(tr_input_mat)
-    #tr_angle_arr = np.array(tr_angle_mat)
-
-    skf = StratifiedKFold(n_splits=10,
-                          shuffle=True,
-                          random_state=0)
-
-    param_grid = {'depth': [4, 7, 10],
-         'learning_rate' : [0.01, 0.1, 0.15],
-         'l2_leaf_reg': [1,4,9],
-         'iterations': [100]}
-
-    model = CatBoostClassifier(
-     #iterations=1000,
-     #learning_rate=0.05,
-     #depth=6,
-     thread_count=4,
-     task_type='CPU', #'GPU'
-     eval_metric='Accuracy',
-     loss_function='Logloss'
-     )
-
-    grid_result = GridSearchCV(estimator = model,
-                               param_grid = param_grid,
-                               scoring = 'accuracy',
-                               cv = skf,
-                               verbose=3,
-                               return_train_score = True,
-                               n_jobs = -1)
-
-    grid_result.fit(tr_input_mat, tr_angle_mat)
-
-    print(grid_search.best_score_)
-    print(grid_search.best_params_)
-
-    quit()
-
-
+    # skf = StratifiedKFold(n_splits=10,
+    #                       shuffle=True,
+    #                       random_state=0)
+    #
+    # param_grid = {'depth': [4, 7, 10],
+    #      'learning_rate' : [0.01, 0.1, 0.15],
+    #      'l2_leaf_reg': [1,4,9],
+    #      'iterations': [100]}
+    #
     # model = CatBoostClassifier(
-    #  iterations=10,
-    #  learning_rate=0.05,
-    #  depth=6,
     #  thread_count=4,
     #  task_type='CPU', #'GPU'
     #  eval_metric='Accuracy',
     #  loss_function='Logloss'
     #  )
+    #
+    # grid_result = GridSearchCV(estimator = model,
+    #                            param_grid = param_grid,
+    #                            scoring = 'accuracy',
+    #                            cv = skf,
+    #                            verbose=3,
+    #                            return_train_score = True,
+    #                            n_jobs = -1)
+    #
+    # grid_result.fit(tr_input_mat, tr_angle_mat)
+    #
+    # print(grid_result.best_score_)
+    # print(grid_result.best_params_)
+
+    model = CatBoostClassifier(
+     iterations=1000000,
+     learning_rate=0.15,
+     depth=7,
+     thread_count=4,
+     task_type='GPU' #'CPU'
+     eval_metric='Accuracy',
+     loss_function='Logloss',
+     l2_leaf_reg=1
+     )
 
     # model = CatBoostRegressor(
     #  iterations=100000,
