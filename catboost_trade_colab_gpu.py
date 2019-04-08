@@ -499,7 +499,7 @@ def run_backtest():
         #dtest = xgb.DMatrix(ts_input_arr)
 
         predicted_prob = model.predict_proba(ts_input_mat)
-        print(predicted_prob)
+        #print(predicted_prob)
         #predicted_prob = model.predict(ts_input_mat)
         #print("predicted_prob:" + str(predicted_prob))
 
