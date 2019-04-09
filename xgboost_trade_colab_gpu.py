@@ -8,13 +8,15 @@ from datetime import datetime as dt
 import pytz
 
 import time
+#from tensorboard_logger import configure, log_value
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
+NUM_ROUND = 300000
 
-trade_log_fd = None
+log_fd = None
 
 exchange_dates = None
 exchange_rates = None
@@ -196,9 +198,13 @@ def is_weekend(date_str):
     return (week == 5 or week == 6)
 
 def logfile_writeln(log_str):
-    trade_log_fd.write(log_str + "\n")
-    trade_log_fd.flush()
+    log_fd.write(log_str + "\n")
+    log_fd.flush()
 
+# def logspy(env):
+#     logfile_writeln("train," + str(env.iteration) + "," + str(env.evaluation_result_list[0][1]))
+#     #log_value("train", env.evaluation_result_list[0][1], step=env.iteration)
+#     #log_value("val", env.evaluation_result_list[1][1], step=env.iteration)
 
 def setup_historical_fx_data():
     global exchange_dates
@@ -234,11 +240,15 @@ def setup_historical_fx_data():
 
 
 def train_and_generate_model():
+    global log_fd
+
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     print("data size: " + str(data_len))
     print("train len: " + str(train_len))
+
+    log_fd = open("./train_progress_log.txt", mode = "w")
 
     tr_input_mat = []
     tr_angle_mat = []
@@ -295,11 +305,13 @@ def train_and_generate_model():
         else:
             tr_angle_mat.append(0)
 
+    #log output for tensorboard
+    #configure("logs/xgboost_trade_cpu_1")
 
     tr_input_arr = np.array(tr_input_mat)
     tr_angle_arr = np.array(tr_angle_mat)
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic' }
+    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'silent':1, 'objective':'binary:logistic', 'verbosity':0}
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
@@ -309,27 +321,35 @@ def train_and_generate_model():
 
     watchlist  = [(dtrain,'train')]
     #num_round = 3000
-    num_round = 10000
-    print("num_round: " + str(num_round))
+
+    eval_result_dic = {}
+
+    print("num_round: " + str(NUM_ROUND))
     start = time.time()
-    bst = xgb.train(param, dtrain, num_round, watchlist)
+    bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic)
     process_time = time.time() - start
     print("excecution time of training: " + str(process_time))
 
     bst.dump_model('./xgb_model.raw.txt')
     bst.save_model('./xgb.model')
 
+    for ii in range(len(eval_result_dic['train']['error'])):
+         logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
+
+    log_fd.flush()
+    log_fd.close()
+
     print("finished training and saved model.")
 
 def run_backtest():
-    global trade_log_fd
+    global log_fd
 
     print("start backtest...")
 
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
-    trade_log_fd = open("./backtest_log.txt", mode = "w")
+    log_fd = open("./backtest_log.txt", mode = "w")
     if is_use_gpu:
         bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
     else:
@@ -461,7 +481,7 @@ def run_backtest():
 
     print("finished backtest.")
     process_time = time.time() - start
-    print("excecution time of backtest: " + str(process_time))    
+    print("excecution time of backtest: " + str(process_time))
 
 def run_script(mode):
     global is_use_gpu
