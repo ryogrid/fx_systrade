@@ -245,10 +245,13 @@ def train_and_generate_model():
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
+    log_fd = open("./train_progress_log.txt", mode = "w")
+
     print("data size: " + str(data_len))
     print("train len: " + str(train_len))
 
-    log_fd = open("./train_progress_log.txt", mode = "w")
+    logfile_writeln("data size: " + str(data_len))
+    logfile_writeln("train len: " + str(train_len))        
 
     tr_input_mat = []
     tr_angle_mat = []
@@ -324,11 +327,11 @@ def train_and_generate_model():
 
     eval_result_dic = {}
 
-    print("num_round: " + str(NUM_ROUND))
+    logfile_writeln("num_round: " + str(NUM_ROUND))
     start = time.time()
     bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic)
     process_time = time.time() - start
-    print("excecution time of training: " + str(process_time))
+    logfile_writeln("excecution time of training: " + str(process_time))
 
     bst.dump_model('./xgb_model.raw.txt')
     bst.save_model('./xgb.model')
