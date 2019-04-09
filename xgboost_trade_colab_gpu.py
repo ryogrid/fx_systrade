@@ -479,9 +479,9 @@ def run_backtest():
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
 
-    print("finished backtest.")
+    logfile_writeln("finished backtest.")
     process_time = time.time() - start
-    print("excecution time of backtest: " + str(process_time))
+    logfile_writeln("excecution time of backtest: " + str(process_time))
 
 def run_script(mode):
     global is_use_gpu
