@@ -14,7 +14,9 @@ INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 300000
+NUM_ROUND_GPU = 300000
+NUM_ROUND_CPU = 3500
+VALIDATION_DATA_RATIO = 0.0
 
 log_fd = None
 
@@ -273,7 +275,7 @@ def train_and_generate_model():
              get_dmi(exchange_rates, i),
              get_vorarity(exchange_rates, i),
              get_macd(exchange_rates, i),
-             judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i])
+             str(judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
          ]
             )
         tr_input_mat.append(
@@ -293,7 +295,7 @@ def train_and_generate_model():
              get_dmi(reverse_exchange_rates, i),
              get_vorarity(reverse_exchange_rates, i),
              get_macd(reverse_exchange_rates, i),
-             judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i])
+             str(judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
          ]
             )
 
@@ -311,9 +313,19 @@ def train_and_generate_model():
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
 
-    tr_input_arr = np.array(tr_input_mat)
-    tr_angle_arr = np.array(tr_angle_mat)
+    gen_data_len = len(tr_input_mat)
+    split_idx = int(gen_data_len * (1 - VALIDATION_DATA_RATIO))
+    tr_input_arr = np.array(tr_input_mat[0:split_idx])
+    tr_angle_arr = np.array(tr_angle_mat[0:split_idx])
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
+    if VALIDATION_DATA_RATIO != 0.0:
+        val_input_arr = np.array(tr_input_mat[split_idx:])
+        val_angle_arr = np.array(tr_input_mat[split_idx:])
+        dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
+        watchlist  = [(dtrain,'train'),(dval,'validation')]
+    else:
+        watchlist  = [(dtrain,'train')]
+
     param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0}
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
@@ -322,14 +334,18 @@ def train_and_generate_model():
     else:
         param['nthread'] = 4
 
-    watchlist  = [(dtrain,'train')]
     #num_round = 3000
 
     eval_result_dic = {}
 
-    logfile_writeln("num_round: " + str(NUM_ROUND))
+
     start = time.time()
-    bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=1000)
+    if is_use_gpu:
+        logfile_writeln("num_round: " + str(NUM_ROUND_GPU))
+        bst = xgb.train(param, dtrain, NUM_ROUND_GPU, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND_GPU/100))
+    else:
+        logfile_writeln("num_round: " + str(NUM_ROUND_CPU))
+        bst = xgb.train(param, dtrain, NUM_ROUND_CPU, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND_CPU/100))
     process_time = time.time() - start
     logfile_writeln("excecution time of training: " + str(process_time))
 
@@ -337,7 +353,10 @@ def train_and_generate_model():
     bst.save_model('./xgb.model')
 
     for ii in range(len(eval_result_dic['train']['error'])):
-         logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
+        if VALIDATION_DATA_RATIO != 0.0:
+            logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]) + "," + str(eval_result_dic['validation']['error'][ii]))
+        else:
+            logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
 
     log_fd.flush()
     log_fd.close()
@@ -461,7 +480,7 @@ def run_backtest():
             get_dmi(exchange_rates, current_spot),
             vorarity,
             get_macd(exchange_rates, current_spot),
-            chart_type
+            str(chart_type)
         ]
         )
 
