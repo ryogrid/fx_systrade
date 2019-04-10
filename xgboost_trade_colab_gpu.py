@@ -14,9 +14,9 @@ INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND_GPU = 300000
+NUM_ROUND_GPU = 4000 #300000
 NUM_ROUND_CPU = 3500
-VALIDATION_DATA_RATIO = 0.0
+VALIDATION_DATA_RATIO = 0.2 #0.0
 
 log_fd = None
 
@@ -326,7 +326,9 @@ def train_and_generate_model():
     else:
         watchlist  = [(dtrain,'train')]
 
-    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0}
+    #param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0}
+    param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
+     'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
