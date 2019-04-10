@@ -314,7 +314,7 @@ def train_and_generate_model():
     tr_input_arr = np.array(tr_input_mat)
     tr_angle_arr = np.array(tr_angle_mat)
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'silent':False }
+    param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'silent':True }
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
