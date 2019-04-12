@@ -297,7 +297,7 @@ def train_and_generate_model():
     else:
         train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
-    log_fd = open("./train_progress_log.txt", mode = "w")
+    log_fd = open("./train_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
 
     print("data size: " + str(data_len))
     print("train len: " + str(train_len))
@@ -386,7 +386,8 @@ def train_and_generate_model():
 
     start = time.time()
     if is_param_tune_with_optuna:
-        study = optuna.create_study()
+        #study = optuna.create_study()
+        study = optuna.Study(study_name='distributed-example', storage='sqlite:///example.db')
         study.optimize(opt, n_trials=100)
         process_time = time.time() - start
         logfile_writeln(str(study.best_params))
@@ -437,7 +438,7 @@ def run_backtest():
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
-    log_fd = open("./backtest_log.txt", mode = "w")
+    log_fd = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
     if is_use_gpu:
         bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
     else:
