@@ -14,7 +14,7 @@ INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 4000
+NUM_ROUND = 65 #4000
 VALIDATION_DATA_RATIO = 0.0 #0.2
 
 log_fd = None
@@ -28,13 +28,13 @@ exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
 is_use_gpu = False
-is_param_tune_with_optuna = True
+is_param_tune_with_optuna = False
 
 if is_param_tune_with_optuna:
     import optuna
     from xgboost import XGBClassifier
     from sklearn.metrics import accuracy_score
-    VALIDATION_DATA_RATIO = 0.2
+    #VALIDATION_DATA_RATIO = 0.2
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -292,7 +292,10 @@ def train_and_generate_model():
     global val_angle_arr
 
     data_len = len(exchange_rates)
-    train_len = int(len(exchange_rates)/TRAINDATA_DIV)
+    if is_param_tune_with_optuna:
+        train_len = len(exchange_rates) - 1000 - OUTPUT_LEN
+    else:
+        train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd = open("./train_progress_log.txt", mode = "w")
 
@@ -360,18 +363,26 @@ def train_and_generate_model():
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
 
-    gen_data_len = len(tr_input_mat)
+    if is_param_tune_with_optuna:
+        gen_data_len = int(((len(exchange_rates)/TRAINDATA_DIV))/5.0)
+    else:
+        gen_data_len = len(tr_input_mat)
+
     split_idx = int(gen_data_len * (1 - VALIDATION_DATA_RATIO))
     tr_input_arr = np.array(tr_input_mat[0:split_idx])
     tr_angle_arr = np.array(tr_angle_mat[0:split_idx])
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    if VALIDATION_DATA_RATIO != 0.0:
+    if is_param_tune_with_optuna:
         val_input_arr = np.array(tr_input_mat[split_idx:])
         val_angle_arr = np.array(tr_angle_mat[split_idx:])
-        dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
-        watchlist  = [(dtrain,'train'),(dval,'validation')]
     else:
-        watchlist  = [(dtrain,'train')]
+        if VALIDATION_DATA_RATIO != 0.0:
+            val_input_arr = np.array(tr_input_mat[split_idx:])
+            val_angle_arr = np.array(tr_angle_mat[split_idx:])
+            dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
+            watchlist  = [(dtrain,'train'),(dval,'validation')]
+        else:
+            watchlist  = [(dtrain,'train')]
 
     start = time.time()
     if is_param_tune_with_optuna:
@@ -385,8 +396,8 @@ def train_and_generate_model():
         log_fd.flush()
         quit()
 
-    param = {'max_depth':999, 'eta':0.2, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
-        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 999, 'subsample': 999, 'colsample_bytree':999
+    param = {'max_depth':1, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
+        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 16, 'subsample': 0.7, 'colsample_bytree':0.7
     }
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
