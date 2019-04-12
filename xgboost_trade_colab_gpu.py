@@ -14,16 +14,27 @@ INPUT_LEN = 1
 OUTPUT_LEN = 5
 TRAINDATA_DIV = 10
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND_GPU = 4000 #300000
-NUM_ROUND_CPU = 3500
-VALIDATION_DATA_RATIO = 0.2 #0.0
+NUM_ROUND = 4000
+VALIDATION_DATA_RATIO = 0.0 #0.2
 
 log_fd = None
+
+tr_input_arr = None
+tr_angle_arr = None
+val_input_arr = None
+val_angle_arr = None
 
 exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
 is_use_gpu = False
+is_param_tune_with_optuna = True
+
+if is_param_tune_with_optuna:
+    import optuna
+    from xgboost import XGBClassifier
+    from sklearn.metrics import accuracy_score
+    VALIDATION_DATA_RATIO = 0.2
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -208,6 +219,38 @@ def logfile_writeln(log_str):
 #     #log_value("train", env.evaluation_result_list[0][1], step=env.iteration)
 #     #log_value("val", env.evaluation_result_list[1][1], step=env.iteration)
 
+def opt(trial):
+    param = {}
+
+    if is_use_gpu:
+        param['tree_method'] = 'gpu_hist'
+        param['max_bin'] = 16
+        param['gpu_id'] = 0
+
+    n_estimators = trial.suggest_int('n_estimators', 0, 1000)
+    max_depth = trial.suggest_int('max_depth', 1, 20)
+    min_child_weight = trial.suggest_int('min_child_weight', 1, 20)
+    subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
+    colsample_bytree = trial.suggest_discrete_uniform('colsample_bytree', 0.5, 0.9, 0.1)
+
+    xgboost_tuna = XGBClassifier(
+        max_depth = max_depth,
+        random_state=42,
+        n_estimators = n_estimators,
+        min_child_weight = min_child_weight,
+        subsample = subsample,
+        colsample_bytree = colsample_bytree,
+        eta = 0.1,
+        objective = 'binary:logistic',
+        verbosity = 0,
+        n_thread = 4,
+        **param
+    )
+
+    xgboost_tuna.fit(tr_input_arr, tr_angle_arr)
+    tuna_pred_test = xgboost_tuna.predict(val_input_arr)
+    return (1.0 - (accuracy_score(val_angle_arr, tuna_pred_test)))
+
 def setup_historical_fx_data():
     global exchange_dates
     global exchange_rates
@@ -243,6 +286,10 @@ def setup_historical_fx_data():
 
 def train_and_generate_model():
     global log_fd
+    global tr_input_arr
+    global tr_angle_arr
+    global val_input_arr
+    global val_angle_arr
 
     data_len = len(exchange_rates)
     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
@@ -320,34 +367,40 @@ def train_and_generate_model():
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
     if VALIDATION_DATA_RATIO != 0.0:
         val_input_arr = np.array(tr_input_mat[split_idx:])
-        val_angle_arr = np.array(tr_input_mat[split_idx:])
+        val_angle_arr = np.array(tr_angle_mat[split_idx:])
         dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
         watchlist  = [(dtrain,'train'),(dval,'validation')]
     else:
         watchlist  = [(dtrain,'train')]
 
-    #param = {'max_depth':6, 'eta':0.2, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0}
-    param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
-     'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
+    start = time.time()
+    if is_param_tune_with_optuna:
+        study = optuna.create_study()
+        study.optimize(opt, n_trials=100)
+        process_time = time.time() - start
+        logfile_writeln(str(study.best_params))
+        logfile_writeln(str(study.best_value))
+        logfile_writeln(str(study.best_trial))
+        logfile_writeln("excecution time of tune: " + str(process_time))
+        log_fd.flush()
+        quit()
+
+    param = {'max_depth':999, 'eta':0.2, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
+        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 999, 'subsample': 999, 'colsample_bytree':999
+    }
+
+    #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
+    # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
+
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
-    else:
-        param['nthread'] = 4
-
-    #num_round = 3000
 
     eval_result_dic = {}
 
-
-    start = time.time()
-    if is_use_gpu:
-        logfile_writeln("num_round: " + str(NUM_ROUND_GPU))
-        bst = xgb.train(param, dtrain, NUM_ROUND_GPU, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND_GPU/100))
-    else:
-        logfile_writeln("num_round: " + str(NUM_ROUND_CPU))
-        bst = xgb.train(param, dtrain, NUM_ROUND_CPU, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND_CPU/100))
+    logfile_writeln("num_round: " + str(NUM_ROUND))
+    bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
     process_time = time.time() - start
     logfile_writeln("excecution time of training: " + str(process_time))
 
