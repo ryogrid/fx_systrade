@@ -12,7 +12,7 @@ import time
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-TRAINDATA_DIV = 10
+TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
 NUM_ROUND = 65 #4000
 VALIDATION_DATA_RATIO = 0.0 #0.2
@@ -28,7 +28,7 @@ exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
 is_use_gpu = False
-is_param_tune_with_optuna = False
+is_param_tune_with_optuna = True
 
 if is_param_tune_with_optuna:
     import optuna
@@ -227,19 +227,19 @@ def opt(trial):
         param['max_bin'] = 16
         param['gpu_id'] = 0
 
-    n_estimators = trial.suggest_int('n_estimators', 0, 1000)
+    n_estimators = trial.suggest_int('n_estimators', 0, 10000)
     max_depth = trial.suggest_int('max_depth', 1, 20)
     min_child_weight = trial.suggest_int('min_child_weight', 1, 20)
-    subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
-    colsample_bytree = trial.suggest_discrete_uniform('colsample_bytree', 0.5, 0.9, 0.1)
+    #subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
+    #colsample_bytree = trial.suggest_discrete_uniform('colsample_bytree', 0.5, 0.9, 0.1)
 
     xgboost_tuna = XGBClassifier(
         max_depth = max_depth,
         random_state=42,
         n_estimators = n_estimators,
         min_child_weight = min_child_weight,
-        subsample = subsample,
-        colsample_bytree = colsample_bytree,
+        subsample = 0.7,
+        colsample_bytree = 0.6,
         eta = 0.1,
         objective = 'binary:logistic',
         verbosity = 0,
