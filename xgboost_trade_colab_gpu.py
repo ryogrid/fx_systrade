@@ -12,10 +12,15 @@ import time
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
+SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1
+COMPETITION_DIV = True
+COMPETITION_TRAIN_DATA_NUM = 1044752
+COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522775
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 65 #4000
-VALIDATION_DATA_RATIO = 0.0 #0.2
+NUM_ROUND = 4000 #65 #4000
+VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
+DATA_HEAD_ASOBI = 200
 
 log_fd = None
 
@@ -292,22 +297,28 @@ def train_and_generate_model():
     global val_angle_arr
 
     data_len = len(exchange_rates)
-    if is_param_tune_with_optuna:
-        train_len = len(exchange_rates) - 1000 - OUTPUT_LEN
-    else:
-        train_len = int(len(exchange_rates)/TRAINDATA_DIV)
+    # if is_param_tune_with_optuna:
+    #     train_len = len(exchange_rates) - 1000 - OUTPUT_LEN
+    # else:
+    #     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd = open("./train_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
 
-    print("data size: " + str(data_len))
-    print("train len: " + str(train_len))
+    print("data size of rates: " + str(data_len))
+    print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
+    print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
 
-    logfile_writeln("data size: " + str(data_len))
-    logfile_writeln("train len: " + str(train_len))
+
+    logfile_writeln("data size of rates: " + str(data_len))
+    logfile_writeln("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
 
     tr_input_mat = []
     tr_angle_mat = []
-    for i in range(1000, train_len, OUTPUT_LEN):
+    for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
+        if "2006" in exchange_dates[i]:
+            print(len(tr_input_mat))
+            print(str(DATA_HEAD_ASOBI + i - 1))
+            quit()
         tr_input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
@@ -349,12 +360,12 @@ def train_and_generate_model():
          ]
             )
 
-        tmp = (exchange_rates[i+OUTPUT_LEN] - exchange_rates[i])/float(OUTPUT_LEN)
+        tmp = exchange_rates[i+OUTPUT_LEN] - exchange_rates[i]
         if tmp >= 0:
             tr_angle_mat.append(1)
         else:
             tr_angle_mat.append(0)
-        tmp = (reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i])/float(OUTPUT_LEN)
+        tmp = reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i]
         if tmp >= 0:
             tr_angle_mat.append(1)
         else:
@@ -363,26 +374,22 @@ def train_and_generate_model():
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
 
-    if is_param_tune_with_optuna:
-        gen_data_len = int(((len(exchange_rates)/TRAINDATA_DIV))/5.0)
-    else:
-        gen_data_len = len(tr_input_mat)
-
-    split_idx = int(gen_data_len * (1 - VALIDATION_DATA_RATIO))
-    tr_input_arr = np.array(tr_input_mat[0:split_idx])
-    tr_angle_arr = np.array(tr_angle_mat[0:split_idx])
+    # if is_param_tune_with_optuna:
+    #     gen_data_len = int(((len(exchange_rates)/TRAINDATA_DIV))/5.0)
+    # else:
+    #     gen_data_len = len(tr_input_mat)
+    tr_input_arr = np.array(tr_input_mat[0:COMPETITION_TRAIN_DATA_NUM])
+    tr_angle_arr = np.array(tr_angle_mat[0:COMPETITION_TRAIN_DATA_NUM])
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    if is_param_tune_with_optuna:
-        val_input_arr = np.array(tr_input_mat[split_idx:])
-        val_angle_arr = np.array(tr_angle_mat[split_idx:])
+
+    split_idx = tarin_len + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
+    if VALIDATION_DATA_RATIO != 0.0:
+        val_input_arr = np.array(tr_input_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
+        val_angle_arr = np.array(tr_angle_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
+        dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
+        watchlist  = [(dtrain,'train'),(dval,'validation')]
     else:
-        if VALIDATION_DATA_RATIO != 0.0:
-            val_input_arr = np.array(tr_input_mat[split_idx:])
-            val_angle_arr = np.array(tr_angle_mat[split_idx:])
-            dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
-            watchlist  = [(dtrain,'train'),(dval,'validation')]
-        else:
-            watchlist  = [(dtrain,'train')]
+        watchlist  = [(dtrain,'train')]
 
     start = time.time()
     if is_param_tune_with_optuna:
@@ -397,8 +404,8 @@ def train_and_generate_model():
         log_fd.flush()
         quit()
 
-    param = {'max_depth':1, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
-        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 16, 'subsample': 0.7, 'colsample_bytree':0.7
+    param = {'max_depth':7, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
+        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7
     }
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
@@ -408,6 +415,7 @@ def train_and_generate_model():
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
+        param['n_thread'] = 2
 
     eval_result_dic = {}
 
@@ -436,7 +444,7 @@ def run_backtest():
     print("start backtest...")
 
     data_len = len(exchange_rates)
-    train_len = int(len(exchange_rates)/TRAINDATA_DIV)
+    #train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
     if is_use_gpu:
@@ -461,8 +469,8 @@ def run_backtest():
     pos_cont_count = 0
     won_pips = 0
     start = time.time()
-    for window_s in range((data_len - train_len) - (OUTPUT_LEN)):
-        current_spot = train_len + window_s + OUTPUT_LEN
+    for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
+        current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
         skip_flag = False
 
         # #rikaku
