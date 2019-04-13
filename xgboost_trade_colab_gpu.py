@@ -33,7 +33,8 @@ exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
 is_use_gpu = False
-is_param_tune_with_optuna = True
+is_colab_cpu = False
+is_param_tune_with_optuna = False
 
 if is_param_tune_with_optuna:
     import optuna
@@ -315,10 +316,10 @@ def train_and_generate_model():
     tr_input_mat = []
     tr_angle_mat = []
     for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
-        if "2006" in exchange_dates[i]:
-            print(len(tr_input_mat))
-            print(str(DATA_HEAD_ASOBI + i - 1))
-            quit()
+        # if "2006" in exchange_dates[i]:
+        #     print(len(tr_input_mat))
+        #     print(str(DATA_HEAD_ASOBI + i - 1))
+        #     quit()
         tr_input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
@@ -416,7 +417,9 @@ def train_and_generate_model():
         param['max_bin'] = 16
         param['gpu_id'] = 0
         param['n_thread'] = 2
-
+    if is_colab_cpu:
+        param['n_thread'] = 2
+        
     eval_result_dic = {}
 
     logfile_writeln("num_round: " + str(NUM_ROUND))
@@ -582,6 +585,7 @@ def run_backtest():
 
 def run_script(mode):
     global is_use_gpu
+    global is_colab_cpu
 
     if mode == "TRAIN":
         if exchange_dates == None:
@@ -592,6 +596,11 @@ def run_script(mode):
             setup_historical_fx_data()
         is_use_gpu = True
         train_and_generate_model()
+    elif mode == "TRAIN_COLAB_CPU":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        is_colab_cpu = True
+        train_and_generate_model()
     elif mode == "TRADE":
         if exchange_dates == None:
             setup_historical_fx_data()
@@ -600,6 +609,11 @@ def run_script(mode):
         if exchange_dates == None:
             setup_historical_fx_data()
         is_use_gpu = True
+        run_backtest()
+    elif mode == "TRADE_COLAB_CPU":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        is_clab_cpu = True
         run_backtest()
     else:
         raise Exception(str(mode) + " mode is invalid.")
