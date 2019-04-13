@@ -6,6 +6,7 @@ import pickle
 import talib as ta
 from datetime import datetime as dt
 import pytz
+import os
 
 import time
 #from tensorboard_logger import configure, log_value
@@ -20,7 +21,7 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 500 #65 #4000
+NUM_ROUND = 50 #65 #4000
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
@@ -317,62 +318,74 @@ def train_and_generate_model():
 
     tr_input_mat = []
     tr_angle_mat = []
-    for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
-        # if "2006" in exchange_dates[i]:
-        #     print(len(tr_input_mat))
-        #     print(str(DATA_HEAD_ASOBI + i - 1))
-        #     quit()
-        tr_input_mat.append(
-            [exchange_rates[i],
-             (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
-             get_rsi(exchange_rates, i),
-             get_ma(exchange_rates, i),
-             get_ma_kairi(exchange_rates, i),
-             get_bb_1(exchange_rates, i),
-             get_bb_2(exchange_rates, i),
-             get_ema(exchange_rates, i),
-             get_ema_rsi(exchange_rates, i),
-             get_cci(exchange_rates, i),
-             get_mo(exchange_rates, i),
-             get_lw(exchange_rates, i),
-             get_ss(exchange_rates, i),
-             get_dmi(exchange_rates, i),
-             get_vorarity(exchange_rates, i),
-             get_macd(exchange_rates, i),
-             str(judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
-         ]
-            )
-        tr_input_mat.append(
-            [reverse_exchange_rates[i],
-             (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1])/reverse_exchange_rates[i - 1],
-             get_rsi(reverse_exchange_rates, i),
-             get_ma(reverse_exchange_rates, i),
-             get_ma_kairi(reverse_exchange_rates, i),
-             get_bb_1(reverse_exchange_rates, i),
-             get_bb_2(reverse_exchange_rates, i),
-             get_ema(reverse_exchange_rates, i),
-             get_ema_rsi(reverse_exchange_rates, i),
-             get_cci(reverse_exchange_rates, i),
-             get_mo(reverse_exchange_rates, i),
-             get_lw(reverse_exchange_rates, i),
-             get_ss(reverse_exchange_rates, i),
-             get_dmi(reverse_exchange_rates, i),
-             get_vorarity(reverse_exchange_rates, i),
-             get_macd(reverse_exchange_rates, i),
-             str(judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
-         ]
-            )
 
-        tmp = exchange_rates[i+OUTPUT_LEN] - exchange_rates[i]
-        if tmp >= 0:
-            tr_angle_mat.append(1)
-        else:
-            tr_angle_mat.append(0)
-        tmp = reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i]
-        if tmp >= 0:
-            tr_angle_mat.append(1)
-        else:
-            tr_angle_mat.append(0)
+    if os.path.exists("./tr_input_mat.pickle"):
+        with open('./tr_input_mat.pickle', 'rb') as f:
+            tr_input_mat = pickle.load(f)
+        with open('./tr_angle_mat.pickle', 'rb') as f:
+            tr_angle_mat = pickle.load(f)
+    else:
+        for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
+            # if "2006" in exchange_dates[i]:
+            #     print(len(tr_input_mat))
+            #     print(str(DATA_HEAD_ASOBI + i - 1))
+            #     quit()
+            tr_input_mat.append(
+                [exchange_rates[i],
+                 (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
+                 get_rsi(exchange_rates, i),
+                 get_ma(exchange_rates, i),
+                 get_ma_kairi(exchange_rates, i),
+                 get_bb_1(exchange_rates, i),
+                 get_bb_2(exchange_rates, i),
+                 get_ema(exchange_rates, i),
+                 get_ema_rsi(exchange_rates, i),
+                 get_cci(exchange_rates, i),
+                 get_mo(exchange_rates, i),
+                 get_lw(exchange_rates, i),
+                 get_ss(exchange_rates, i),
+                 get_dmi(exchange_rates, i),
+                 get_vorarity(exchange_rates, i),
+                 get_macd(exchange_rates, i),
+                 str(judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
+             ]
+                )
+            tr_input_mat.append(
+                [reverse_exchange_rates[i],
+                 (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1])/reverse_exchange_rates[i - 1],
+                 get_rsi(reverse_exchange_rates, i),
+                 get_ma(reverse_exchange_rates, i),
+                 get_ma_kairi(reverse_exchange_rates, i),
+                 get_bb_1(reverse_exchange_rates, i),
+                 get_bb_2(reverse_exchange_rates, i),
+                 get_ema(reverse_exchange_rates, i),
+                 get_ema_rsi(reverse_exchange_rates, i),
+                 get_cci(reverse_exchange_rates, i),
+                 get_mo(reverse_exchange_rates, i),
+                 get_lw(reverse_exchange_rates, i),
+                 get_ss(reverse_exchange_rates, i),
+                 get_dmi(reverse_exchange_rates, i),
+                 get_vorarity(reverse_exchange_rates, i),
+                 get_macd(reverse_exchange_rates, i),
+                 str(judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
+             ]
+                )
+
+            tmp = exchange_rates[i+OUTPUT_LEN] - exchange_rates[i]
+            if tmp >= 0:
+                tr_angle_mat.append(1)
+            else:
+                tr_angle_mat.append(0)
+            tmp = reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i]
+            if tmp >= 0:
+                tr_angle_mat.append(1)
+            else:
+                tr_angle_mat.append(0)
+
+        with open('tr_input_mat.pickle', 'wb') as f:
+            pickle.dump(tr_input_mat, f)
+        with open('tr_angle_mat.pickle', 'wb') as f:
+            pickle.dump(tr_angle_mat, f)
 
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
@@ -476,9 +489,17 @@ def run_backtest():
     pos_cont_count = 0
     won_pips = 0
     start = time.time()
+    ts_input_mat = []
+    is_loaded_mat = False
+    if os.path.exists("./ts_input_mat.pickle"):
+        with open('./ts_input_mat.pickle', 'rb') as f:
+            ts_input_mat = pickle.load(f)
+            is_loaded_mat = True
+
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
         current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
         skip_flag = False
+        delay_continue_flag = False
 
         # #rikaku
         # if pos_kind != NOT_HAVE:
@@ -507,70 +528,74 @@ def run_backtest():
                 pos_kind = NOT_HAVE
                 won_pips += diff
                 logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                continue
+                #continue
+                delay_continue_flag = True
 
         chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
         if chart_type != 1 and chart_type != 2:
             skip_flag = True
             if pos_kind != NOT_HAVE:
                 # if liner trend keep position
-                continue
+                #continue
+                delay_continue_flag = True
 
+        if delay_continue_flag == False:
+            if pos_kind != NOT_HAVE:
+                if pos_cont_count >= (OUTPUT_LEN-1):
+                    if pos_kind == LONG:
+                        pos_kind = NOT_HAVE
+                        portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+                        diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
+                        won_pips += diff
+                        logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
+                        logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
+                    elif pos_kind == SHORT:
+                        pos_kind = NOT_HAVE
+                        portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                        diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
+                        won_pips += diff
+                        logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
+                        logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
+                    pos_cont_count = 0
+                else:
+                    pos_cont_count += 1
+                #continue
 
-        if pos_kind != NOT_HAVE:
-            if pos_cont_count >= (OUTPUT_LEN-1):
-                if pos_kind == LONG:
-                    pos_kind = NOT_HAVE
-                    portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
-                    diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
-                    won_pips += diff
-                    logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                    logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
-                elif pos_kind == SHORT:
-                    pos_kind = NOT_HAVE
-                    portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
-                    diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
-                    won_pips += diff
-                    logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                    logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
-                pos_cont_count = 0
-            else:
-                pos_cont_count += 1
-            continue
-
-    #     vorarity = 0
-        vorarity = get_vorarity(exchange_rates, current_spot)
-        if vorarity >= 0.07:
-            skip_flag = True
+            vorarity = get_vorarity(exchange_rates, current_spot)
+            if vorarity >= 0.07:
+                skip_flag = True
 
         # prediction
-        ts_input_mat = []
-        ts_input_mat.append(
-           [exchange_rates[current_spot],
-            (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
-            get_rsi(exchange_rates, current_spot),
-            get_ma(exchange_rates, current_spot),
-            get_ma_kairi(exchange_rates, current_spot),
-            get_bb_1(exchange_rates, current_spot),
-            get_bb_2(exchange_rates, current_spot),
-            get_ema(exchange_rates, current_spot),
-            get_ema_rsi(exchange_rates, current_spot),
-            get_cci(exchange_rates, current_spot),
-            get_mo(exchange_rates, current_spot),
-            get_lw(exchange_rates, current_spot),
-            get_ss(exchange_rates, current_spot),
-            get_dmi(exchange_rates, current_spot),
-            vorarity,
-            get_macd(exchange_rates, current_spot),
-            str(chart_type)
-        ]
-        )
+        #ts_input_mat = []
+        if is_loaded_mat == False:
+            ts_input_mat.append(
+               [exchange_rates[current_spot],
+                (exchange_rates[current_spot] - exchange_rates[current_spot - 1])/exchange_rates[current_spot - 1],
+                get_rsi(exchange_rates, current_spot),
+                get_ma(exchange_rates, current_spot),
+                get_ma_kairi(exchange_rates, current_spot),
+                get_bb_1(exchange_rates, current_spot),
+                get_bb_2(exchange_rates, current_spot),
+                get_ema(exchange_rates, current_spot),
+                get_ema_rsi(exchange_rates, current_spot),
+                get_cci(exchange_rates, current_spot),
+                get_mo(exchange_rates, current_spot),
+                get_lw(exchange_rates, current_spot),
+                get_ss(exchange_rates, current_spot),
+                get_dmi(exchange_rates, current_spot),
+                vorarity,
+                get_macd(exchange_rates, current_spot),
+                str(chart_type)
+            ]
+            )
+        if delay_continue_flag == True:
+            continue
 
-        ts_input_arr = np.array(ts_input_mat)
+        ts_input_arr = np.array([ts_input_mat[window_s]])
         dtest = xgb.DMatrix(ts_input_arr)
 
         pred = bst.predict(dtest)
-
+        #print(pred)
         predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
@@ -582,6 +607,10 @@ def run_backtest():
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
+
+    if is_loaded_mat == False:
+        with open('./ts_input_mat.pickle', 'wb') as f:
+            pickle.dump(ts_input_mat, f)
 
     logfile_writeln("finished backtest.")
     process_time = time.time() - start
