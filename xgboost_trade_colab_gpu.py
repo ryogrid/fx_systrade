@@ -12,10 +12,12 @@ import time
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1
+SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
 COMPETITION_DIV = True
-COMPETITION_TRAIN_DATA_NUM = 1044752
-COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522775
+COMPETITION_TRAIN_DATA_NUM = 208952
+COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
+
+
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
 NUM_ROUND = 4000 #65 #4000
@@ -405,12 +407,16 @@ def train_and_generate_model():
         log_fd.flush()
         quit()
 
-    param = {'max_depth':3, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
-        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7
-    }
+    # param = {'max_depth':3, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
+    #     'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7
+    # }
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
     # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
+
+    param = {'max_depth':3, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
+        'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7,
+        'booster': 'dart', 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
 
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
