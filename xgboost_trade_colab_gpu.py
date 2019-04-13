@@ -383,7 +383,7 @@ def train_and_generate_model():
     tr_angle_arr = np.array(tr_angle_mat[0:COMPETITION_TRAIN_DATA_NUM])
     dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
 
-    split_idx = tarin_len + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
+    split_idx = COMPETITION_TRAIN_DATA_NUM + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
     if VALIDATION_DATA_RATIO != 0.0:
         val_input_arr = np.array(tr_input_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
         val_angle_arr = np.array(tr_angle_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
@@ -419,7 +419,7 @@ def train_and_generate_model():
         param['n_thread'] = 2
     if is_colab_cpu:
         param['n_thread'] = 2
-        
+
     eval_result_dic = {}
 
     logfile_writeln("num_round: " + str(NUM_ROUND))
