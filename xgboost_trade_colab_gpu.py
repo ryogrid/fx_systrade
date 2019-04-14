@@ -21,7 +21,7 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 50 #65 #4000
+NUM_ROUND = 10000 #50 #65 #4000
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
@@ -492,7 +492,8 @@ def run_backtest():
     ts_input_mat = []
     is_loaded_mat = False
     if os.path.exists("./ts_input_mat.pickle"):
-        with open('./ts_input_mat.pickle', 'rb') as f:
+        #with open('./ts_input_mat.pickle', 'rb') as f:
+        with open('./tr_input_mat.pickle', 'rb') as f:
             ts_input_mat = pickle.load(f)
             is_loaded_mat = True
 
