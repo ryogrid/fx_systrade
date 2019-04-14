@@ -497,27 +497,19 @@ def run_backtest():
             ts_input_mat = pickle.load(f)
             is_loaded_mat = True
 
+    # log format
+    a_log_str_line = "log marker, loop count, Did Action == Sonkiri, chart_type, Did Action == skip according to chart_type, Did Action == Rieki Kakutei, Did Action == Skip according to position cointain time, voratility, Did Action == skip accordint to voratility, predicted prob, Get long position => 1 Get Short position => 2 else => 0, Did Action == Skip by chart_type at last decision"
+
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
         #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
         current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
 
+        logfile_writeln(a_log_str_line)
+
         skip_flag = False
         delay_continue_flag = False
-
-        # #rikaku
-        # if pos_kind != NOT_HAVE:
-        #     if pos_kind == LONG:
-        #         got_pips = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
-        #         cur_portfo = portfolio + (positions * (exchange_rates[current_spot] - HALF_SPREAD) - positions * trade_val)
-        #     elif pos_kind == SHORT:
-        #         got_pips = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
-        #         cur_portfoo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
-        #     if got_pips >= RIKAKU_PIPS:
-        #         portfolio = cur_portfo
-        #         pos_kind = NOT_HAVE
-        #         won_pips += got_pips
-        #         print exchange_dates[current_spot] + " rikaku " + str(got_pips)
-        #         continue
+        vorarity = -1 # default value for log output
+        a_log_str_line = "log," + str(window_s)
 
         if pos_kind != NOT_HAVE:
             if pos_kind == LONG:
@@ -531,43 +523,57 @@ def run_backtest():
                 pos_kind = NOT_HAVE
                 won_pips += diff
                 logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                #continue
-                delay_continue_flag = True
-
-        chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
-        if chart_type != 1 and chart_type != 2:
-            skip_flag = True
-            if pos_kind != NOT_HAVE:
-                # if liner trend keep position
+                a_log_str_line += ",1,0,0,0,0,0,0,0,0,0"
                 #continue
                 delay_continue_flag = True
 
         if delay_continue_flag == False:
-            if pos_kind != NOT_HAVE:
-                if pos_cont_count >= (OUTPUT_LEN-1):
-                    if pos_kind == LONG:
-                        pos_kind = NOT_HAVE
-                        portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
-                        diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
-                        won_pips += diff
-                        logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                        logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
-                    elif pos_kind == SHORT:
-                        pos_kind = NOT_HAVE
-                        portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
-                        diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
-                        won_pips += diff
-                        logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                        logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
-                    pos_cont_count = 0
-                else:
-                    pos_cont_count += 1
-                #continue
-
-            vorarity = get_vorarity(exchange_rates, current_spot)
-#            if vorarity >= 0.07:
-            if vorarity >= 0.03:
+            chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
+            if chart_type != 1 and chart_type != 2:
                 skip_flag = True
+                if pos_kind != NOT_HAVE:
+                    # if liner trend keep position
+                    a_log_str_line += ",0," + str(chart_type) + ",1,0,0,0,0,0,0,0"
+                    #continue
+                    delay_continue_flag = True
+
+        if pos_kind != NOT_HAVE and delay_continue_flag == False:
+            if pos_cont_count >= (OUTPUT_LEN-1):
+                if pos_kind == LONG:
+                    pos_kind = NOT_HAVE
+                    portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
+                    diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
+                    won_pips += diff
+                    logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
+                    logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
+                    a_log_str_line += ",0," + str(chart_type) + ",0,1,0,0,0,0,0,0"
+                elif pos_kind == SHORT:
+                    pos_kind = NOT_HAVE
+                    portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
+                    diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
+                    won_pips += diff
+                    logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
+                    logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
+                    a_log_str_line += ",0," + str(chart_type) + ",0,1,0,0,0,0,0,0"
+                pos_cont_count = 0
+            else:
+                a_log_str_line += ",0," + str(chart_type) + ",0,0,1,0,0,0,0,0"
+                pos_cont_count += 1
+            #continue
+            delay_continue_flag = True
+
+            if delay_continue_flag == False:
+                vorarity = get_vorarity(exchange_rates, current_spot)
+    #            if vorarity >= 0.07:
+                if vorarity >= 0.03:
+                    a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1,0,0,0"
+                    #continue
+                    delay_continue_flag = True
+
+        if skip_flag and delay_continue_flag == False:
+            a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",0,0,0,1"
+            #continue
+            delay_continue_flag = True
 
         # prediction
         #ts_input_mat = []
@@ -592,6 +598,7 @@ def run_backtest():
                 str(chart_type)
             ]
             )
+
         if delay_continue_flag == True:
             continue
 
@@ -607,10 +614,17 @@ def run_backtest():
                pos_kind = LONG
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
+               a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",1,0"
             elif predicted_prob <= 0.3 and chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
+               a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",2,0"
+            else:
+               a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",0,0"
+        else:
+            raise Exception("this path should not be executed!!!!")
+            #a_log_str_line += "0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1,0,0,1"
 
     if is_loaded_mat == False:
         with open('./ts_input_mat.pickle', 'wb') as f:
