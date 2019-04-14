@@ -491,14 +491,18 @@ def run_backtest():
     start = time.time()
     ts_input_mat = []
     is_loaded_mat = False
-    if os.path.exists("./ts_input_mat.pickle"):
-        #with open('./ts_input_mat.pickle', 'rb') as f:
-        with open('./tr_input_mat.pickle', 'rb') as f:
-            ts_input_mat = pickle.load(f)
-            is_loaded_mat = True
+
+    ## TODO: need revert!
+    # if os.path.exists("./ts_input_mat.pickle"):
+    #     with open('./ts_input_mat.pickle', 'rb') as f:
+    #         ts_input_mat = pickle.load(f)
+    #         is_loaded_mat = True
 
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
-        current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
+        ## TODO: need revert!
+        current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
+        #current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
+
         skip_flag = False
         delay_continue_flag = False
 
