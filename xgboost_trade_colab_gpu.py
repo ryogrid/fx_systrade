@@ -565,7 +565,8 @@ def run_backtest():
                 #continue
 
             vorarity = get_vorarity(exchange_rates, current_spot)
-            if vorarity >= 0.07:
+#            if vorarity >= 0.07:
+            if vorarity >= 0.03:
                 skip_flag = True
 
         # prediction
@@ -602,11 +603,11 @@ def run_backtest():
         predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob >= 0.80 and chart_type == 2 :
+            if predicted_prob >= 0.70 and chart_type == 2:
                pos_kind = LONG
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
-            elif predicted_prob <= 0.2 and chart_type == 1:
+            elif predicted_prob <= 0.3 and chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
