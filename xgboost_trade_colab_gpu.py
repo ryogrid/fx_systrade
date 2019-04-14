@@ -13,7 +13,7 @@ import time
 
 INPUT_LEN = 1
 OUTPUT_LEN = 5
-SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
+SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
 COMPETITION_DIV = True
 COMPETITION_TRAIN_DATA_NUM = 208952
 COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
@@ -21,7 +21,7 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 100000 #50 #65 #4000
+NUM_ROUND = 50 #65 #4000
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
@@ -319,14 +319,13 @@ def train_and_generate_model():
     tr_input_mat = []
     tr_angle_mat = []
 
-    if False: #os.path.exists("./tr_input_mat.pickle"):
+    if os.path.exists("./tr_input_mat.pickle"):
         with open('./tr_input_mat.pickle', 'rb') as f:
             tr_input_mat = pickle.load(f)
         with open('./tr_angle_mat.pickle', 'rb') as f:
             tr_angle_mat = pickle.load(f)
     else:
-        #for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
-        for i in range(DATA_HEAD_ASOBI, data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
+        for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
             # if "2006" in exchange_dates[i]:
             #     print(len(tr_input_mat))
             #     print(str(DATA_HEAD_ASOBI + i - 1))
@@ -383,10 +382,10 @@ def train_and_generate_model():
             else:
                 tr_angle_mat.append(0)
 
-        # with open('tr_input_mat.pickle', 'wb') as f:
-        #     pickle.dump(tr_input_mat, f)
-        # with open('tr_angle_mat.pickle', 'wb') as f:
-        #     pickle.dump(tr_angle_mat, f)
+        with open('tr_input_mat.pickle', 'wb') as f:
+            pickle.dump(tr_input_mat, f)
+        with open('tr_angle_mat.pickle', 'wb') as f:
+            pickle.dump(tr_angle_mat, f)
 
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
@@ -493,14 +492,14 @@ def run_backtest():
     ts_input_mat = []
     is_loaded_mat = False
 
-    # if os.path.exists("./ts_input_mat.pickle"):
-    #     with open('./ts_input_mat.pickle', 'rb') as f:
-    #         ts_input_mat = pickle.load(f)
-    #         is_loaded_mat = True
+    if os.path.exists("./ts_input_mat.pickle"):
+        with open('./ts_input_mat.pickle', 'rb') as f:
+            ts_input_mat = pickle.load(f)
+            is_loaded_mat = True
 
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
-        current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
-        #current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
+        #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
+        current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
 
         skip_flag = False
         delay_continue_flag = False
@@ -612,9 +611,9 @@ def run_backtest():
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
 
-    # if is_loaded_mat == False:
-    #     with open('./ts_input_mat.pickle', 'wb') as f:
-    #         pickle.dump(ts_input_mat, f)
+    if is_loaded_mat == False:
+        with open('./ts_input_mat.pickle', 'wb') as f:
+            pickle.dump(ts_input_mat, f)
 
     logfile_writeln("finished backtest.")
     process_time = time.time() - start
