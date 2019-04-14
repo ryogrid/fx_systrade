@@ -610,12 +610,12 @@ def run_backtest():
         predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob > 0.5 and chart_type == 2:
+            if predicted_prob > 0.6 and chart_type == 2:
                pos_kind = LONG
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
                a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",1,0"
-            elif predicted_prob < 0.5 and chart_type == 1:
+            elif predicted_prob < 0.4 and chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
