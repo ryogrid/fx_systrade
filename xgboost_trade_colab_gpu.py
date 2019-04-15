@@ -613,12 +613,12 @@ def run_backtest():
         predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob > 0.6 and chart_type == 2:
+            if predicted_prob > LONG_PROBA_THRESH and chart_type == 2:
                pos_kind = LONG
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
                a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",1,0"
-            elif predicted_prob < 0.4 and chart_type == 1:
+            elif predicted_prob < SHORT_PROBA_THRESH and chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
@@ -661,24 +661,24 @@ def run_script(mode):
     elif mode == "TRADE":
         if exchange_dates == None:
             setup_historical_fx_data()
-        run_backtest()
+        return run_backtest()
     elif mode == "TRADE_GPU":
         if exchange_dates == None:
             setup_historical_fx_data()
         is_use_gpu = True
-        run_backtest()
+        return run_backtest()
     elif mode == "TRADE_COLAB_CPU":
         if exchange_dates == None:
             setup_historical_fx_data()
         is_clab_cpu = True
-        run_backtest()
+        return run_backtest()
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
 if __name__ == '__main__':
     LONG_THRESH_CAND = [0.6, 0.65, 0.7, 0.75, 0.8]
     SHORT_THRESH_CAND = [0.4, 0.35, 0.3, 0.25, 0.2]
-    ROUND_CAND = [4000, 5000, 6000, 7000]
+    ROUND_CAND = [4000, 5000, 6000, 7000, 8000]
     with open("./my_search_result.txt", "w") as f:
         for ii in range(len(LONG_THRESH_CAND)):
             LONG_PROBA_THRESH = LONG_THRESH_CAND[ii]
