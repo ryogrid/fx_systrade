@@ -21,9 +21,12 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 10000 #65 #4000
+NUM_ROUND = 4000 #65 #4000
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
+
+LONG_PROBA_THRESH = 0.6
+SHORT_PROBA_THRESH = 0.4
 
 log_fd = None
 
@@ -184,10 +187,10 @@ def get_dmi(price_arr, cur_pos, period = None):
 
 def get_vorarity(price_arr, cur_pos, period = None):
     tmp_arr = []
-    prev = -1
+    prev = -1.0
     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
-        if prev == -1:
-            tmp_arr.append(0)
+        if prev == -1.0:
+            tmp_arr.append(0.0)
         else:
             tmp_arr.append(val - prev)
         prev = val
@@ -633,6 +636,7 @@ def run_backtest():
     logfile_writeln("finished backtest.")
     process_time = time.time() - start
     logfile_writeln("excecution time of backtest: " + str(process_time))
+    return portfolio
 
 def run_script(mode):
     global is_use_gpu
@@ -670,5 +674,18 @@ def run_script(mode):
         raise Exception(str(mode) + " mode is invalid.")
 
 if __name__ == '__main__':
-    run_script("TRAIN")
-    run_script("TRADE")
+    LONG_THRESH_CAND = [0.6, 0.65, 0.7, 0.75, 0.8]
+    SHORT THRESH_CAND = [0.4, 0.35, 0.3, 0.25, 0.2]
+    ROUND_CAND = [4000, 5000, 6000, 7000]
+    with open("./my_search_result.txt", "w") as f:
+        for ii in range(len(LONG_THRESH_CAND)):
+            LONG_PROBA_THRESH = LONG_THRESH_CAND[ii]
+            SHORT_PROBA_THRESH = SHORT_THRESH_CAND[ii]
+            for jj in range(len(ROUND_CAND)):
+                NUM_ROUND = ROUND_CAND[jj]
+                run_script("TRAIN")
+                result_portfolio = run_script("TRADE")
+                f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(ROUND_CAND) + "," + str(result_portfolio) + "\n")
+                
+    # run_script("TRAIN")
+    # run_script("TRADE")
