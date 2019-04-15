@@ -21,12 +21,13 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 4000 #65 #4000
+NUM_ROUND = 100 #4000 #65 #4000
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
 LONG_PROBA_THRESH = 0.6
 SHORT_PROBA_THRESH = 0.4
+VORARITY_THRESH = 0.03
 
 log_fd = None
 
@@ -185,12 +186,24 @@ def get_ss(price_arr, cur_pos, period = None):
 def get_dmi(price_arr, cur_pos, period = None):
     return 0
 
+# def get_vorarity(price_arr, cur_pos, period = None):
+#     tmp_arr = []
+#     prev = -1.0
+#     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
+#         if prev == -1.0:
+#             tmp_arr.append(0.0)
+#         else:
+#             tmp_arr.append(val - prev)
+#         prev = val
+#
+#     return np.std(tmp_arr)
+
 def get_vorarity(price_arr, cur_pos, period = None):
     tmp_arr = []
-    prev = -1.0
+    prev = -1
     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
-        if prev == -1.0:
-            tmp_arr.append(0.0)
+        if prev == -1:
+            tmp_arr.append(0)
         else:
             tmp_arr.append(val - prev)
         prev = val
@@ -440,6 +453,8 @@ def train_and_generate_model():
     if is_colab_cpu:
         param['n_thread'] = 2
 
+    logfile_writeln("training parameters are below...")
+    logfile_writeln(str(param))
     eval_result_dic = {}
 
     logfile_writeln("num_round: " + str(NUM_ROUND))
@@ -500,9 +515,11 @@ def run_backtest():
             ts_input_mat = pickle.load(f)
             is_loaded_mat = True
 
+    logfile_writeln("trade parameters LONG_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " SHORT_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " VORARITY_THRESH=" + str(VORARITY_THRESH) + " trade_trying_times=" + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
     # log format
     a_log_str_line = "log marker, loop count, Did Action == Sonkiri, chart_type, Did Action == skip according to chart_type, Did Action == Rieki Kakutei, Did Action == Skip according to position cointain time, voratility, Did Action == skip accordint to voratility, predicted prob, Get long position => 1 Get Short position => 2 else => 0, Did Action == Skip by chart_type at last decision"
-
+    #logfile_writeln("check_ts_input_mat,range func argument," + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
+    #logfile_writeln("check_ts_input_mat,current_sport start," + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + OUTPUT_LEN))
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
         #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
         current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
@@ -530,7 +547,7 @@ def run_backtest():
                 #continue
                 delay_continue_flag = True
 
-        if delay_continue_flag == False:
+        if delay_continue_flag == False or is_loaded_mat == False:
             chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
             if chart_type != 1 and chart_type != 2:
                 skip_flag = True
@@ -565,13 +582,13 @@ def run_backtest():
             #continue
             delay_continue_flag = True
 
-            if delay_continue_flag == False:
-                vorarity = get_vorarity(exchange_rates, current_spot)
-    #            if vorarity >= 0.07:
-                if vorarity >= 0.03:
-                    a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1,0,0,0"
-                    #continue
-                    delay_continue_flag = True
+        if delay_continue_flag == False or is_loaded_mat == False:
+            vorarity = get_vorarity(exchange_rates, current_spot)
+#            if vorarity >= 0.07:
+            if vorarity >= VORARITY_THRESH:
+                a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1,0,0,0"
+                #continue
+                delay_continue_flag = True
 
         if skip_flag and delay_continue_flag == False:
             a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",0,0,0,1"
@@ -601,6 +618,7 @@ def run_backtest():
                 str(chart_type)
             ]
             )
+            #logfile_writeln("check_ts_input_mat,check append window_s," + str(window_s) + "\n")
 
         if delay_continue_flag == True:
             continue
