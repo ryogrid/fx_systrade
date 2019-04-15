@@ -687,7 +687,7 @@ if __name__ == '__main__':
                 NUM_ROUND = ROUND_CAND[jj]
                 run_script("TRAIN")
                 result_portfolio = run_script("TRADE")
-                f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(ROUND_CAND) + "," + str(result_portfolio) + "\n")
+                f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(NUM_ROUND) + "," + str(result_portfolio) + "\n")
 
     # run_script("TRAIN")
     # run_script("TRADE")
