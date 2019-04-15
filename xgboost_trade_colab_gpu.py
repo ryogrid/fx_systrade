@@ -636,6 +636,8 @@ def run_backtest():
     logfile_writeln("finished backtest.")
     process_time = time.time() - start
     logfile_writeln("excecution time of backtest: " + str(process_time))
+    log_fd.flush()
+    log_fd.close()    
     return portfolio
 
 def run_script(mode):
@@ -686,6 +688,6 @@ if __name__ == '__main__':
                 run_script("TRAIN")
                 result_portfolio = run_script("TRADE")
                 f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(ROUND_CAND) + "," + str(result_portfolio) + "\n")
-                
+
     # run_script("TRAIN")
     # run_script("TRADE")
