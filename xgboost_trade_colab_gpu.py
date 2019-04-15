@@ -637,7 +637,7 @@ def run_backtest():
     process_time = time.time() - start
     logfile_writeln("excecution time of backtest: " + str(process_time))
     log_fd.flush()
-    log_fd.close()    
+    log_fd.close()
     return portfolio
 
 def run_script(mode):
@@ -677,7 +677,7 @@ def run_script(mode):
 
 if __name__ == '__main__':
     LONG_THRESH_CAND = [0.6, 0.65, 0.7, 0.75, 0.8]
-    SHORT THRESH_CAND = [0.4, 0.35, 0.3, 0.25, 0.2]
+    SHORT_THRESH_CAND = [0.4, 0.35, 0.3, 0.25, 0.2]
     ROUND_CAND = [4000, 5000, 6000, 7000]
     with open("./my_search_result.txt", "w") as f:
         for ii in range(len(LONG_THRESH_CAND)):
