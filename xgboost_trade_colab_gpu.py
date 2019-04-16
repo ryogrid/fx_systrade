@@ -510,10 +510,10 @@ def run_backtest():
     ts_input_mat = []
     is_loaded_mat = False
 
-    if os.path.exists("./ts_input_mat.pickle"):
-        with open('./ts_input_mat.pickle', 'rb') as f:
-            ts_input_mat = pickle.load(f)
-            is_loaded_mat = True
+    # if os.path.exists("./ts_input_mat.pickle"):
+    #     with open('./ts_input_mat.pickle', 'rb') as f:
+    #         ts_input_mat = pickle.load(f)
+    #         is_loaded_mat = True
 
     logfile_writeln("trade parameters LONG_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " SHORT_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " VORARITY_THRESH=" + str(VORARITY_THRESH) + " trade_trying_times=" + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
     # log format
@@ -547,7 +547,7 @@ def run_backtest():
                 #continue
                 delay_continue_flag = True
 
-        if delay_continue_flag == False or is_loaded_mat == False:
+        if delay_continue_flag == False:# or is_loaded_mat == False:
             chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
             if chart_type != 1 and chart_type != 2:
                 skip_flag = True
@@ -582,7 +582,7 @@ def run_backtest():
             #continue
             delay_continue_flag = True
 
-        if delay_continue_flag == False or is_loaded_mat == False:
+        if delay_continue_flag == False: #or is_loaded_mat == False:
             vorarity = get_vorarity(exchange_rates, current_spot)
 #            if vorarity >= 0.07:
             if vorarity >= VORARITY_THRESH:
@@ -647,9 +647,9 @@ def run_backtest():
             raise Exception("this path should not be executed!!!!")
             #a_log_str_line += "0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1,0,0,1"
 
-    if is_loaded_mat == False:
-        with open('./ts_input_mat.pickle', 'wb') as f:
-            pickle.dump(ts_input_mat, f)
+    # if is_loaded_mat == False:
+    #     with open('./ts_input_mat.pickle', 'wb') as f:
+    #         pickle.dump(ts_input_mat, f)
 
     logfile_writeln("finished backtest.")
     process_time = time.time() - start
