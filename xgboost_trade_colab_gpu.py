@@ -186,29 +186,29 @@ def get_ss(price_arr, cur_pos, period = None):
 def get_dmi(price_arr, cur_pos, period = None):
     return 0
 
-# def get_vorarity(price_arr, cur_pos, period = None):
-#     tmp_arr = []
-#     prev = -1.0
-#     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
-#         if prev == -1.0:
-#             tmp_arr.append(0.0)
-#         else:
-#             tmp_arr.append(val - prev)
-#         prev = val
-#
-#     return np.std(tmp_arr)
-
 def get_vorarity(price_arr, cur_pos, period = None):
     tmp_arr = []
-    prev = -1
+    prev = -1.0
     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
-        if prev == -1:
-            tmp_arr.append(0)
+        if prev == -1.0:
+            tmp_arr.append(0.0)
         else:
             tmp_arr.append(val - prev)
         prev = val
 
     return np.std(tmp_arr)
+
+# def get_vorarity(price_arr, cur_pos, period = None):
+#     tmp_arr = []
+#     prev = -1
+#     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
+#         if prev == -1:
+#             tmp_arr.append(0)
+#         else:
+#             tmp_arr.append(val - prev)
+#         prev = val
+#
+#     return np.std(tmp_arr)
 
 def get_macd(price_arr, cur_pos, period = 100):
     if cur_pos <= period:
