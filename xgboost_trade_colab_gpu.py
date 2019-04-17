@@ -21,13 +21,16 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 100 #4000 #65 #4000
+NUM_ROUND = 5000 #4000 #65 #4000
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
-LONG_PROBA_THRESH = 0.6
-SHORT_PROBA_THRESH = 0.4
+LONG_PROBA_THRESH = 0.8
+SHORT_PROBA_THRESH = 0.2
 VORARITY_THRESH = 0.03
+
+ETA = 0.1
+MAX_DEPTH = 2
 
 log_fd = None
 
@@ -436,7 +439,7 @@ def train_and_generate_model():
         log_fd.flush()
         quit()
 
-    param = {'max_depth':2, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
+    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
     # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
@@ -595,6 +598,9 @@ def run_backtest():
             #continue
             delay_continue_flag = True
 
+        if delay_continue_flag == True:
+            continue
+
         # prediction
         #ts_input_mat = []
         if is_loaded_mat == False:
@@ -619,9 +625,6 @@ def run_backtest():
             ]
             )
             #logfile_writeln("check_ts_input_mat,check append window_s," + str(window_s) + "\n")
-
-        if delay_continue_flag == True:
-            continue
 
         ts_input_arr = np.array([ts_input_mat[window_s]])
         dtest = xgb.DMatrix(ts_input_arr)
@@ -694,18 +697,32 @@ def run_script(mode):
         raise Exception(str(mode) + " mode is invalid.")
 
 if __name__ == '__main__':
-    LONG_THRESH_CAND = [0.6, 0.65, 0.7, 0.75, 0.8]
-    SHORT_THRESH_CAND = [0.4, 0.35, 0.3, 0.25, 0.2]
-    ROUND_CAND = [4000, 5000, 6000, 7000, 8000]
+    # LONG_THRESH_CAND = [0.6, 0.65, 0.7, 0.75, 0.8]
+    # SHORT_THRESH_CAND = [0.4, 0.35, 0.3, 0.25, 0.2]
+    # ROUND_CAND = [4000, 5000, 6000, 7000, 8000]
+    # with open("./my_search_result.txt", "w") as f:
+    #     for ii in range(len(LONG_THRESH_CAND)):
+    #         LONG_PROBA_THRESH = LONG_THRESH_CAND[ii]
+    #         SHORT_PROBA_THRESH = SHORT_THRESH_CAND[ii]
+    #         for jj in range(len(ROUND_CAND)):
+    #             NUM_ROUND = ROUND_CAND[jj]
+    #             run_script("TRAIN")
+    #             result_portfolio = run_script("TRADE")
+    #             f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(NUM_ROUND) + "," + str(result_portfolio) + "\n")
+
+    ETA_CAND = [0.05, 0.1, 0.3, 0.5]
+    MAX_DEPTH_CAND = [1, 3, 5, 7]
+    VORARITY_THRESH_CAND = [0.03, 0.07, 0.1]
     with open("./my_search_result.txt", "w") as f:
-        for ii in range(len(LONG_THRESH_CAND)):
-            LONG_PROBA_THRESH = LONG_THRESH_CAND[ii]
-            SHORT_PROBA_THRESH = SHORT_THRESH_CAND[ii]
-            for jj in range(len(ROUND_CAND)):
-                NUM_ROUND = ROUND_CAND[jj]
-                run_script("TRAIN")
-                result_portfolio = run_script("TRADE")
-                f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(NUM_ROUND) + "," + str(result_portfolio) + "\n")
+        for ii in range(len(ETA_CAND)):
+            ETA = ETA_CAND[ii]
+            for jj in range(len(MAX_DEPTH_CAND)):
+                MAX_DEPTH = MAX_DEPTH_CAND[jj]
+                for kk in range(len(VORARITY_THRESH_CAND)):
+                    VORARITY_THRESH = VORARITY_THRESH_CAND[kk]
+                    run_script("TRAIN")
+                    result_portfolio = run_script("TRADE")
+                    f.write(str(ETA) + "," + str(MAX_DEPTH) + "," + str(VORARITY_THRESH) + "," + str(result_portfolio) + "\n")
 
     # run_script("TRAIN")
     # run_script("TRADE")
