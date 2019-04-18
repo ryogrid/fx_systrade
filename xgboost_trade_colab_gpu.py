@@ -602,7 +602,7 @@ def run_backtest():
             continue
 
         # prediction
-        #ts_input_mat = []
+        ts_input_mat = []
         if is_loaded_mat == False:
             ts_input_mat.append(
                [exchange_rates[current_spot],
@@ -626,7 +626,7 @@ def run_backtest():
             )
             #logfile_writeln("check_ts_input_mat,check append window_s," + str(window_s) + "\n")
 
-        ts_input_arr = np.array([ts_input_mat[window_s]])
+        ts_input_arr = np.array(ts_input_mat)
         dtest = xgb.DMatrix(ts_input_arr)
 
         pred = bst.predict(dtest)
