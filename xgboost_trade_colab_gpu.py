@@ -27,10 +27,10 @@ DATA_HEAD_ASOBI = 200
 
 LONG_PROBA_THRESH = 0.8
 SHORT_PROBA_THRESH = 0.2
-VORARITY_THRESH = 0.03
+VORARITY_THRESH = 0.1
 
-ETA = 0.1
-MAX_DEPTH = 2
+ETA = 0.5
+MAX_DEPTH = 5
 
 log_fd = None
 
@@ -710,19 +710,19 @@ if __name__ == '__main__':
     #             result_portfolio = run_script("TRADE")
     #             f.write(str(LONG_PROBA_THRESH) + "," + str(SHORT_PROBA_THRESH) + "," + str(NUM_ROUND) + "," + str(result_portfolio) + "\n")
 
-    ETA_CAND = [0.05, 0.1, 0.3, 0.5]
-    MAX_DEPTH_CAND = [1, 3, 5, 7]
-    VORARITY_THRESH_CAND = [0.03, 0.07, 0.1]
-    with open("./my_search_result.txt", "w") as f:
-        for ii in range(len(ETA_CAND)):
-            ETA = ETA_CAND[ii]
-            for jj in range(len(MAX_DEPTH_CAND)):
-                MAX_DEPTH = MAX_DEPTH_CAND[jj]
-                for kk in range(len(VORARITY_THRESH_CAND)):
-                    VORARITY_THRESH = VORARITY_THRESH_CAND[kk]
-                    run_script("TRAIN")
-                    result_portfolio = run_script("TRADE")
-                    f.write(str(ETA) + "," + str(MAX_DEPTH) + "," + str(VORARITY_THRESH) + "," + str(result_portfolio) + "\n")
+    # ETA_CAND = [0.05, 0.1, 0.3, 0.5]
+    # MAX_DEPTH_CAND = [1, 3, 5, 7]
+    # VORARITY_THRESH_CAND = [0.03, 0.07, 0.1]
+    # with open("./my_search_result.txt", "w") as f:
+    #     for ii in range(len(ETA_CAND)):
+    #         ETA = ETA_CAND[ii]
+    #         for jj in range(len(MAX_DEPTH_CAND)):
+    #             MAX_DEPTH = MAX_DEPTH_CAND[jj]
+    #             for kk in range(len(VORARITY_THRESH_CAND)):
+    #                 VORARITY_THRESH = VORARITY_THRESH_CAND[kk]
+    #                 run_script("TRAIN")
+    #                 result_portfolio = run_script("TRADE")
+    #                 f.write(str(ETA) + "," + str(MAX_DEPTH) + "," + str(VORARITY_THRESH) + "," + str(result_portfolio) + "\n")
 
-    # run_script("TRAIN")
-    # run_script("TRADE")
+    run_script("TRAIN")
+    run_script("TRADE")
