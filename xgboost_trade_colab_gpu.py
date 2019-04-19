@@ -32,6 +32,8 @@ VORARITY_THRESH = 0.1
 ETA = 0.5
 MAX_DEPTH = 5
 
+FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
+
 log_fd = None
 
 tr_input_arr = None
@@ -279,6 +281,14 @@ def opt(trial):
     tuna_pred_test = xgboost_tuna.predict(val_input_arr)
     return (1.0 - (accuracy_score(val_angle_arr, tuna_pred_test)))
 
+def create_feature_map():
+    outfile = open('fx_systrade_xgb.fmap', 'w')
+    counter = 0
+    for feat in FEATURE_NAMES:
+        outfile.write('{0}\t{1}\tq\n'.format(counter, feat))
+        counter += 1
+    outfile.close()
+
 def setup_historical_fx_data():
     global exchange_dates
     global exchange_rates
@@ -473,6 +483,15 @@ def train_and_generate_model():
             logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]) + "," + str(eval_result_dic['validation']['error'][ii]))
         else:
             logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
+
+    # feature importance
+    create_feature_map()
+    fti = bst.get_fscore(fmap='fx_systrade_xgb.fmap')
+
+    logfile_writeln('Feature Importances:')
+    logfile_writeln(str(fti))
+    # for feat in FEATURE_NAMES:
+    #     logfile_writeln('\t{0:10s} : {1:>12.4f}'.format(feat, fti[feat]))
 
     log_fd.flush()
     log_fd.close()
@@ -725,4 +744,4 @@ if __name__ == '__main__':
     #                 f.write(str(ETA) + "," + str(MAX_DEPTH) + "," + str(VORARITY_THRESH) + "," + str(result_portfolio) + "\n")
 
     run_script("TRAIN")
-    run_script("TRADE")
+#    run_script("TRADE")
