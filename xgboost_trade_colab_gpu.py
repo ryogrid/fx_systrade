@@ -32,7 +32,8 @@ VORARITY_THRESH = 0.1
 ETA = 0.5
 MAX_DEPTH = 5
 
-FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
+#FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
+FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
 
 log_fd = None
 
@@ -153,11 +154,11 @@ def get_ema(price_arr, cur_pos, period = 20):
     return ta.EMA(prices, timeperiod = period)[-1]
 
 
-def get_ema_rsi(price_arr, cur_pos, period = None):
-    return 0
-
-def get_cci(price_arr, cur_pos, period = None):
-    return 0
+# def get_ema_rsi(price_arr, cur_pos, period = None):
+#     return 0
+#
+# def get_cci(price_arr, cur_pos, period = None):
+#     return 0
 
 def get_mo(price_arr, cur_pos, period = 20):
     if cur_pos <= (period + 1):
@@ -182,14 +183,14 @@ def get_po(price_arr, cur_pos, period = 10):
 
     return ta.PPO(prices)[-1]
 
-def get_lw(price_arr, cur_pos, period = None):
-    return 0
-
-def get_ss(price_arr, cur_pos, period = None):
-    return 0
-
-def get_dmi(price_arr, cur_pos, period = None):
-    return 0
+# def get_lw(price_arr, cur_pos, period = None):
+#     return 0
+#
+# def get_ss(price_arr, cur_pos, period = None):
+#     return 0
+#
+# def get_dmi(price_arr, cur_pos, period = None):
+#     return 0
 
 def get_vorarity(price_arr, cur_pos, period = None):
     tmp_arr = []
@@ -368,12 +369,12 @@ def train_and_generate_model():
                  get_bb_1(exchange_rates, i),
                  get_bb_2(exchange_rates, i),
                  get_ema(exchange_rates, i),
-                 get_ema_rsi(exchange_rates, i),
-                 get_cci(exchange_rates, i),
+                 # get_ema_rsi(exchange_rates, i),
+                 # get_cci(exchange_rates, i),
                  get_mo(exchange_rates, i),
-                 get_lw(exchange_rates, i),
-                 get_ss(exchange_rates, i),
-                 get_dmi(exchange_rates, i),
+                 # get_lw(exchange_rates, i),
+                 # get_ss(exchange_rates, i),
+                 # get_dmi(exchange_rates, i),
                  get_vorarity(exchange_rates, i),
                  get_macd(exchange_rates, i),
                  str(judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
@@ -388,12 +389,12 @@ def train_and_generate_model():
                  get_bb_1(reverse_exchange_rates, i),
                  get_bb_2(reverse_exchange_rates, i),
                  get_ema(reverse_exchange_rates, i),
-                 get_ema_rsi(reverse_exchange_rates, i),
-                 get_cci(reverse_exchange_rates, i),
+                 # get_ema_rsi(reverse_exchange_rates, i),
+                 # get_cci(reverse_exchange_rates, i),
                  get_mo(reverse_exchange_rates, i),
-                 get_lw(reverse_exchange_rates, i),
-                 get_ss(reverse_exchange_rates, i),
-                 get_dmi(reverse_exchange_rates, i),
+                 # get_lw(reverse_exchange_rates, i),
+                 # get_ss(reverse_exchange_rates, i),
+                 # get_dmi(reverse_exchange_rates, i),
                  get_vorarity(reverse_exchange_rates, i),
                  get_macd(reverse_exchange_rates, i),
                  str(judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
@@ -632,12 +633,12 @@ def run_backtest():
                 get_bb_1(exchange_rates, current_spot),
                 get_bb_2(exchange_rates, current_spot),
                 get_ema(exchange_rates, current_spot),
-                get_ema_rsi(exchange_rates, current_spot),
-                get_cci(exchange_rates, current_spot),
+                # get_ema_rsi(exchange_rates, current_spot),
+                # get_cci(exchange_rates, current_spot),
                 get_mo(exchange_rates, current_spot),
-                get_lw(exchange_rates, current_spot),
-                get_ss(exchange_rates, current_spot),
-                get_dmi(exchange_rates, current_spot),
+                # get_lw(exchange_rates, current_spot),
+                # get_ss(exchange_rates, current_spot),
+                # get_dmi(exchange_rates, current_spot),
                 vorarity,
                 get_macd(exchange_rates, current_spot),
                 str(chart_type)
