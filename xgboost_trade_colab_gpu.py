@@ -33,6 +33,7 @@ ETA = 0.5
 MAX_DEPTH = 5
 
 #FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
+#FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
 
 log_fd = None
@@ -375,9 +376,9 @@ def train_and_generate_model():
                  # get_lw(exchange_rates, i),
                  # get_ss(exchange_rates, i),
                  # get_dmi(exchange_rates, i),
-                 get_vorarity(exchange_rates, i),
-                 get_macd(exchange_rates, i),
-                 str(judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
+                 get_vorarity(exchange_rates, i)
+                 # get_macd(exchange_rates, i),
+                 # str(judge_chart_type(exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
              ]
                 )
             tr_input_mat.append(
@@ -395,9 +396,9 @@ def train_and_generate_model():
                  # get_lw(reverse_exchange_rates, i),
                  # get_ss(reverse_exchange_rates, i),
                  # get_dmi(reverse_exchange_rates, i),
-                 get_vorarity(reverse_exchange_rates, i),
-                 get_macd(reverse_exchange_rates, i),
-                 str(judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
+                 get_vorarity(reverse_exchange_rates, i)
+                 # get_macd(reverse_exchange_rates, i),
+                 # str(judge_chart_type(reverse_exchange_rates[i-CHART_TYPE_JDG_LEN:i]))
              ]
                 )
 
@@ -639,9 +640,9 @@ def run_backtest():
                 # get_lw(exchange_rates, current_spot),
                 # get_ss(exchange_rates, current_spot),
                 # get_dmi(exchange_rates, current_spot),
-                vorarity,
-                get_macd(exchange_rates, current_spot),
-                str(chart_type)
+                vorarity
+                # get_macd(exchange_rates, current_spot),
+                # str(chart_type)
             ]
             )
             #logfile_writeln("check_ts_input_mat,check append window_s," + str(window_s) + "\n")
@@ -745,4 +746,4 @@ if __name__ == '__main__':
     #                 f.write(str(ETA) + "," + str(MAX_DEPTH) + "," + str(VORARITY_THRESH) + "," + str(result_portfolio) + "\n")
 
     run_script("TRAIN")
-#    run_script("TRADE")
+    run_script("TRADE")
