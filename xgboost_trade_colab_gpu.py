@@ -7,6 +7,7 @@ import talib as ta
 from datetime import datetime as dt
 import pytz
 import os
+import sys
 
 import time
 #from tensorboard_logger import configure, log_value
@@ -21,14 +22,14 @@ COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
-NUM_ROUND = 5000 #4000 #65 #4000
+
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
+NUM_ROUND = 5000 #4000 #65 #4000
 LONG_PROBA_THRESH = 0.8
 SHORT_PROBA_THRESH = 0.2
 VORARITY_THRESH = 0.1
-
 ETA = 0.5
 MAX_DEPTH = 5
 
@@ -37,6 +38,7 @@ FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma"
 
 
 log_fd = None
+log_fd_opt = None
 
 tr_input_arr = None
 tr_angle_arr = None
@@ -50,11 +52,15 @@ is_use_gpu = False
 is_colab_cpu = False
 is_param_tune_with_optuna = False
 
-if is_param_tune_with_optuna:
-    import optuna
-    from xgboost import XGBClassifier
-    from sklearn.metrics import accuracy_score
-    #VALIDATION_DATA_RATIO = 0.2
+# if is_param_tune_with_optuna:
+#     import optuna
+#     from xgboost import XGBClassifier
+#     from sklearn.metrics import accuracy_score
+
+import optuna
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score
+
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -246,12 +252,20 @@ def logfile_writeln(log_str):
     log_fd.write(log_str + "\n")
     log_fd.flush()
 
+def logfile_writeln_opt(log_str):
+    log_fd_opt.write(log_str + "\n")
+    log_fd_opt.flush()
+
 # def logspy(env):
 #     logfile_writeln("train," + str(env.iteration) + "," + str(env.evaluation_result_list[0][1]))
 #     #log_value("train", env.evaluation_result_list[0][1], step=env.iteration)
 #     #log_value("val", env.evaluation_result_list[1][1], step=env.iteration)
 
 def opt(trial):
+    global LONG_PROBA_THRESH
+    global SHORT_PROBA_THRESH
+    global VORARITY_THRESH
+
     param = {}
 
     if is_use_gpu:
@@ -259,20 +273,32 @@ def opt(trial):
         param['max_bin'] = 16
         param['gpu_id'] = 0
 
+    long_prob_thresh = trial.suggest_discrete_uniform('long_prob_thresh', 0.5, 0.9, 0.05)
+    short_prob_thresh = trial.suggest_discrete_uniform('short_prob_thresh', 0.1, 0.5, 0.05)
+    vorarity_thresh_thresh = trial.suggest_discrete_uniform('vorarity_thresh_thresh', 0.01, 0.3, 0.02)
+    LONG_PROBA_THRESH = long_prob_thresh
+    SHORT_PROBA_THRESH = short_prob_thresh
+    VORARITY_THRESH = vorarity_thresh_thresh
+
+    eta = trial.suggest_discrete_uniform('eta', 0.05, 0.5, 0.05)
     n_estimators = trial.suggest_int('n_estimators', 0, 10000)
-    max_depth = trial.suggest_int('max_depth', 1, 20)
+    max_depth = trial.suggest_int('max_depth', 1, 10)
     min_child_weight = trial.suggest_int('min_child_weight', 1, 20)
-    #subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
-    #colsample_bytree = trial.suggest_discrete_uniform('colsample_bytree', 0.5, 0.9, 0.1)
+    subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
+    colsample_bytree = trial.suggest_discrete_uniform('colsample_bytree', 0.5, 0.9, 0.1)
+
+    cur_params = {'long_prob_thresh':str(long_prob_thresh), 'short_prob_thresh':str(short_prob_thresh), 'vorarity_thresh_thresh':str(vorarity_thresh_thresh), 'eta':str(eta),
+    'n_estimators':str(n_estimators), 'max_depth':str(max_depth), 'min_child_weight':str(min_child_weight),'subsample':str(subsample),'colsample_bytree':str(colsample_bytree)}
+    logfile_writeln_opt(str(cur_params))
 
     xgboost_tuna = XGBClassifier(
         max_depth = max_depth,
         random_state=42,
         n_estimators = n_estimators,
         min_child_weight = min_child_weight,
-        subsample = 0.7,
-        colsample_bytree = 0.6,
-        eta = 0.1,
+        subsample = subsample, # 0.7,
+        colsample_bytree = colsample_bytree, # 0.6,
+        eta = eta,
         objective = 'binary:logistic',
         verbosity = 0,
         n_thread = 4,
@@ -280,8 +306,13 @@ def opt(trial):
     )
 
     xgboost_tuna.fit(tr_input_arr, tr_angle_arr)
-    tuna_pred_test = xgboost_tuna.predict(val_input_arr)
-    return (1.0 - (accuracy_score(val_angle_arr, tuna_pred_test)))
+    booster = xgboost_tuna.get_booster()
+    portfolio_rslt = run_backtest(booster)
+
+    logfile_writeln_opt("portfolio_rslt =" + str(portfolio_rslt))
+    #tuna_pred_test = xgboost_tuna.predict(val_input_arr)
+    #return (1.0 - (accuracy_score(val_angle_arr, tuna_pred_test)))
+    return (1.0 - ((portfolio_rslt/1000000.0) - 0.5))
 
 def create_feature_map():
     outfile = open('fx_systrade_xgb.fmap', 'w')
@@ -326,6 +357,7 @@ def setup_historical_fx_data():
 
 def train_and_generate_model():
     global log_fd
+    global log_fd_opt
     global tr_input_arr
     global tr_angle_arr
     global val_input_arr
@@ -440,20 +472,25 @@ def train_and_generate_model():
 
     start = time.time()
     if is_param_tune_with_optuna:
-        #study = optuna.create_study()
-        study = optuna.Study(study_name='distributed-example', storage='sqlite:///example.db')
-        study.optimize(opt, n_trials=100)
-        process_time = time.time() - start
-        logfile_writeln(str(study.best_params))
-        logfile_writeln(str(study.best_value))
-        logfile_writeln(str(study.best_trial))
-        logfile_writeln("excecution time of tune: " + str(process_time))
+        # backtestで log_fdが使われるので始末しておく
         log_fd.flush()
+        log_fd.close()
+        log_fd = None
+
+        log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+        study = optuna.create_study()
+        #study = optuna.Study(study_name='distributed-example', storage='sqlite:///example.db')
+        study.optimize(opt, n_trials=1000, n_jobs=2)
+        process_time = time.time() - start
+        logfile_writeln_opt(str(study.best_params))
+        logfile_writeln_opt(str(study.best_value))
+        logfile_writeln_opt(str(study.best_trial))
+        logfile_writeln_opt("excecution time of tune: " + str(process_time))
+        log_fd_opt.flush()
+        log_fd_opt.close()
         quit()
 
-    #param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
-    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,'random_state':33, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
-
+    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
     # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
@@ -479,8 +516,8 @@ def train_and_generate_model():
     process_time = time.time() - start
     logfile_writeln("excecution time of training: " + str(process_time))
 
-    bst.dump_model('./xgb_model.raw.txt')
-    bst.save_model('./xgb.model')
+    # bst.dump_model('./xgb_model.raw.txt')
+    # bst.save_model('./xgb.model')
 
     for ii in range(len(eval_result_dic['train']['error'])):
         if VALIDATION_DATA_RATIO != 0.0:
@@ -491,18 +528,15 @@ def train_and_generate_model():
     # feature importance
     create_feature_map()
     fti = bst.get_fscore(fmap='fx_systrade_xgb.fmap')
-
     logfile_writeln('Feature Importances:')
     logfile_writeln(str(fti))
-    # for feat in FEATURE_NAMES:
-    #     logfile_writeln('\t{0:10s} : {1:>12.4f}'.format(feat, fti[feat]))
 
     log_fd.flush()
     log_fd.close()
 
     print("finished training and saved model.")
 
-def run_backtest():
+def run_backtest(booster = None):
     global log_fd
 
     print("start backtest...")
@@ -511,12 +545,16 @@ def run_backtest():
     #train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
-    if is_use_gpu:
-        bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
-    else:
-        bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': 4})
+    if booster == None:
+        if is_use_gpu:
+            bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
+        else:
+            bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': 4})
 
-    bst.load_model("./xgb.model")
+        bst.load_model("./xgb.model")
+    else:
+        bst = booster #引数のものを使う
+
     portfolio = 1000000
     LONG = "LONG"
     SHORT = "SHORT"
@@ -687,6 +725,7 @@ def run_backtest():
 def run_script(mode):
     global is_use_gpu
     global is_colab_cpu
+    global is_param_tune_with_optuna
 
     if mode == "TRAIN":
         if exchange_dates == None:
@@ -716,6 +755,8 @@ def run_script(mode):
             setup_historical_fx_data()
         is_clab_cpu = True
         return run_backtest()
+    elif mode == "CHANGE_TO_PARAM_TUNING_MODE":
+        is_param_tune_with_optuna = True
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
@@ -747,5 +788,12 @@ if __name__ == '__main__':
     #                 result_portfolio = run_script("TRADE")
     #                 f.write(str(ETA) + "," + str(MAX_DEPTH) + "," + str(VORARITY_THRESH) + "," + str(result_portfolio) + "\n")
 
-    run_script("TRAIN")
-    run_script("TRADE")
+    if len(sys.argv) == 1:
+        run_script("TRAIN")
+        run_script("TRADE")
+    else:
+        if sys.argv[1] == "--param-tune":
+            is_param_tune_with_optuna = True
+            run_script("TRAIN")
+        else:
+            raise Exception(sys.argv[1] + " is unknown argment.")
