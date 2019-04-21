@@ -391,10 +391,10 @@ def train_and_generate_model():
         log_fd_tr.write(log_str + "\n")
         log_fd_tr.flush()
 
-    print("data size of rates: " + str(data_len))
-    print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
-    print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
-
+    if not (is_use_gpu or is_colab_cpu):
+        print("data size of rates: " + str(data_len))
+        print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
+        print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
 
     logfile_writeln_tr("data size of rates: " + str(data_len))
     logfile_writeln_tr("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
