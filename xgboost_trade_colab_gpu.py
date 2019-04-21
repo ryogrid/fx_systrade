@@ -314,6 +314,8 @@ def opt(trial):
     verbosity = True
     if is_use_gpu or is_colab_cpu:
         verbosity = False
+        optuna.logging.set_verbosity(optuna.logging.CRITICAL)
+        optuna.logging.disable_default_handler()
     xgboost_tuna.fit(tr_input_arr, tr_angle_arr, verbose=verbosity)
     booster = xgboost_tuna.get_booster()
 
