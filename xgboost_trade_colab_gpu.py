@@ -12,6 +12,10 @@ import sys
 import time
 #from tensorboard_logger import configure, log_value
 
+import optuna
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score
+
 INPUT_LEN = 1
 OUTPUT_LEN = 5
 SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
@@ -38,11 +42,9 @@ ETA = 0.5
 MAX_DEPTH = 5
 
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
-#FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
 
 OPTUNA_TRIAL_NUM = -1
 
-#log_fd = None
 log_fd_opt = None
 
 tr_input_arr = None
@@ -57,16 +59,6 @@ is_use_gpu = False
 is_colab_cpu = False
 is_param_tune_with_optuna = False
 is_exec_at_mba = False
-
-# if is_param_tune_with_optuna:
-#     import optuna
-#     from xgboost import XGBClassifier
-#     from sklearn.metrics import accuracy_score
-
-import optuna
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score
-
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -217,18 +209,6 @@ def get_vorarity(price_arr, cur_pos, period = None):
 
     return np.std(tmp_arr)
 
-# def get_vorarity(price_arr, cur_pos, period = None):
-#     tmp_arr = []
-#     prev = -1
-#     for val in price_arr[cur_pos-CHART_TYPE_JDG_LEN:cur_pos]:
-#         if prev == -1:
-#             tmp_arr.append(0)
-#         else:
-#             tmp_arr.append(val - prev)
-#         prev = val
-#
-#     return np.std(tmp_arr)
-
 def get_macd(price_arr, cur_pos, period = 100):
     if cur_pos <= period:
         s = 0
@@ -285,13 +265,10 @@ def opt(trial):
     long_prob_thresh = trial.suggest_discrete_uniform('long_prob_thresh', 0.5, 0.9, 0.05)
     short_prob_thresh = trial.suggest_discrete_uniform('short_prob_thresh', 0.1, 0.5, 0.05)
     vorarity_thresh = trial.suggest_discrete_uniform('vorarity_thresh', 0.01, 0.3, 0.02)
-    # LONG_PROBA_THRESH = long_prob_thresh
-    # SHORT_PROBA_THRESH = short_prob_thresh
-    # VORARITY_THRESH = vorarity_thresh
 
     eta = trial.suggest_discrete_uniform('eta', 0.05, 0.5, 0.05)
-    #n_estimators = trial.suggest_int('n_estimators', 0, 10000)
-    n_estimators = trial.suggest_int('n_estimators', 0, 100)
+    n_estimators = trial.suggest_int('n_estimators', 0, 10000)
+    #n_estimators = trial.suggest_int('n_estimators', 0, 100)
     max_depth = trial.suggest_int('max_depth', 1, 10)
     min_child_weight = trial.suggest_int('min_child_weight', 1, 20)
     subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
@@ -491,44 +468,6 @@ def train_and_generate_model():
         log_fd_opt.close()
         exit()
 
-    # dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
-    # split_idx = COMPETITION_TRAIN_DATA_NUM + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
-    # if VALIDATION_DATA_RATIO != 0.0:
-    #     val_input_arr = np.array(tr_input_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
-    #     val_angle_arr = np.array(tr_angle_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
-    #     dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
-    #     watchlist  = [(dtrain,'train'),(dval,'validation')]
-    # else:
-    #     watchlist  = [(dtrain,'train')]
-
-    # param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':RAPTOP_THREAD_NUM,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
-    #
-    # if is_use_gpu:
-    #     param['tree_method'] = 'gpu_hist'
-    #     param['max_bin'] = 16
-    #     param['gpu_id'] = 0
-    #     param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
-    # if is_colab_cpu or is_exec_at_mba:
-    #     param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
-    #
-    # logfile_writeln_tr("training parameters are below...")
-    # logfile_writeln_tr(str(param))
-    # eval_result_dic = {}
-    #
-    # logfile_writeln_tr("num_round: " + str(NUM_ROUND))
-    # if is_colab_cpu or is_use_gpu:
-    #     bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=False)
-    # else:
-    #     bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
-    # process_time = time.time() - start
-    # logfile_writeln_tr("excecution time of training: " + str(process_time))
-
-    # bst.dump_model('./xgb_model.raw.txt')
-    # bst.save_model('./xgb.model')
-
-#-------------
-
-    #dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
     split_idx = COMPETITION_TRAIN_DATA_NUM + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
 
     val_input_arr = None
@@ -537,7 +476,6 @@ def train_and_generate_model():
     if VALIDATION_DATA_RATIO != 0.0:
         val_input_arr = np.array(tr_input_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
         val_angle_arr = np.array(tr_angle_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
-        #dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
         watchlist  = [(tr_input_arr, tr_angle_arr),(val_input_arr, val_angle_arr)]
     else:
         watchlist  = [(tr_input_arr, tr_angle_arr)]
@@ -556,10 +494,6 @@ def train_and_generate_model():
     logfile_writeln_tr(str(param))
 
     logfile_writeln_tr("num_round: " + str(NUM_ROUND))
-    # if is_colab_cpu or is_use_gpu:
-    #     bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=False)
-    # else:
-    #     bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
 
     clf = XGBClassifier(
         # max_depth = max_depth,
@@ -588,19 +522,12 @@ def train_and_generate_model():
     booster.dump_model('./xgb_model.raw.txt')
 
     eval_result_dic = clf.evals_result()
-#-------------
 
     for ii in range(len(eval_result_dic['validation_0']['error'])):
         if VALIDATION_DATA_RATIO != 0.0:
             logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['validation_0']['error'][ii]) + "," + str(eval_result_dic['validation_1']['error'][ii]))
         else:
             logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['validation_0']['error'][ii]))
-
-    # # feature importance
-    # create_feature_map()
-    # fti = bst.get_fscore(fmap='fx_systrade_xgb.fmap')
-    # logfile_writeln_tr('Feature Importances:')
-    # logfile_writeln_tr(str(fti))
 
     # Feature Importance
     fti = clf.feature_importances_
@@ -614,14 +541,11 @@ def train_and_generate_model():
     print("finished training and saved model.")
 
 def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = None, vorarity_thresh = None):
-    #global log_fd
-
     LONG_PROBA_THRESH_IN = LONG_PROBA_THRESH if long_prob_thresh == None else long_prob_thresh
     SHORT_PROBA_THRESH_IN = SHORT_PROBA_THRESH if short_prob_thresh == None else short_prob_thresh
     VORARITY_THRESH_IN = VORARITY_THRESH if vorarity_thresh == None else vorarity_thresh
 
     data_len = len(exchange_rates)
-    #train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
     # inner logger function for backtest
@@ -645,12 +569,8 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
         bst = clf.get_booster()
         if is_use_gpu:
             bst.set_param({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
-            #bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
         else:
             bst.set_param({'predictor': 'cpu_predictor', 'nthread': t_num})
-            #bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': t_num})
-
-        #bst.load_model("./xgb.model")
     else:
         bst = booster #引数のものを使う
         bst.set_param({'nthread':t_num})
