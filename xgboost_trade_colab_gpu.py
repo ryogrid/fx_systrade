@@ -290,8 +290,8 @@ def opt(trial):
     # VORARITY_THRESH = vorarity_thresh
 
     eta = trial.suggest_discrete_uniform('eta', 0.05, 0.5, 0.05)
-    #n_estimators = trial.suggest_int('n_estimators', 0, 10000)
-    n_estimators = trial.suggest_int('n_estimators', 0, 100)
+    n_estimators = trial.suggest_int('n_estimators', 0, 10000)
+    #n_estimators = trial.suggest_int('n_estimators', 0, 100)
     max_depth = trial.suggest_int('max_depth', 1, 10)
     min_child_weight = trial.suggest_int('min_child_weight', 1, 20)
     subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
