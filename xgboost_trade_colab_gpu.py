@@ -311,7 +311,10 @@ def opt(trial):
         **param
     )
 
-    xgboost_tuna.fit(tr_input_arr, tr_angle_arr)
+    verbosity = True
+    if is_use_gpu or is_colab_cpu:
+        varbosity = False
+    xgboost_tuna.fit(tr_input_arr, tr_angle_arr, varbose=verbosity)
     booster = xgboost_tuna.get_booster()
 
     cur_params = {'long_prob_thresh':str(long_prob_thresh), 'short_prob_thresh':str(short_prob_thresh), 'vorarity_thresh':str(vorarity_thresh), 'eta':str(eta),
@@ -529,7 +532,10 @@ def train_and_generate_model():
     eval_result_dic = {}
 
     logfile_writeln_tr("num_round: " + str(NUM_ROUND))
-    bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
+    if is_colab_cpu or is_use_gpu:
+        bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=False)
+    else:
+        bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
     process_time = time.time() - start
     logfile_writeln_tr("excecution time of training: " + str(process_time))
 
@@ -560,8 +566,6 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
     SHORT_PROBA_THRESH_IN = SHORT_PROBA_THRESH if short_prob_thresh == None else short_prob_thresh
     VORARITY_THRESH_IN = VORARITY_THRESH if vorarity_thresh == None else vorarity_thresh
 
-    print("start backtest...")
-
     data_len = len(exchange_rates)
     #train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
@@ -571,6 +575,8 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
         nonlocal log_fd_bt
         log_fd_bt.write(log_str + "\n")
         log_fd_bt.flush()
+
+    logfile_writeln_bt("start backtest...")
 
     t_num = RAPTOP_THREAD_NUM
     if is_colab_cpu or is_exec_at_mba:
