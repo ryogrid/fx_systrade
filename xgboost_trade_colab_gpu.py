@@ -314,7 +314,7 @@ def opt(trial):
     verbosity = True
     if is_use_gpu or is_colab_cpu:
         varbosity = False
-    xgboost_tuna.fit(tr_input_arr, tr_angle_arr, varbose=verbosity)
+    xgboost_tuna.fit(tr_input_arr, tr_angle_arr, verbose=verbosity)
     booster = xgboost_tuna.get_booster()
 
     cur_params = {'long_prob_thresh':str(long_prob_thresh), 'short_prob_thresh':str(short_prob_thresh), 'vorarity_thresh':str(vorarity_thresh), 'eta':str(eta),
