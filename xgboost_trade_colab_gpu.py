@@ -19,6 +19,10 @@ COMPETITION_DIV = True
 COMPETITION_TRAIN_DATA_NUM = 208952
 COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
 
+WHEN_TUNE_PARAM_THREAD_NUM = 1
+RAPTOP_THREAD_NUM = 4
+COLAB_CPU_AND_MBA_THREAD_NUM = 2
+#THREAD_NUM = RAPTOP_THREAD_NUM
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
@@ -36,8 +40,9 @@ MAX_DEPTH = 5
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
 #FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
 
+OPTUNA_TRIAL_NUM = -1
 
-log_fd = None
+#log_fd = None
 log_fd_opt = None
 
 tr_input_arr = None
@@ -51,6 +56,7 @@ reverse_exchange_rates = None
 is_use_gpu = False
 is_colab_cpu = False
 is_param_tune_with_optuna = False
+is_exec_at_mba = False
 
 # if is_param_tune_with_optuna:
 #     import optuna
@@ -248,18 +254,21 @@ def is_weekend(date_str):
     week = london_time.weekday()
     return (week == 5 or week == 6)
 
-def logfile_writeln(log_str):
-    log_fd.write(log_str + "\n")
-    log_fd.flush()
+# def logfile_writeln(log_str):
+#     log_fd.write(log_str + "\n")
+#     log_fd.flush()
+
+def logfile_writeln_with_fd(out_fd, log_str):
+    out_fd_opt.write(log_str + "\n")
+    out_fd_opt.flush()
 
 def logfile_writeln_opt(log_str):
     log_fd_opt.write(log_str + "\n")
     log_fd_opt.flush()
 
-# def logspy(env):
-#     logfile_writeln("train," + str(env.iteration) + "," + str(env.evaluation_result_list[0][1]))
-#     #log_value("train", env.evaluation_result_list[0][1], step=env.iteration)
-#     #log_value("val", env.evaluation_result_list[1][1], step=env.iteration)
+def set_tune_trial_num(tnum):
+    global OPTUNA_TRIAL_NUM
+    OPTUNA_TRIAL_NUM = tnum
 
 def opt(trial):
     global LONG_PROBA_THRESH
@@ -275,21 +284,18 @@ def opt(trial):
 
     long_prob_thresh = trial.suggest_discrete_uniform('long_prob_thresh', 0.5, 0.9, 0.05)
     short_prob_thresh = trial.suggest_discrete_uniform('short_prob_thresh', 0.1, 0.5, 0.05)
-    vorarity_thresh_thresh = trial.suggest_discrete_uniform('vorarity_thresh_thresh', 0.01, 0.3, 0.02)
-    LONG_PROBA_THRESH = long_prob_thresh
-    SHORT_PROBA_THRESH = short_prob_thresh
-    VORARITY_THRESH = vorarity_thresh_thresh
+    vorarity_thresh = trial.suggest_discrete_uniform('vorarity_thresh', 0.01, 0.3, 0.02)
+    # LONG_PROBA_THRESH = long_prob_thresh
+    # SHORT_PROBA_THRESH = short_prob_thresh
+    # VORARITY_THRESH = vorarity_thresh
 
     eta = trial.suggest_discrete_uniform('eta', 0.05, 0.5, 0.05)
-    n_estimators = trial.suggest_int('n_estimators', 0, 10000)
+    #n_estimators = trial.suggest_int('n_estimators', 0, 10000)
+    n_estimators = trial.suggest_int('n_estimators', 0, 100)
     max_depth = trial.suggest_int('max_depth', 1, 10)
     min_child_weight = trial.suggest_int('min_child_weight', 1, 20)
     subsample = trial.suggest_discrete_uniform('subsample', 0.5, 0.9, 0.1)
     colsample_bytree = trial.suggest_discrete_uniform('colsample_bytree', 0.5, 0.9, 0.1)
-
-    cur_params = {'long_prob_thresh':str(long_prob_thresh), 'short_prob_thresh':str(short_prob_thresh), 'vorarity_thresh_thresh':str(vorarity_thresh_thresh), 'eta':str(eta),
-    'n_estimators':str(n_estimators), 'max_depth':str(max_depth), 'min_child_weight':str(min_child_weight),'subsample':str(subsample),'colsample_bytree':str(colsample_bytree)}
-    logfile_writeln_opt(str(cur_params))
 
     xgboost_tuna = XGBClassifier(
         max_depth = max_depth,
@@ -301,14 +307,17 @@ def opt(trial):
         eta = eta,
         objective = 'binary:logistic',
         verbosity = 0,
-        n_thread = 4,
+        n_thread = WHEN_TUNE_PARAM_THREAD_NUM,
         **param
     )
 
     xgboost_tuna.fit(tr_input_arr, tr_angle_arr)
     booster = xgboost_tuna.get_booster()
-    portfolio_rslt = run_backtest(booster)
 
+    cur_params = {'long_prob_thresh':str(long_prob_thresh), 'short_prob_thresh':str(short_prob_thresh), 'vorarity_thresh':str(vorarity_thresh), 'eta':str(eta),
+    'n_estimators':str(n_estimators), 'max_depth':str(max_depth), 'min_child_weight':str(min_child_weight),'subsample':str(subsample),'colsample_bytree':str(colsample_bytree)}
+    logfile_writeln_opt(str(cur_params))
+    portfolio_rslt = run_backtest(booster = booster, long_prob_thresh = long_prob_thresh, short_prob_thresh = short_prob_thresh, vorarity_thresh = vorarity_thresh)
     logfile_writeln_opt("portfolio_rslt =" + str(portfolio_rslt))
     #tuna_pred_test = xgboost_tuna.predict(val_input_arr)
     #return (1.0 - (accuracy_score(val_angle_arr, tuna_pred_test)))
@@ -356,7 +365,7 @@ def setup_historical_fx_data():
 
 
 def train_and_generate_model():
-    global log_fd
+    #global log_fd
     global log_fd_opt
     global tr_input_arr
     global tr_angle_arr
@@ -369,15 +378,20 @@ def train_and_generate_model():
     # else:
     #     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
-    log_fd = open("./train_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+    log_fd_tr = open("./train_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+    # inner logger function for backtest
+    def logfile_writeln_tr(log_str):
+        nonlocal log_fd_tr
+        log_fd_tr.write(log_str + "\n")
+        log_fd_tr.flush()
 
     print("data size of rates: " + str(data_len))
     print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
     print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
 
 
-    logfile_writeln("data size of rates: " + str(data_len))
-    logfile_writeln("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
+    logfile_writeln_tr("data size of rates: " + str(data_len))
+    logfile_writeln_tr("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
 
     tr_input_mat = []
     tr_angle_mat = []
@@ -472,25 +486,28 @@ def train_and_generate_model():
 
     start = time.time()
     if is_param_tune_with_optuna:
-        # backtestで log_fdが使われるので始末しておく
-        log_fd.flush()
-        log_fd.close()
-        log_fd = None
+        # # backtestで log_fdが使われるので始末しておく
+        # log_fd.flush()
+        # log_fd.close()
+        # log_fd = None
 
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
         study = optuna.create_study()
         #study = optuna.Study(study_name='distributed-example', storage='sqlite:///example.db')
-        study.optimize(opt, n_trials=1000, n_jobs=2)
+        parallel_num = RAPTOP_THREAD_NUM * 2
+        if is_colab_cpu or is_exec_at_mba:
+            parallel_num = COLAB_CPU_AND_MBA_THREAD_NUM * 2
+        study.optimize(opt, n_trials=OPTUNA_TRIAL_NUM, n_jobs=parallel_num)
         process_time = time.time() - start
-        logfile_writeln_opt(str(study.best_params))
-        logfile_writeln_opt(str(study.best_value))
-        logfile_writeln_opt(str(study.best_trial))
+        logfile_writeln_opt("best_params: " + str(study.best_params))
+        logfile_writeln_opt("best_value: " + str(study.best_value))
+        logfile_writeln_opt("best_trial: " + str(study.best_trial))
         logfile_writeln_opt("excecution time of tune: " + str(process_time))
         log_fd_opt.flush()
         log_fd_opt.close()
         quit()
 
-    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
+    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':RAPTOP_THREAD_NUM,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
     # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
@@ -503,57 +520,74 @@ def train_and_generate_model():
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
-        param['n_thread'] = 2
-    if is_colab_cpu:
-        param['n_thread'] = 2
+        param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
+    if is_colab_cpu or is_exec_at_mba:
+        param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
 
-    logfile_writeln("training parameters are below...")
-    logfile_writeln(str(param))
+    logfile_writeln_tr("training parameters are below...")
+    logfile_writeln_tr(str(param))
     eval_result_dic = {}
 
-    logfile_writeln("num_round: " + str(NUM_ROUND))
+    logfile_writeln_tr("num_round: " + str(NUM_ROUND))
     bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
     process_time = time.time() - start
-    logfile_writeln("excecution time of training: " + str(process_time))
+    logfile_writeln_tr("excecution time of training: " + str(process_time))
 
     # bst.dump_model('./xgb_model.raw.txt')
     # bst.save_model('./xgb.model')
 
     for ii in range(len(eval_result_dic['train']['error'])):
         if VALIDATION_DATA_RATIO != 0.0:
-            logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]) + "," + str(eval_result_dic['validation']['error'][ii]))
+            logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['train']['error'][ii]) + "," + str(eval_result_dic['validation']['error'][ii]))
         else:
-            logfile_writeln(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
+            logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
 
     # feature importance
     create_feature_map()
     fti = bst.get_fscore(fmap='fx_systrade_xgb.fmap')
-    logfile_writeln('Feature Importances:')
-    logfile_writeln(str(fti))
+    logfile_writeln_tr('Feature Importances:')
+    logfile_writeln_tr(str(fti))
 
-    log_fd.flush()
-    log_fd.close()
+    log_fd_tr.flush()
+    log_fd_tr.close()
 
     print("finished training and saved model.")
 
-def run_backtest(booster = None):
-    global log_fd
+def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = None, vorarity_thresh = None):
+    #global log_fd
+
+    LONG_PROBA_THRESH_IN = LONG_PROBA_THRESH if long_prob_thresh == None else long_prob_thresh
+    SHORT_PROBA_THRESH_IN = SHORT_PROBA_THRESH if short_prob_thresh == None else short_prob_thresh
+    VORARITY_THRESH_IN = VORARITY_THRESH if vorarity_thresh == None else vorarity_thresh
 
     print("start backtest...")
 
     data_len = len(exchange_rates)
     #train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
-    log_fd = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+    log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+    # inner logger function for backtest
+    def logfile_writeln_bt(log_str):
+        nonlocal log_fd_bt
+        log_fd_bt.write(log_str + "\n")
+        log_fd_bt.flush()
+
+    t_num = RAPTOP_THREAD_NUM
+    if is_colab_cpu or is_exec_at_mba:
+        t_num = COLAB_CPU_AND_MBA_THREAD_NUM
+    if is_param_tune_with_optuna:
+        t_num = WHEN_TUNE_PARAM_THREAD_NUM
+
     if booster == None:
         if is_use_gpu:
             bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
         else:
-            bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': 4})
+            bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': t_num})
 
         bst.load_model("./xgb.model")
     else:
         bst = booster #引数のものを使う
+        bst.set_param({'nthread':t_num})
 
     portfolio = 1000000
     LONG = "LONG"
@@ -579,16 +613,16 @@ def run_backtest(booster = None):
     #         ts_input_mat = pickle.load(f)
     #         is_loaded_mat = True
 
-    logfile_writeln("trade parameters LONG_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " SHORT_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " VORARITY_THRESH=" + str(VORARITY_THRESH) + " trade_trying_times=" + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
+    logfile_writeln_bt("trade parameters LONG_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " SHORT_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " VORARITY_THRESH=" + str(VORARITY_THRESH) + " trade_trying_times=" + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
     # log format
     a_log_str_line = "log marker, loop count, Did Action == Sonkiri, chart_type, Did Action == skip according to chart_type, Did Action == Rieki Kakutei, Did Action == Skip according to position cointain time, voratility, Did Action == skip accordint to voratility, predicted prob, Get long position => 1 Get Short position => 2 else => 0, Did Action == Skip by chart_type at last decision"
-    #logfile_writeln("check_ts_input_mat,range func argument," + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
-    #logfile_writeln("check_ts_input_mat,current_sport start," + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + OUTPUT_LEN))
+    #logfile_writeln_bt("check_ts_input_mat,range func argument," + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
+    #logfile_writeln_bt("check_ts_input_mat,current_sport start," + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + OUTPUT_LEN))
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
         #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
         current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
 
-        logfile_writeln(a_log_str_line)
+        logfile_writeln_bt(a_log_str_line)
 
         skip_flag = False
         delay_continue_flag = False
@@ -606,7 +640,7 @@ def run_backtest(booster = None):
                 portfolio = cur_portfo
                 pos_kind = NOT_HAVE
                 won_pips += diff
-                logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
+                logfile_writeln_bt(str(diff) + "pips " + str(won_pips) + "pips")
                 a_log_str_line += ",1,0,0,0,0,0,0,0,0,0"
                 #continue
                 delay_continue_flag = True
@@ -628,16 +662,16 @@ def run_backtest(booster = None):
                     portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
                     diff = (exchange_rates[current_spot] - HALF_SPREAD) - trade_val
                     won_pips += diff
-                    logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                    logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
+                    logfile_writeln_bt(str(diff) + "pips " + str(won_pips) + "pips")
+                    logfile_writeln_bt(exchange_dates[current_spot] + " " + str(portfolio))
                     a_log_str_line += ",0," + str(chart_type) + ",0,1,0,0,0,0,0,0"
                 elif pos_kind == SHORT:
                     pos_kind = NOT_HAVE
                     portfolio += positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD)
                     diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
                     won_pips += diff
-                    logfile_writeln(str(diff) + "pips " + str(won_pips) + "pips")
-                    logfile_writeln(exchange_dates[current_spot] + " " + str(portfolio))
+                    logfile_writeln_bt(str(diff) + "pips " + str(won_pips) + "pips")
+                    logfile_writeln_bt(exchange_dates[current_spot] + " " + str(portfolio))
                     a_log_str_line += ",0," + str(chart_type) + ",0,1,0,0,0,0,0,0"
                 pos_cont_count = 0
             else:
@@ -649,7 +683,7 @@ def run_backtest(booster = None):
         if delay_continue_flag == False: #or is_loaded_mat == False:
             vorarity = get_vorarity(exchange_rates, current_spot)
 #            if vorarity >= 0.07:
-            if vorarity >= VORARITY_THRESH:
+            if vorarity >= VORARITY_THRESH_IN:
                 a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1,0,0,0"
                 #continue
                 delay_continue_flag = True
@@ -685,7 +719,7 @@ def run_backtest(booster = None):
                 str(chart_type)
             ]
             )
-            #logfile_writeln("check_ts_input_mat,check append window_s," + str(window_s) + "\n")
+            #logfile_writeln_bt("check_ts_input_mat,check append window_s," + str(window_s) + "\n")
 
         ts_input_arr = np.array(ts_input_mat)
         dtest = xgb.DMatrix(ts_input_arr)
@@ -695,12 +729,12 @@ def run_backtest(booster = None):
         predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob > LONG_PROBA_THRESH and chart_type == 2:
+            if predicted_prob > LONG_PROBA_THRESH_IN and chart_type == 2:
                pos_kind = LONG
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
                a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",1,0"
-            elif predicted_prob < SHORT_PROBA_THRESH and chart_type == 1:
+            elif predicted_prob < SHORT_PROBA_THRESH_IN and chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
@@ -715,17 +749,19 @@ def run_backtest(booster = None):
     #     with open('./ts_input_mat.pickle', 'wb') as f:
     #         pickle.dump(ts_input_mat, f)
 
-    logfile_writeln("finished backtest.")
+    logfile_writeln_bt("finished backtest.")
     process_time = time.time() - start
-    logfile_writeln("excecution time of backtest: " + str(process_time))
-    log_fd.flush()
-    log_fd.close()
+    logfile_writeln_bt("excecution time of backtest: " + str(process_time))
+    log_fd_bt.flush()
+    log_fd_bt.close()
     return portfolio
 
 def run_script(mode):
     global is_use_gpu
     global is_colab_cpu
     global is_param_tune_with_optuna
+    global THREAD_NUM
+    global is_exec_at_mba
 
     if mode == "TRAIN":
         if exchange_dates == None:
@@ -753,10 +789,12 @@ def run_script(mode):
     elif mode == "TRADE_COLAB_CPU":
         if exchange_dates == None:
             setup_historical_fx_data()
-        is_clab_cpu = True
+        is_colab_cpu = True
         return run_backtest()
     elif mode == "CHANGE_TO_PARAM_TUNING_MODE":
         is_param_tune_with_optuna = True
+    elif mode == "CHANGE_MBA_EXEC_MODE":
+        is_exec_at_mba = True
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
@@ -792,8 +830,18 @@ if __name__ == '__main__':
         run_script("TRAIN")
         run_script("TRADE")
     else:
-        if sys.argv[1] == "--param-tune":
-            is_param_tune_with_optuna = True
+        if sys.argv[1] == "--param-tune-win-raptop" or sys.argv[1] == "--param-tune-mac" or sys.argv[1] == "--param-tune-colab":
+            if len(sys.argv) != 3:
+                raise Exception("argment num is wrong.")
+
+            run_script("CHANGE_TO_PARAM_TUNING_MODE")
+            set_tune_trial_num(int(sys.argv[2]))
+
+            if sys.argv[1] == "--param-tune-mac":
+                is_exec_at_mba = True
+            elif sys.argv[1] == "--param-tune-colab":
+                is_colab_cpu = True
+
             run_script("TRAIN")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
