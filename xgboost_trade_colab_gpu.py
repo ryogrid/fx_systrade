@@ -480,15 +480,16 @@ def train_and_generate_model():
     else:
         watchlist  = [(tr_input_arr, tr_angle_arr)]
 
-    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':RAPTOP_THREAD_NUM,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
+    param = {}
 
+    n_thread = RAPTOP_THREAD_NUM
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
-        param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
+        n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
     if is_colab_cpu or is_exec_at_mba:
-        param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
+        n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
 
     logfile_writeln_tr("training parameters are below...")
     logfile_writeln_tr(str(param))
@@ -496,16 +497,16 @@ def train_and_generate_model():
     logfile_writeln_tr("num_round: " + str(NUM_ROUND))
 
     clf = XGBClassifier(
-        # max_depth = max_depth,
-        # random_state=42,
-        # n_estimators = n_estimators,
-        # min_child_weight = min_child_weight,
-        # subsample = subsample, # 0.7,
-        # colsample_bytree = colsample_bytree, # 0.6,
-        # eta = eta,
-        # objective = 'binary:logistic',
-        # verbosity = 0,
-        # n_thread = WHEN_TUNE_PARAM_THREAD_NUM,
+        max_depth = MAX_DEPTH,
+        random_state=42,
+        n_estimators = NUM_ROUND,
+        min_child_weight = 15,
+        subsample = 0.7,
+        colsample_bytree = 0.7,
+        eta = ETA,
+        objective = 'binary:logistic',
+        verbosity = 0,
+        n_thread = n_thread,
         **param
     )
 
