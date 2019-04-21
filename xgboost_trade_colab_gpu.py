@@ -34,11 +34,14 @@ CHART_TYPE_JDG_LEN = 25
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
-NUM_ROUND = 5000 #4000 #65 #4000
-LONG_PROBA_THRESH = 0.8
-SHORT_PROBA_THRESH = 0.2
-VORARITY_THRESH = 0.1
-ETA = 0.5
+# #p40 params
+# {'n_estimators': '3293', 'short_prob_thresh': '0.45000000000000007', 'max_depth': '5', 'long_prob_thresh': '0.9', 'subsample': '0.5',
+# 'colsample_bytree': '0.8', 'eta': '0.4', 'min_child_weight': '6', 'vorarity_thresh': '0.19'}
+NUM_ROUND = 3293 #4000 #65 #4000
+LONG_PROBA_THRESH = 0.9
+SHORT_PROBA_THRESH = 0.45
+VORARITY_THRESH = 0.19
+ETA = 0.4
 MAX_DEPTH = 5
 
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
@@ -501,8 +504,8 @@ def train_and_generate_model():
         random_state=42,
         n_estimators = NUM_ROUND,
         min_child_weight = 15,
-        subsample = 0.7,
-        colsample_bytree = 0.7,
+        subsample = 0.5,
+        colsample_bytree = 0.8,
         eta = ETA,
         objective = 'binary:logistic',
         verbosity = 0,
