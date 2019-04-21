@@ -314,8 +314,9 @@ def opt(trial):
     verbosity = True
     if is_use_gpu or is_colab_cpu:
         verbosity = False
-        optuna.logging.set_verbosity(optuna.logging.CRITICAL)
-        optuna.logging.disable_default_handler()
+        # optuna.logging.set_verbosity(optuna.logging.CRITICAL)
+        # optuna.logging.disable_default_handler()
+
     xgboost_tuna.fit(tr_input_arr, tr_angle_arr, verbose=verbosity)
     booster = xgboost_tuna.get_booster()
 
@@ -495,6 +496,9 @@ def train_and_generate_model():
         # log_fd.flush()
         # log_fd.close()
         # log_fd = None
+        stderr_stdout_temp_fd = open('stdout_and_stderr_when_run_optuna" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt', mode = 'w')
+        sys.stderr = stderr_stdout_temp_fd
+        sys.stdout = stderr_stdout_temp_fd
 
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
         study = optuna.create_study()
