@@ -496,7 +496,7 @@ def train_and_generate_model():
         # log_fd.flush()
         # log_fd.close()
         # log_fd = None
-        stderr_stdout_temp_fd = open('stdout_and_stderr_when_run_optuna" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt', mode = 'w')
+        stderr_stdout_temp_fd = open('stdout_and_stderr_when_run_optuna_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt', mode = 'w')
         sys.stderr = stderr_stdout_temp_fd
         sys.stdout = stderr_stdout_temp_fd
 
