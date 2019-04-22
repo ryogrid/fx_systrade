@@ -450,10 +450,10 @@ def train_and_generate_model():
 
     start = time.time()
     if is_param_tune_with_optuna:
-        if is_use_gpu or is_colab_cpu:
-            stderr_stdout_temp_fd = open("stdout_and_stderr_when_run_optuna_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = 'w')
-            sys.stderr = stderr_stdout_temp_fd
-            sys.stdout = stderr_stdout_temp_fd
+        # if is_use_gpu or is_colab_cpu:
+        #     stderr_stdout_temp_fd = open("stdout_and_stderr_when_run_optuna_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = 'w')
+        #     sys.stderr = stderr_stdout_temp_fd
+        #     sys.stdout = stderr_stdout_temp_fd
 
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
         study = optuna.create_study()
