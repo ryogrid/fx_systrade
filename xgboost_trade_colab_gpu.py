@@ -351,8 +351,8 @@ def setup_historical_fx_data():
     for line in rates_fd:
         splited = line.split(",")
         if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>"and splited[0] != "204/04/26" and splited[0] != "20004/04/26":
-            time = splited[0].replace("/", "-") + " " + splited[1]
-            val = float(splited[2])
+            time = splited[0].replace("/", "-") # + " " + splited[1]
+            val = float(splited[1])
             exchange_dates.append(time)
             exchange_rates.append(val)
 
