@@ -10,6 +10,7 @@ import os
 import sys
 
 import time
+import itertools
 #from tensorboard_logger import configure, log_value
 
 INPUT_LEN = 1
@@ -295,9 +296,6 @@ def opt(trial):
     long_prob_thresh = trial.suggest_discrete_uniform('long_prob_thresh', 0.5, 0.9, 0.05)
     short_prob_thresh = trial.suggest_discrete_uniform('short_prob_thresh', 0.1, 0.5, 0.05)
     vorarity_thresh = trial.suggest_discrete_uniform('vorarity_thresh', 0.01, 0.3, 0.02)
-    # LONG_PROBA_THRESH = long_prob_thresh
-    # SHORT_PROBA_THRESH = short_prob_thresh
-    # VORARITY_THRESH = vorarity_thresh
 
     eta = trial.suggest_discrete_uniform('eta', 0.05, 0.5, 0.05)
     n_estimators = trial.suggest_int('n_estimators', 0, 10000)
@@ -382,10 +380,6 @@ def train_and_generate_model():
     global val_angle_arr
 
     data_len = len(exchange_rates)
-    # if is_param_tune_with_optuna:
-    #     train_len = len(exchange_rates) - 1000 - OUTPUT_LEN
-    # else:
-    #     train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd_tr = open("./train_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
     # inner logger function for backtest
@@ -411,10 +405,6 @@ def train_and_generate_model():
             tr_angle_mat = pickle.load(f)
     else:
         for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
-            # if "2006" in exchange_dates[i]:
-            #     print(len(tr_input_mat))
-            #     print(str(DATA_HEAD_ASOBI + i - 1))
-            #     quit()
             tr_input_mat.append(
                 [exchange_rates[i],
                  (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
@@ -475,20 +465,14 @@ def train_and_generate_model():
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
 
-    # if is_param_tune_with_optuna:
-    #     gen_data_len = int(((len(exchange_rates)/TRAINDATA_DIV))/5.0)
-    # else:
-    #     gen_data_len = len(tr_input_mat)
     tr_input_arr = np.array(tr_input_mat[0:COMPETITION_TRAIN_DATA_NUM])
     tr_angle_arr = np.array(tr_angle_mat[0:COMPETITION_TRAIN_DATA_NUM])
-    #dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
 
     watchlist = None
     split_idx = COMPETITION_TRAIN_DATA_NUM + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
     if VALIDATION_DATA_RATIO != 0.0:
         val_input_arr = np.array(tr_input_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
         val_angle_arr = np.array(tr_angle_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
-        #dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
         watchlist  = [(tr_input_arr, tr_angle_arr),(val_input_arr, val_angle_arr)]
     else:
         watchlist  = [(tr_input_arr, tr_angle_arr)]
@@ -509,7 +493,7 @@ def train_and_generate_model():
         logfile_writeln_opt("excecution time of tune: " + str(process_time))
         log_fd_opt.flush()
         log_fd_opt.close()
-        quit()
+        exit()
 
     param = {}
 
@@ -573,14 +557,11 @@ def train_and_generate_model():
     print("finished training and saved model.")
 
 def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = None, vorarity_thresh = None):
-    #global log_fd
-
     LONG_PROBA_THRESH_IN = LONG_PROBA_THRESH if long_prob_thresh == None else long_prob_thresh
     SHORT_PROBA_THRESH_IN = SHORT_PROBA_THRESH if short_prob_thresh == None else short_prob_thresh
     VORARITY_THRESH_IN = VORARITY_THRESH if vorarity_thresh == None else vorarity_thresh
 
     data_len = len(exchange_rates)
-    #train_len = int(len(exchange_rates)/TRAINDATA_DIV)
 
     log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
     # inner logger function for backtest
@@ -829,8 +810,14 @@ def run_script(mode):
         if exchange_dates == None:
             setup_historical_fx_data()
         is_colab_cpu = True
-        CHART_FILTER_TYPE_CAND_LONG = [[1],[0,1],[0,1,4],[0,1,2,3,4]]
-        CHART_FILTER_TYPE_CAND_SHORT = [[2],[0,2],[0,2,3],[0,1,2,3,4]]
+
+        ## first executed
+        # CHART_FILTER_TYPE_CAND_LONG = [[1],[0,1],[0,1,4],[0,1,2,3,4]]
+        # CHART_FILTER_TYPE_CAND_SHORT = [[2],[0,2],[0,2,3],[0,1,2,3,4]]
+
+        CHART_FILTER_TYPE_CAND_LONG = [[2],[0,2],[0,2,3],[2,3]]
+        CHART_FILTER_TYPE_CAND_SHORT = [[1],[0,1],[0,1,4],[1,4]]
+
         run_script("TRAIN")
         with open("./my_search_result.txt", "w") as f:
             for long_cand in CHART_FILTER_TYPE_CAND_LONG:
@@ -839,6 +826,19 @@ def run_script(mode):
                     chart_filter_type_short = short_cand
                     result_portfolio = run_script("TRADE")
                     f.write(str(long_cand) + "," + str(short_cand) + "," + str(result_portfolio) + "\n")
+
+        # ALL_FILTER_CAND = []
+        # CHART_TYPE_NUMS = [0,1,2,3,4]
+        # for comb_len in range(1,6):
+        #     ALL_FILTER_CAND.extend(list(itertools.combinations(data, comb_len)))
+        # run_script("TRAIN")
+        # with open("./my_search_result.txt", "w") as f:
+        #     for long_cand in ALL_FILTER_CAND:
+        #         chart_filter_type_long = long_cand
+        #         for short_cand in ALL_FILTER_CAND:
+        #             chart_filter_type_short = short_cand
+        #             result_portfolio = run_script("TRADE")
+        #             f.write(str(long_cand) + "," + str(short_cand) + "," + str(result_portfolio) + "\n")
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
