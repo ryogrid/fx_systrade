@@ -58,6 +58,8 @@ is_colab_cpu = False
 is_param_tune_with_optuna = False
 is_exec_at_mba = False
 
+chart_filter_type_long = [1]
+chart_filter_type_short = [2]
 # if is_param_tune_with_optuna:
 #     import optuna
 #     from xgboost import XGBClassifier
@@ -657,9 +659,14 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
                 #continue
                 delay_continue_flag = True
 
+        long_chart_ok = False
+        short_chart_ok = False
         if delay_continue_flag == False:# or is_loaded_mat == False:
             chart_type = judge_chart_type(exchange_rates[current_spot-CHART_TYPE_JDG_LEN:current_spot])
-            if chart_type != 1 and chart_type != 2:
+            long_chart_ok = chart_type in chart_filter_type_long
+            short_chart_ok = chart_type in chart_filter_type_short
+            #if chart_type != 1 and chart_type != 2:
+            if not (long_chart_ok or short_chart_ok):
                 skip_flag = True
                 if pos_kind != NOT_HAVE:
                     # if liner trend keep position
@@ -741,12 +748,12 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
         predicted_prob = pred[0]
 
         if pos_kind == NOT_HAVE and skip_flag == False:
-            if predicted_prob > LONG_PROBA_THRESH_IN and chart_type == 2:
+            if predicted_prob > LONG_PROBA_THRESH_IN and long_chart_ok: #chart_type == 2:
                pos_kind = LONG
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
                a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",1,0"
-            elif predicted_prob < SHORT_PROBA_THRESH_IN and chart_type == 1:
+             elif predicted_prob < SHORT_PROBA_THRESH_IN and short_chart_ok: #chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
@@ -774,6 +781,8 @@ def run_script(mode):
     global is_param_tune_with_optuna
     global THREAD_NUM
     global is_exec_at_mba
+    global chart_filter_type_long
+    global chart_filter_type_short
 
     if mode == "TRAIN":
         if exchange_dates == None:
@@ -805,8 +814,25 @@ def run_script(mode):
         return run_backtest()
     elif mode == "CHANGE_TO_PARAM_TUNING_MODE":
         is_param_tune_with_optuna = True
+    elif mode == "CHANGE_TO_PARAM_TUNING_MODE":
+        is_param_tune_with_oreore = True
+
     elif mode == "CHANGE_MBA_EXEC_MODE":
         is_exec_at_mba = True
+    elif mode == "TUNE_OREOE":
+        if exchange_dates == None:
+            setup_historical_fx_data()
+        is_colab_cpu = True
+        CHART_FILTER_TYPE_CAND_LONG = [[1],[0,1],[0,1,4],[0,1,2,3,4]]
+        CHART_FILTER_TYPE_CAND_SHORT = [[2],[0,2],[0,2,3],[0,1,2,3,4]]
+        run_script("TRAIN")
+        with open("./my_search_result.txt", "w") as f:
+            for long_cand in CHART_FILTER_TYPE_CAND_LONG:
+                chart_filter_type_long = long_cand
+                for short_cand in CHART_FILTER_TYPE_CAND_SHORT:
+                    chart_filter_type_short = short_cand
+                    result_portfolio = run_script("TRADE")
+                    f.write(str(long_cand) + "," + str(short_cand) + "," + str(result_portfolio) + "\n")
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
@@ -855,5 +881,7 @@ if __name__ == '__main__':
                 is_colab_cpu = True
 
             run_script("TRAIN")
+          if sys.argv[1] == "-chart-type-param-tune-colab":
+            run_script("TUNE_OREOE")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
