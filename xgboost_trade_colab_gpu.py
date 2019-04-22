@@ -829,9 +829,6 @@ def run_script(mode):
         return run_backtest()
     elif mode == "CHANGE_TO_PARAM_TUNING_MODE":
         is_param_tune_with_optuna = True
-    elif mode == "CHANGE_TO_PARAM_TUNING_MODE":
-        is_param_tune_with_oreore = True
-
     elif mode == "CHANGE_MBA_EXEC_MODE":
         is_exec_at_mba = True
     elif mode == "TUNE_OREOE":
