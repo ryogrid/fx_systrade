@@ -825,7 +825,7 @@ def run_script(mode):
         is_param_tune_with_optuna = True
     elif mode == "CHANGE_MBA_EXEC_MODE":
         is_exec_at_mba = True
-    elif mode == "TUNE_OREOE_COLAB_CPU":
+    elif mode == "TUNE_OREORE_COLAB_CPU":
         if exchange_dates == None:
             setup_historical_fx_data()
         is_colab_cpu = True
@@ -887,6 +887,6 @@ if __name__ == '__main__':
                 is_colab_cpu = True
                 run_script("TRAIN")
         elif sys.argv[1] == "--chart-type-param-tune-colab":
-            run_script("TUNE_OREOE_COLAB_CPU")
+            run_script("TUNE_OREORE_COLAB_CPU")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
