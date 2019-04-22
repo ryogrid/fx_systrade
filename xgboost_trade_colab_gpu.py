@@ -30,12 +30,20 @@ CHART_TYPE_JDG_LEN = 25
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
-NUM_ROUND = 5000 #4000 #65 #4000
-LONG_PROBA_THRESH = 0.8
-SHORT_PROBA_THRESH = 0.2
-VORARITY_THRESH = 0.1
-ETA = 0.5
-MAX_DEPTH = 5
+#p42 params
+# {'n_estimators': '6554', 'short_prob_thresh': '0.5', 'max_depth': '3', 'long_prob_thresh': '0.85000
+# 00000000001', 'subsample': '0.9', 'colsample_bytree': '0.6', 'eta': '0.35000000000000003', 'min_chi
+# ld_weight': '18', 'vorarity_thresh': '0.29000000000000004'}
+# portfolio_rslt =1427745.1592146049
+# #p40 params
+# {'n_estimators': '3293', 'short_prob_thresh': '0.45000000000000007', 'max_depth': '5', 'long_prob_thresh': '0.9', 'subsample': '0.5',
+# 'colsample_bytree': '0.8', 'eta': '0.4', 'min_child_weight': '6', 'vorarity_thresh': '0.19'}
+NUM_ROUND = 6554 #3293 #4000 #65 #4000
+LONG_PROBA_THRESH = 0.85
+SHORT_PROBA_THRESH = 0.5
+VORARITY_THRESH = 0.29
+ETA = 0.35
+MAX_DEPTH = 3
 
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
 #FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
@@ -331,13 +339,6 @@ def opt(trial):
     #return (1.0 - (accuracy_score(val_angle_arr, tuna_pred_test)))
     return (1.0 - ((portfolio_rslt/1000000.0) - 0.5))
 
-def create_feature_map():
-    outfile = open('fx_systrade_xgb.fmap', 'w')
-    counter = 0
-    for feat in FEATURE_NAMES:
-        outfile.write('{0}\t{1}\tq\n'.format(counter, feat))
-        counter += 1
-    outfile.close()
 
 def setup_historical_fx_data():
     global exchange_dates
@@ -494,13 +495,10 @@ def train_and_generate_model():
 
     start = time.time()
     if is_param_tune_with_optuna:
-        # # backtestで log_fdが使われるので始末しておく
-        # log_fd.flush()
-        # log_fd.close()
-        # log_fd = None
-        stderr_stdout_temp_fd = open('stdout_and_stderr_when_run_optuna_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt', mode = 'w')
-        sys.stderr = stderr_stdout_temp_fd
-        sys.stdout = stderr_stdout_temp_fd
+        # if is_use_gpu or is_colab_cpu:
+        #     stderr_stdout_temp_fd = open("stdout_and_stderr_when_run_optuna_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = 'w')
+        #     sys.stderr = stderr_stdout_temp_fd
+        #     sys.stdout = stderr_stdout_temp_fd
 
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
         study = optuna.create_study()
@@ -518,49 +516,66 @@ def train_and_generate_model():
         log_fd_opt.close()
         quit()
 
-    param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':RAPTOP_THREAD_NUM,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
+    #param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':RAPTOP_THREAD_NUM,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
 
     #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
     # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
 
-    #param = {'max_depth':3, 'eta':0.1, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':4,
-    #    'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7,
-    #    'booster': 'dart', 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
+    param = {}
 
+    n_thread = RAPTOP_THREAD_NUM
     if is_use_gpu:
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
-        param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
+        n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
     if is_colab_cpu or is_exec_at_mba:
-        param['n_thread'] = COLAB_CPU_AND_MBA_THREAD_NUM
+        n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
 
     logfile_writeln_tr("training parameters are below...")
     logfile_writeln_tr(str(param))
     eval_result_dic = {}
 
     logfile_writeln_tr("num_round: " + str(NUM_ROUND))
-    if is_colab_cpu or is_use_gpu:
-        bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=False)
-    else:
-        bst = xgb.train(param, dtrain, NUM_ROUND, evals=watchlist, evals_result=eval_result_dic, verbose_eval=int(NUM_ROUND/100))
+    clf = XGBClassifier(
+        max_depth = MAX_DEPTH,
+        random_state=42,
+        n_estimators = NUM_ROUND,
+        min_child_weight = 18,
+        subsample = 0.9,
+        colsample_bytree = 0.6,
+        eta = ETA,
+        objective = 'binary:logistic',
+        verbosity = 0,
+        n_thread = n_thread,
+        **param
+    )
+
+
+    verbosity = True
+    if is_use_gpu or is_colab_cpu:
+        verbosity = False
+    clf.fit(tr_input_arr, tr_angle_arr, eval_set = watchlist, verbose=verbosity)
     process_time = time.time() - start
     logfile_writeln_tr("excecution time of training: " + str(process_time))
 
-    # bst.dump_model('./xgb_model.raw.txt')
-    # bst.save_model('./xgb.model')
+    clf.save_model('./xgb.model')
+    booster = clf.get_booster()
+    booster.dump_model('./xgb_model.raw.txt')
 
-    for ii in range(len(eval_result_dic['train']['error'])):
+    eval_result_dic = clf.evals_result()
+
+    for ii in range(len(eval_result_dic['validation_0']['error'])):
         if VALIDATION_DATA_RATIO != 0.0:
-            logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['train']['error'][ii]) + "," + str(eval_result_dic['validation']['error'][ii]))
+            logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['validation_0']['error'][ii]) + "," + str(eval_result_dic['validation_1']['error'][ii]))
         else:
-            logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['train']['error'][ii]))
+            logfile_writeln_tr(str(ii) + "," + str(eval_result_dic['validation_0']['error'][ii]))
 
-    # feature importance
-    create_feature_map()
-    fti = bst.get_fscore(fmap='fx_systrade_xgb.fmap')
+    # Feature Importance
+    fti = clf.feature_importances_
     logfile_writeln_tr('Feature Importances:')
-    logfile_writeln_tr(str(fti))
+    for i, feat in enumerate(FEATURE_NAMES):
+        logfile_writeln_tr('\t{0:20s} : {1:>.6f}'.format(feat, fti[i]))
 
     log_fd_tr.flush()
     log_fd_tr.close()
