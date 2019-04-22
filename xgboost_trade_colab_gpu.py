@@ -394,10 +394,9 @@ def train_and_generate_model():
         log_fd_tr.write(log_str + "\n")
         log_fd_tr.flush()
 
-    if not (is_use_gpu or is_colab_cpu):
-        print("data size of rates: " + str(data_len))
-        print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
-        print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
+    print("data size of rates: " + str(data_len))
+    print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
+    print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
 
     logfile_writeln_tr("data size of rates: " + str(data_len))
     logfile_writeln_tr("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
@@ -598,13 +597,17 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
     if is_param_tune_with_optuna:
         t_num = WHEN_TUNE_PARAM_THREAD_NUM
 
+    bst = None
     if booster == None:
+        clf = XGBClassifier()
+        clf.load_model("./xgb.model")
+        bst = clf.get_booster()
         if is_use_gpu:
-            bst = xgb.Booster({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
+            bst.set_param({'predictor': 'gpu_predictor', 'tree_method': 'gpu_hist'})
         else:
-            bst = xgb.Booster({'predictor': 'cpu_predictor', 'nthread': t_num})
+            bst.set_param({'predictor': 'cpu_predictor', 'nthread': t_num})
 
-        bst.load_model("./xgb.model")
+        #bst.load_model("./xgb.model")
     else:
         bst = booster #引数のものを使う
         bst.set_param({'nthread':t_num})
@@ -822,7 +825,7 @@ def run_script(mode):
         is_param_tune_with_optuna = True
     elif mode == "CHANGE_MBA_EXEC_MODE":
         is_exec_at_mba = True
-    elif mode == "TUNE_OREOE":
+    elif mode == "TUNE_OREOE_COLAB_CPU":
         if exchange_dates == None:
             setup_historical_fx_data()
         is_colab_cpu = True
@@ -884,6 +887,6 @@ if __name__ == '__main__':
                 is_colab_cpu = True
                 run_script("TRAIN")
         elif sys.argv[1] == "--chart-type-param-tune-colab":
-            run_script("TUNE_OREOE")
+            run_script("TUNE_OREOE_COLAB_CPU")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
