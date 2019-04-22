@@ -482,24 +482,20 @@ def train_and_generate_model():
     #     gen_data_len = len(tr_input_mat)
     tr_input_arr = np.array(tr_input_mat[0:COMPETITION_TRAIN_DATA_NUM])
     tr_angle_arr = np.array(tr_angle_mat[0:COMPETITION_TRAIN_DATA_NUM])
-    dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
+    #dtrain = xgb.DMatrix(tr_input_arr, label=tr_angle_arr)
 
+    watchlist = None
     split_idx = COMPETITION_TRAIN_DATA_NUM + int((len(tr_input_mat) - COMPETITION_TRAIN_DATA_NUM) * VALIDATION_DATA_RATIO)
     if VALIDATION_DATA_RATIO != 0.0:
         val_input_arr = np.array(tr_input_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
         val_angle_arr = np.array(tr_angle_mat[COMPETITION_TRAIN_DATA_NUM:split_idx])
-        dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
-        watchlist  = [(dtrain,'train'),(dval,'validation')]
+        #dval = xgb.DMatrix(val_input_arr, label=val_angle_arr)
+        watchlist  = [(tr_input_arr, tr_angle_arr),(val_input_arr, val_angle_arr)]
     else:
-        watchlist  = [(dtrain,'train')]
+        watchlist  = [(tr_input_arr, tr_angle_arr)]
 
     start = time.time()
     if is_param_tune_with_optuna:
-        # if is_use_gpu or is_colab_cpu:
-        #     stderr_stdout_temp_fd = open("stdout_and_stderr_when_run_optuna_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = 'w')
-        #     sys.stderr = stderr_stdout_temp_fd
-        #     sys.stdout = stderr_stdout_temp_fd
-
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
         study = optuna.create_study()
         #study = optuna.Study(study_name='distributed-example', storage='sqlite:///example.db')
@@ -515,11 +511,6 @@ def train_and_generate_model():
         log_fd_opt.flush()
         log_fd_opt.close()
         quit()
-
-    #param = {'max_depth':MAX_DEPTH, 'eta':ETA, 'objective':'binary:logistic', 'verbosity':0, 'n_thread':RAPTOP_THREAD_NUM,'random_state':42, 'n_estimators':NUM_ROUND, 'min_child_weight': 15, 'subsample': 0.7, 'colsample_bytree':0.7}
-
-    #param = {'max_depth':6, 'learning_rate':0.1, 'subsumble':0.5, 'objective':'binary:logistic', 'verbosity':0, 'booster': 'dart',
-    # 'sample_type': 'uniform', 'normalize_type': 'tree', 'rate_drop': 0.1, 'skip_drop': 0.5}
 
     param = {}
 
