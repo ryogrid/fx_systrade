@@ -398,11 +398,13 @@ def train_and_generate_model():
     tr_input_mat = []
     tr_angle_mat = []
 
+    is_loaded_input_mat = False
     if os.path.exists("./tr_input_mat.pickle"):
         with open('./tr_input_mat.pickle', 'rb') as f:
             tr_input_mat = pickle.load(f)
         with open('./tr_angle_mat.pickle', 'rb') as f:
             tr_angle_mat = pickle.load(f)
+        is_loaded_input_mat = True
     else:
         for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
             tr_input_mat.append(
@@ -457,10 +459,11 @@ def train_and_generate_model():
             else:
                 tr_angle_mat.append(0)
 
-        with open('tr_input_mat.pickle', 'wb') as f:
-            pickle.dump(tr_input_mat, f)
-        with open('tr_angle_mat.pickle', 'wb') as f:
-            pickle.dump(tr_angle_mat, f)
+        if is_loaded_input_mat == False:
+            with open('tr_input_mat.pickle', 'wb') as f:
+                pickle.dump(tr_input_mat, f)
+            with open('tr_angle_mat.pickle', 'wb') as f:
+                pickle.dump(tr_angle_mat, f)
 
     #log output for tensorboard
     #configure("logs/xgboost_trade_cpu_1")
