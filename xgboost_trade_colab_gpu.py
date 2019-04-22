@@ -768,7 +768,7 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
                positions = portfolio / (exchange_rates[current_spot] + HALF_SPREAD)
                trade_val = exchange_rates[current_spot] + HALF_SPREAD
                a_log_str_line += ",0," + str(chart_type) + ",0,0,0," + str(vorarity) + ",1," + str(predicted_prob)  + ",1,0"
-             elif predicted_prob < SHORT_PROBA_THRESH_IN and short_chart_ok: #chart_type == 1:
+            elif predicted_prob < SHORT_PROBA_THRESH_IN and short_chart_ok: #chart_type == 1:
                pos_kind = SHORT
                positions = portfolio / (exchange_rates[current_spot] - HALF_SPREAD)
                trade_val = exchange_rates[current_spot] - HALF_SPREAD
@@ -891,9 +891,8 @@ if __name__ == '__main__':
                 is_exec_at_mba = True
             elif sys.argv[1] == "--param-tune-colab":
                 is_colab_cpu = True
-
-            run_script("TRAIN")
-          if sys.argv[1] == "-chart-type-param-tune-colab":
+                run_script("TRAIN")
+        elif sys.argv[1] == "--chart-type-param-tune-colab":
             run_script("TUNE_OREOE")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
