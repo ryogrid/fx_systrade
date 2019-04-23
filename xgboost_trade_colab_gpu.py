@@ -67,11 +67,11 @@ is_colab_cpu = False
 is_param_tune_with_optuna = False
 is_exec_at_mba = False
 
-chart_filter_type_long = [1]
-chart_filter_type_short = [2]
-
 special_optuna_parallel_num = -1
 is_use_db_at_tune = False
+chart_filter_type_long = [2]
+chart_filter_type_short = [1]
+
 # if is_param_tune_with_optuna:
 #     import optuna
 #     from xgboost import XGBClassifier
