@@ -69,6 +69,9 @@ is_exec_at_mba = False
 
 chart_filter_type_long = [1]
 chart_filter_type_short = [2]
+
+special_optuna_parallel_num = -1
+is_use_db_at_tune = False
 # if is_param_tune_with_optuna:
 #     import optuna
 #     from xgboost import XGBClassifier
@@ -281,6 +284,14 @@ def set_tune_trial_num(tnum):
     global OPTUNA_TRIAL_NUM
     OPTUNA_TRIAL_NUM = tnum
 
+def set_optuna_special_parallel_num(pnum):
+    global special_optuna_parallel_num
+    special_optuna_parallel_num = pnum
+
+def set_enable_db_at_tune():
+    global is_use_db_at_tune
+    is_use_db_at_tune = True
+
 def opt(trial):
     global LONG_PROBA_THRESH
     global SHORT_PROBA_THRESH
@@ -483,11 +494,17 @@ def train_and_generate_model():
     start = time.time()
     if is_param_tune_with_optuna:
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
-        study = optuna.create_study()
-        #study = optuna.Study(study_name='distributed-example', storage='sqlite:///example.db')
+        study = None
+        if is_use_db_at_tune:
+            study = optuna.Study(study_name='fxsystrade', storage='sqlite:///fxsystrade.db')
+        else:
+            study = optuna.create_study()
+
         parallel_num = RAPTOP_THREAD_NUM * 2
         if is_colab_cpu or is_exec_at_mba:
             parallel_num = COLAB_CPU_AND_MBA_THREAD_NUM * 2
+        if special_optuna_parallel_num != -1:
+            parallel_num = special_optuna_parallel_num
         study.optimize(opt, n_trials=OPTUNA_TRIAL_NUM, n_jobs=parallel_num)
         process_time = time.time() - start
         logfile_writeln_opt("best_params: " + str(study.best_params))
