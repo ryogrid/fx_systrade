@@ -496,7 +496,7 @@ def train_and_generate_model():
         log_fd_opt = open("./tune_progress_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
         study = None
         if is_use_db_at_tune:
-            study = optuna.Study(study_name='fxsystrade', storage='sqlite:///fxsystrade.db')
+            study = optuna.Study(study_name='fxsystrade', storage='sqlite://../fxsystrade.db')
         else:
             study = optuna.create_study()
 
