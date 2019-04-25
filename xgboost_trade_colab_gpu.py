@@ -14,7 +14,7 @@ import itertools
 #from tensorboard_logger import configure, log_value
 
 INPUT_LEN = 1
-OUTPUT_LEN = 5
+PREDICT_FUTURE_LEGS = 5
 SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
 COMPETITION_DIV = True
 COMPETITION_TRAIN_DATA_NUM = 208952
@@ -31,6 +31,9 @@ CHART_TYPE_JDG_LEN = 25
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
+#p57 parame
+#{'n_estimators': '4480', 'short_prob_thresh': '0.5', 'max_depth': '10', 'long_prob_thresh': '0.8500000000000001',
+# 'subsample': '0.8', 'colsample_bytree': '0.8', 'eta': '0.45', 'min_child_weight': '15', 'vorarity_thresh': '0.19'}
 #p42 params
 # {'n_estimators': '6554', 'short_prob_thresh': '0.5', 'max_depth': '3', 'long_prob_thresh': '0.85000
 # 00000000001', 'subsample': '0.9', 'colsample_bytree': '0.6', 'eta': '0.35000000000000003', 'min_chi
@@ -39,12 +42,12 @@ DATA_HEAD_ASOBI = 200
 # #p40 params
 # {'n_estimators': '3293', 'short_prob_thresh': '0.45000000000000007', 'max_depth': '5', 'long_prob_thresh': '0.9', 'subsample': '0.5',
 # 'colsample_bytree': '0.8', 'eta': '0.4', 'min_child_weight': '6', 'vorarity_thresh': '0.19'}
-NUM_ROUND = 6554 #3293 #4000 #65 #4000
+NUM_ROUND = 4480 #6554 #3293 #4000 #65 #4000
 LONG_PROBA_THRESH = 0.85
 SHORT_PROBA_THRESH = 0.5
-VORARITY_THRESH = 0.29
-ETA = 0.35
-MAX_DEPTH = 3
+VORARITY_THRESH = 0.19 #0.29
+ETA = 0.45 #0.35
+MAX_DEPTH = 10 #3
 
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
 #FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
@@ -71,6 +74,8 @@ special_optuna_parallel_num = -1
 is_use_db_at_tune = False
 chart_filter_type_long = [2]
 chart_filter_type_short = [1]
+is_use_dumped_feature_data = True
+is_save_dumped_feature_data = False
 
 # if is_param_tune_with_optuna:
 #     import optuna
@@ -410,14 +415,14 @@ def train_and_generate_model():
     tr_angle_mat = []
 
     is_loaded_input_mat = False
-    if os.path.exists("./tr_input_mat.pickle"):
+    if os.path.exists("./tr_input_mat.pickle") and is_use_dumped_feature_data:
         with open('./tr_input_mat.pickle', 'rb') as f:
             tr_input_mat = pickle.load(f)
         with open('./tr_angle_mat.pickle', 'rb') as f:
             tr_angle_mat = pickle.load(f)
         is_loaded_input_mat = True
     else:
-        for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - OUTPUT_LEN, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
+        for i in range(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - PREDICT_FUTURE_LEGS, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS):
             tr_input_mat.append(
                 [exchange_rates[i],
                  (exchange_rates[i] - exchange_rates[i - 1])/exchange_rates[i - 1],
@@ -459,18 +464,18 @@ def train_and_generate_model():
              ]
                 )
 
-            tmp = exchange_rates[i+OUTPUT_LEN] - exchange_rates[i]
+            tmp = exchange_rates[i+PREDICT_FUTURE_LEGS] - exchange_rates[i]
             if tmp >= 0:
                 tr_angle_mat.append(1)
             else:
                 tr_angle_mat.append(0)
-            tmp = reverse_exchange_rates[i+OUTPUT_LEN] - reverse_exchange_rates[i]
+            tmp = reverse_exchange_rates[i+PREDICT_FUTURE_LEGS] - reverse_exchange_rates[i]
             if tmp >= 0:
                 tr_angle_mat.append(1)
             else:
                 tr_angle_mat.append(0)
 
-        if is_loaded_input_mat == False:
+        if is_loaded_input_mat == False and is_save_dumped_feature_data:
             with open('tr_input_mat.pickle', 'wb') as f:
                 pickle.dump(tr_input_mat, f)
             with open('tr_angle_mat.pickle', 'wb') as f:
@@ -526,6 +531,10 @@ def train_and_generate_model():
     if is_colab_cpu or is_exec_at_mba:
         n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
 
+# p57
+#{'n_estimators': '4480', 'short_prob_thresh': '0.5', 'max_depth': '10', 'long_prob_thresh': '0.8500000000000001',
+# 'subsample': '0.8', 'colsample_bytree': '0.8', 'eta': '0.45', 'min_child_weight': '15', 'vorarity_thresh': '0.19'}
+
     logfile_writeln_tr("training parameters are below...")
     logfile_writeln_tr(str(param))
     eval_result_dic = {}
@@ -535,9 +544,9 @@ def train_and_generate_model():
         max_depth = MAX_DEPTH,
         random_state=42,
         n_estimators = NUM_ROUND,
-        min_child_weight = 18,
-        subsample = 0.9,
-        colsample_bytree = 0.6,
+        min_child_weight = 15, #18,
+        subsample = 0.8, #0.9,
+        colsample_bytree = 0.8, #0.6,
         eta = ETA,
         objective = 'binary:logistic',
         verbosity = 0,
@@ -637,14 +646,14 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
     #         ts_input_mat = pickle.load(f)
     #         is_loaded_mat = True
 
-    logfile_writeln_bt("trade parameters LONG_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " SHORT_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " VORARITY_THRESH=" + str(VORARITY_THRESH) + " trade_trying_times=" + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
+    logfile_writeln_bt("trade parameters LONG_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " SHORT_PROBA_THRESH=" + str(LONG_PROBA_THRESH) + " VORARITY_THRESH=" + str(VORARITY_THRESH) + " trade_trying_times=" + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - PREDICT_FUTURE_LEGS))
     # log format
     a_log_str_line = "log marker, loop count, Did Action == Sonkiri, chart_type, Did Action == skip according to chart_type, Did Action == Rieki Kakutei, Did Action == Skip according to position cointain time, voratility, Did Action == skip accordint to voratility, predicted prob, Get long position => 1 Get Short position => 2 else => 0, Did Action == Skip by chart_type at last decision"
-    #logfile_writeln_bt("check_ts_input_mat,range func argument," + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN))
-    #logfile_writeln_bt("check_ts_input_mat,current_sport start," + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + OUTPUT_LEN))
-    for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - OUTPUT_LEN):
+    #logfile_writeln_bt("check_ts_input_mat,range func argument," + str(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - PREDICT_FUTURE_LEGS))
+    #logfile_writeln_bt("check_ts_input_mat,current_sport start," + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + PREDICT_FUTURE_LEGS))
+    for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - PREDICT_FUTURE_LEGS):
         #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
-        current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + OUTPUT_LEN
+        current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + PREDICT_FUTURE_LEGS
 
         logfile_writeln_bt(a_log_str_line)
 
@@ -685,7 +694,7 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
                     delay_continue_flag = True
 
         if pos_kind != NOT_HAVE and delay_continue_flag == False:
-            if pos_cont_count >= (OUTPUT_LEN-1):
+            if pos_cont_count >= (PREDICT_FUTURE_LEGS-1):
                 if pos_kind == LONG:
                     pos_kind = NOT_HAVE
                     portfolio = positions * (exchange_rates[current_spot] - HALF_SPREAD)
@@ -793,6 +802,9 @@ def run_script(mode):
     global is_exec_at_mba
     global chart_filter_type_long
     global chart_filter_type_short
+    global is_use_dumped_feature_data
+    global PREDICT_FUTURE_LEGS
+    #global is_save_dumped_feature_data
 
     if mode == "TRAIN":
         if exchange_dates == None:
@@ -859,6 +871,19 @@ def run_script(mode):
         #             chart_filter_type_short = short_cand
         #             result_portfolio = run_script("TRADE")
         #             f.write(str(long_cand) + "," + str(short_cand) + "," + str(result_portfolio) + "\n")
+    elif mode == "TUNE_PREDICT_FUTURE_LEGS_OREORE_NOT_COLAB":
+        is_use_dumped_feature_data = False
+        PREDICT_FUTURE_LEGS_CAND = [2,3,4,6,7,5]
+
+        with open("./my_search_result_PREDICT_FUTURE_LEGS.txt", "w") as f:
+            for len_cand in PREDICT_FUTURE_LEGS_CAND:
+                PREDICT_FUTURE_LEGS = len_cand
+                # SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS has been synced with PREDICT_FUTURE_LEGS since this tuning
+                # But its meaning is not equal with PREDICT_FUTURE_LEGS, so this tuning does not chenage it
+                run_script("TRAIN")
+                result_portfolio = run_script("TRADE")
+                print(str(len_cand) + "," + str(result_portfolio))
+                f.write(str(len_cand) + "," + str(result_portfolio) + "\n")
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
@@ -908,5 +933,7 @@ if __name__ == '__main__':
                 run_script("TRAIN")
         elif sys.argv[1] == "--chart-type-param-tune-colab":
             run_script("TUNE_OREORE_COLAB_CPU")
+        elif sys.argv[1] == "--tune-future-lengs-not-colab":
+            run_script("TUNE_PREDICT_FUTURE_LEGS_OREORE_NOT_COLAB")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
