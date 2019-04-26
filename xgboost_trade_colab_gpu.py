@@ -927,10 +927,10 @@ if __name__ == '__main__':
             set_tune_trial_num(int(sys.argv[2]))
 
             if sys.argv[1] == "--param-tune-mac":
-                is_exec_at_mba = True
+                is_exec_at_mba = True    
             elif sys.argv[1] == "--param-tune-colab":
                 is_colab_cpu = True
-                run_script("TRAIN")
+            run_script("TRAIN")
         elif sys.argv[1] == "--chart-type-param-tune-colab":
             run_script("TUNE_OREORE_COLAB_CPU")
         elif sys.argv[1] == "--tune-future-legs-not-colab":
