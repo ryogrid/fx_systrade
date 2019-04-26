@@ -75,7 +75,7 @@ is_use_db_at_tune = False
 chart_filter_type_long = [2]
 chart_filter_type_short = [1]
 is_use_dumped_feature_data = True
-is_save_dumped_feature_data = False
+is_save_dumped_feature_data = True
 
 # if is_param_tune_with_optuna:
 #     import optuna
