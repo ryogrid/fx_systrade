@@ -14,7 +14,7 @@ import itertools
 #from tensorboard_logger import configure, log_value
 
 INPUT_LEN = 1
-PREDICT_FUTURE_LEGS = 5
+PREDICT_FUTURE_LEGS = 7 #5
 SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
 COMPETITION_DIV = True
 COMPETITION_TRAIN_DATA_NUM = 208952
@@ -933,7 +933,7 @@ if __name__ == '__main__':
                 run_script("TRAIN")
         elif sys.argv[1] == "--chart-type-param-tune-colab":
             run_script("TUNE_OREORE_COLAB_CPU")
-        elif sys.argv[1] == "--tune-future-lengs-not-colab":
+        elif sys.argv[1] == "--tune-future-legs-not-colab":
             run_script("TUNE_PREDICT_FUTURE_LEGS_OREORE_NOT_COLAB")
         else:
             raise Exception(sys.argv[1] + " is unknown argment.")
