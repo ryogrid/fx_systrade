@@ -31,7 +31,10 @@ CHART_TYPE_JDG_LEN = 25
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
-#p57 parame
+#p84 params
+#{'colsample_bytree': 0.7, 'eta': 0.05, 'long_prob_thresh': 0.8500000000000001, 'max_depth': 10, 'min_child_weight': 18,
+# 'n_estimators': 8527, 'short_prob_thresh': 0.35, 'subsample': 0.8, 'vorarity_thresh': 0.23}
+#p57 params
 #{'n_estimators': '4480', 'short_prob_thresh': '0.5', 'max_depth': '10', 'long_prob_thresh': '0.8500000000000001',
 # 'subsample': '0.8', 'colsample_bytree': '0.8', 'eta': '0.45', 'min_child_weight': '15', 'vorarity_thresh': '0.19'}
 #p42 params
@@ -42,11 +45,11 @@ DATA_HEAD_ASOBI = 200
 # #p40 params
 # {'n_estimators': '3293', 'short_prob_thresh': '0.45000000000000007', 'max_depth': '5', 'long_prob_thresh': '0.9', 'subsample': '0.5',
 # 'colsample_bytree': '0.8', 'eta': '0.4', 'min_child_weight': '6', 'vorarity_thresh': '0.19'}
-NUM_ROUND = 4480 #6554 #3293 #4000 #65 #4000
-LONG_PROBA_THRESH = 0.85
-SHORT_PROBA_THRESH = 0.5
-VORARITY_THRESH = 0.19 #0.29
-ETA = 0.45 #0.35
+NUM_ROUND = 8527 #4480 #6554 #3293 #4000 #65 #4000
+LONG_PROBA_THRESH = 0.85  #0.85
+SHORT_PROBA_THRESH = 0.35 #0.5
+VORARITY_THRESH = 0.23 # 0.19 #0.29
+ETA = 0.05 #0.45 #0.35
 MAX_DEPTH = 10 #3
 
 FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
@@ -527,14 +530,12 @@ def train_and_generate_model():
         param['tree_method'] = 'gpu_hist'
         param['max_bin'] = 16
         param['gpu_id'] = 0
-        n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
+        n_thread = 1 #COLAB_CPU_AND_MBA_THREAD_NUM
     if is_colab_cpu or is_exec_at_mba:
         n_thread = COLAB_CPU_AND_MBA_THREAD_NUM
-
-# p57
-#{'n_estimators': '4480', 'short_prob_thresh': '0.5', 'max_depth': '10', 'long_prob_thresh': '0.8500000000000001',
-# 'subsample': '0.8', 'colsample_bytree': '0.8', 'eta': '0.45', 'min_child_weight': '15', 'vorarity_thresh': '0.19'}
-
+# p84
+#{'colsample_bytree': 0.7, 'eta': 0.05, 'long_prob_thresh': 0.8500000000000001, 'max_depth': 10, 'min_child_weight': 18,
+# 'n_estimators': 8527, 'short_prob_thresh': 0.35, 'subsample': 0.8, 'vorarity_thresh': 0.23}
     logfile_writeln_tr("training parameters are below...")
     logfile_writeln_tr(str(param))
     eval_result_dic = {}
@@ -544,9 +545,9 @@ def train_and_generate_model():
         max_depth = MAX_DEPTH,
         random_state=42,
         n_estimators = NUM_ROUND,
-        min_child_weight = 15, #18,
+        min_child_weight = 18, #15, #18,
         subsample = 0.8, #0.9,
-        colsample_bytree = 0.8, #0.6,
+        colsample_bytree = 0.7, #0.8, #0.6,
         eta = ETA,
         objective = 'binary:logistic',
         verbosity = 0,
@@ -788,8 +789,11 @@ def run_backtest(booster = None, long_prob_thresh = None, short_prob_thresh = No
     #         pickle.dump(ts_input_mat, f)
 
     logfile_writeln_bt("finished backtest.")
+    print("finished backtest.")
     process_time = time.time() - start
     logfile_writeln_bt("excecution time of backtest: " + str(process_time))
+    logfile_writeln_bt("result of portfolio: " + str(portfolio))
+    print("result of portfolio: " + str(portfolio))
     log_fd_bt.flush()
     log_fd_bt.close()
     return portfolio
@@ -927,7 +931,7 @@ if __name__ == '__main__':
             set_tune_trial_num(int(sys.argv[2]))
 
             if sys.argv[1] == "--param-tune-mac":
-                is_exec_at_mba = True    
+                is_exec_at_mba = True
             elif sys.argv[1] == "--param-tune-colab":
                 is_colab_cpu = True
             run_script("TRAIN")
