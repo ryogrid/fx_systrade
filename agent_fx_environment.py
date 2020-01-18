@@ -1,4 +1,4 @@
-#!/usr/bin/python
+# coding:utf-8
 import numpy as np
 import scipy.sparse
 import pickle
@@ -12,6 +12,7 @@ import time
 
 INPUT_LEN = 1
 SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
+PREDICT_FUTURE_LEGS = 5
 COMPETITION_DIV = True
 COMPETITION_TRAIN_DATA_NUM = 208952
 COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
@@ -366,6 +367,7 @@ def run_backtest():
 
     ts_input_arr = np.array(ts_input_mat)
 
+    # TODO: agentに環境を提供するような形でバックテストを実装する
     for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - PREDICT_FUTURE_LEGS):
         #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
         current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + PREDICT_FUTURE_LEGS
@@ -380,11 +382,6 @@ def run_backtest():
             elif pos_kind == SHORT:
                 cur_portfo = portfolio + (positions * trade_val - positions * (exchange_rates[current_spot] + HALF_SPREAD))
                 diff = trade_val - (exchange_rates[current_spot] + HALF_SPREAD)
-            if (cur_portfo - portfolio)/portfolio < -1*SONKIRI_RATE:
-                portfolio = cur_portfo
-                pos_kind = NOT_HAVE
-                won_pips += diff
-                logfile_writeln_bt(str(diff) + "pips " + str(won_pips) + "pips")
 
     logfile_writeln_bt("finished backtest.")
     print("finished backtest.")
@@ -397,23 +394,14 @@ def run_backtest():
     return portfolio
 
 def run_script(mode):
-    global chart_filter_type_long
-    global chart_filter_type_short
-    global is_use_dumped_feature_data
-    global PREDICT_FUTURE_LEGS
-    #global is_save_dumped_feature_data
-
-    if mode == "TRAIN":
-        if exchange_dates == None:
-            setup_historical_fx_data()
-        train_and_generate_model()
-    elif mode == "TRADE":
-        if exchange_dates == None:
-            setup_historical_fx_data()
-        return run_backtest()
+    if mode == "GEN_PICKLES":
+        setup_serialized_fx_data()
+    elif mode == "BACKTEST":
+        run_backtest()
     else:
         raise Exception(str(mode) + " mode is invalid.")
 
+# TODO:クラスとして利用できるようにまとめないといけない
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         run_script("TRAIN")
