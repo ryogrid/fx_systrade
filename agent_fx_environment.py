@@ -259,10 +259,11 @@ class FXEnvironment:
 
             if y_arr_fpath != None:
                 tmp = self.exchange_rates[i + self.PREDICT_FUTURE_LEGS] - self.exchange_rates[i]
-                if tmp >= 0:
-                    angle_mat.append(1)
-                else:
-                    angle_mat.append(0)
+                angle_mat.append((tmp))
+                # if tmp >= 0:
+                #     angle_mat.append(1)
+                # else:
+                #     angle_mat.append(0)
 
                 # tmp = reverse_exchange_rates[i + PREDICT_FUTURE_LEGS] - reverse_exchange_rates[i]
                 # if tmp >= 0:
@@ -336,60 +337,73 @@ class FXEnvironment:
         print("input features sets for test: " + str(len(self.ts_input_arr)))
         print("finished setup environment data.")
 
-    def run_backtest(self):
-        data_len = len(self.exchange_rates)
+    # type_str: "train", "test"
+    def get_env(self, type_str):
+        return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, angle_arr=self.tr_angle_arr)
 
-        log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
-        # inner logger function for backtest
-        def logfile_writeln_bt(log_str):
-            nonlocal log_fd_bt
-            log_fd_bt.write(log_str + "\n")
-            log_fd_bt.flush()
+    class InnerFXEnvironment:
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, angle_arr = None, half_spred=0.0015):
+            self.input_arr = input_arr
+            self.angle_arr = angle_arr
+            self.exchange_dates = exchange_dates
+            self.exchange_rates = exchange_rates
+            self.half_spread = half_spred
+            self.cur_idx = 0
+            self.idx_geta = idx_geta
+            self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+            self.start = time.time()
 
-        logfile_writeln_bt("start backtest...")
+            self.done = False
 
-        portfolio = 1000000
-        LONG = "LONG"
-        SHORT = "SHORT"
-        NOT_HAVE = "NOT_HAVE"
-        pos_kind = NOT_HAVE
-        # TODO: スプレッドは利用するコード側から設定できるようにする
-        HALF_SPREAD = 0.0015
-        positions = 0
-        trade_val = -1
-        pos_cont_count = 0
-        won_pips = 0
-        start = time.time()
-        ts_input_mat = []
-        ts_input_arr = None
+            self.portfolio = 1000000
+            self.won_pips = 0
+            self.NOT_HAVE = 0
+            self.LONG = 1
+            self.SHORT = 2
 
-        ts_input_arr = np.array(ts_input_mat)
+            self.pos_kind = self.NOT_HAVE
+            self.trade_val = 0
+            self.positions = 0
 
-        # TODO: agentに環境を提供するような形でバックテストを実装する
-        # TODO: 報酬も環境の中で返すようにする
-        for window_s in range(data_len - self.COMPETITION_TRAIN_DATA_NUM - self.PREDICT_FUTURE_LEGS):
-            current_spot = self.COMPETITION_TRAIN_DATA_NUM + window_s + self.PREDICT_FUTURE_LEGS
+        def logfile_writeln_bt(self, log_str):
+            self.log_fd_bt.write(log_str + "\n")
+            self.log_fd_bt.flush()
 
-            logfile_writeln_bt(a_log_str_line)
-            a_log_str_line = "log," + str(window_s)
+        def step(self, action):
+            data_len = len(self.exchange_rates)
+            self.logfile_writeln_bt("start backtest...")
 
-            if pos_kind != NOT_HAVE:
-                if pos_kind == LONG:
-                    cur_portfo = positions * (self.exchange_rates[current_spot] - HALF_SPREAD)
-                    diff = (self.exchange_rates[current_spot] - HALF_SPREAD) - trade_val
-                elif pos_kind == SHORT:
-                    cur_portfo = portfolio + (positions * trade_val - positions * (self.exchange_rates[current_spot] + HALF_SPREAD))
-                    diff = trade_val - (self.exchange_rates[current_spot] + HALF_SPREAD)
+            future_price_diff = self.angle_arr[self.cur_idx]
 
-        logfile_writeln_bt("finished backtest.")
-        print("finished backtest.")
-        process_time = time.time() - start
-        logfile_writeln_bt("excecution time of backtest: " + str(process_time))
-        logfile_writeln_bt("result of portfolio: " + str(portfolio))
-        print("result of portfolio: " + str(portfolio))
-        log_fd_bt.flush()
-        log_fd_bt.close()
-        return portfolio
+            # TODO: 報酬も環境の中で返すようにする
+            a_log_str_line = "log," + str(self.cur_idx)
+
+            if self.pos_kind != self.NOT_HAVE:
+                if self.pos_kind == self.LONG:
+                    self.portfolio = self.positions * (self.exchange_rates[self.idx_geta + self.cur_idx] - self.HALF_SPREAD)
+                    self.won_pips += (self.exchange_rates[self.idx_geta + self.cur_idx] - self.HALF_SPREAD) - self.trade_val
+                    a_log_str_line += ",CLOSE_LONG"
+                elif self.pos_kind == self.SHORT:
+                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.HALF_SPREAD))
+                    self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.HALF_SPREAD)
+                    a_log_str_line += ",CLOSE_SHORT"
+
+            self.logfile_writeln_bt(a_log_str_line)
+
+            if self.done:
+                self.logfile_writeln_bt("finished backtest.")
+                print("finished backtest.")
+                process_time = time.time() - self.start
+                self.logfile_writeln_bt("excecution time of backtest: " + str(process_time))
+                self.logfile_writeln_bt("result of portfolio: " + str(self.portfolio))
+                print("result of portfolio: " + str(self.portfolio))
+                self.log_fd_bt.flush()
+                self.log_fd_bt.close()
+                return next_state, reward, done
+            else:
+                self.cur_idx += 1
+                next_state = self.input_arr[self.cur_idx] + [self.POS_KIND] + [self.trade_val]
+                return next_state, reward, False
 
 # TODO:クラスとして利用できるようにまとめないといけない
 #      get_env(学習用 or 評価用) ってな感じでenvを得られるように
