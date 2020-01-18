@@ -402,6 +402,7 @@ def run_script(mode):
         raise Exception(str(mode) + " mode is invalid.")
 
 # TODO:クラスとして利用できるようにまとめないといけない
+#      get_env(学習用 or 評価用) ってな感じでenvを得られるように
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         run_script("TRAIN")
