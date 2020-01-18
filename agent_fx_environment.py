@@ -11,11 +11,10 @@ import sys
 import time
 
 INPUT_LEN = 1
-SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 5
+SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
 PREDICT_FUTURE_LEGS = 5
 COMPETITION_DIV = True
-COMPETITION_TRAIN_DATA_NUM = 208952
-COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR = 522579
+COMPETITION_TRAIN_DATA_NUM = 223954 # 3years
 
 TRAINDATA_DIV = 2
 CHART_TYPE_JDG_LEN = 25
@@ -23,8 +22,7 @@ CHART_TYPE_JDG_LEN = 25
 VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
 DATA_HEAD_ASOBI = 200
 
-FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "ema_rsi", "cci", "mo", "lw", "ss", "dmi", "voratility", "macd", "chart_type"]
-#FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "mo", "voratility", "macd", "chart_type"]
+FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "cci", "mo","vorariity", "macd", "chart_type"]
 
 tr_input_arr = None
 tr_angle_arr = None
@@ -35,8 +33,8 @@ exchange_dates = None
 exchange_rates = None
 reverse_exchange_rates = None
 
-chart_filter_type_long = [2]
-chart_filter_type_short = [1]
+# chart_filter_type_long = [2]
+# chart_filter_type_short = [1]
 
 # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
 def judge_chart_type(data_arr):
@@ -166,15 +164,6 @@ def get_po(price_arr, cur_pos, period = 10):
 
     return ta.PPO(prices)[-1]
 
-# def get_lw(price_arr, cur_pos, period = None):
-#     return 0
-#
-# def get_ss(price_arr, cur_pos, period = None):
-#     return 0
-#
-# def get_dmi(price_arr, cur_pos, period = None):
-#     return 0
-
 def get_vorarity(price_arr, cur_pos, period = None):
     tmp_arr = []
     prev = -1.0
@@ -202,24 +191,32 @@ def get_macd(price_arr, cur_pos, period = 100):
     else:
         return 0
 
+# 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
+# なお、本来は月曜朝5:00から取引できるのが一般的なようである
 def is_weekend(date_str):
     tz = pytz.timezone('Asia/Tokyo')
     dstr = date_str.replace(".","-")
     tdatetime = dt.strptime(dstr, '%Y-%m-%d %H:%M:%S')
     tz_time = tz.localize(tdatetime)
-    london_tz = pytz.timezone('Europe/London')
-    london_time = tz_time.astimezone(london_tz)
-    week = london_time.weekday()
+    gmt_plus2_tz = pytz.timezone('Etc/GMT+2')
+    gmt_plus2_time = tz_time.astimezone(gmt_plus2_tz)
+    week = gmt_plus2_time.weekday()
     return (week == 5 or week == 6)
 
 def logfile_writeln_with_fd(out_fd, log_str):
     out_fd.write(log_str + "\n")
     out_fd.flush()
 
-def make_serialized_data(start_idx, end_idx, step, x_arr_fpath, y_arr_fpath = None):
+def make_serialized_data(start_idx, end_idx, step, x_arr_fpath, y_arr_fpath):
     input_mat = []
     angle_mat = []
+    train_end_idx = -1
+    print("all rate and data size: " + str(len(exchange_rates)))
     for i in range(start_idx, end_idx, step):
+        if exchange_dates[i] == "2003-12-31 23:55:00":
+            train_end_idx = i
+        if i % 2000:
+            print("current date idx: " + str(i))
         input_mat.append(
             [exchange_rates[i],
              (exchange_rates[i] - exchange_rates[i - 1]) / exchange_rates[i - 1],
@@ -236,22 +233,22 @@ def make_serialized_data(start_idx, end_idx, step, x_arr_fpath, y_arr_fpath = No
              judge_chart_type(exchange_rates[i - CHART_TYPE_JDG_LEN:i])
              ]
         )
-        input_mat.append(
-            [reverse_exchange_rates[i],
-             (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1]) / reverse_exchange_rates[i - 1],
-             get_rsi(reverse_exchange_rates, i),
-             get_ma(reverse_exchange_rates, i),
-             get_ma_kairi(reverse_exchange_rates, i),
-             get_bb_1(reverse_exchange_rates, i),
-             get_bb_2(reverse_exchange_rates, i),
-             get_ema(reverse_exchange_rates, i),
-             get_cci(reverse_exchange_rates, i),
-             get_mo(reverse_exchange_rates, i),
-             get_vorarity(reverse_exchange_rates, i),
-             get_macd(reverse_exchange_rates, i),
-             judge_chart_type(reverse_exchange_rates[i - CHART_TYPE_JDG_LEN:i])
-             ]
-        )
+        # input_mat.append(
+        #     [reverse_exchange_rates[i],
+        #      (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1]) / reverse_exchange_rates[i - 1],
+        #      get_rsi(reverse_exchange_rates, i),
+        #      get_ma(reverse_exchange_rates, i),
+        #      get_ma_kairi(reverse_exchange_rates, i),
+        #      get_bb_1(reverse_exchange_rates, i),
+        #      get_bb_2(reverse_exchange_rates, i),
+        #      get_ema(reverse_exchange_rates, i),
+        #      get_cci(reverse_exchange_rates, i),
+        #      get_mo(reverse_exchange_rates, i),
+        #      get_vorarity(reverse_exchange_rates, i),
+        #      get_macd(reverse_exchange_rates, i),
+        #      judge_chart_type(reverse_exchange_rates[i - CHART_TYPE_JDG_LEN:i])
+        #      ]
+        # )
 
         if y_arr_fpath != None:
             tmp = exchange_rates[i + PREDICT_FUTURE_LEGS] - exchange_rates[i]
@@ -260,17 +257,17 @@ def make_serialized_data(start_idx, end_idx, step, x_arr_fpath, y_arr_fpath = No
             else:
                 angle_mat.append(0)
 
-            tmp = reverse_exchange_rates[i + PREDICT_FUTURE_LEGS] - reverse_exchange_rates[i]
-            if tmp >= 0:
-                angle_mat.append(1)
-            else:
-                angle_mat.append(0)
+            # tmp = reverse_exchange_rates[i + PREDICT_FUTURE_LEGS] - reverse_exchange_rates[i]
+            # if tmp >= 0:
+            #     angle_mat.append(1)
+            # else:
+            #     angle_mat.append(0)
 
     with open(x_arr_fpath, 'wb') as f:
         pickle.dump(input_mat, f)
-    if y_arr_fpath != None:
-        with open(y_arr_fpath, 'wb') as f:
-            pickle.dump(angle_mat, f)
+    with open(y_arr_fpath, 'wb') as f:
+        pickle.dump(angle_mat, f)
+    print("test data end index: " + str(train_end_idx))
 
     return input_mat, angle_mat
 
@@ -286,52 +283,62 @@ def setup_serialized_fx_data():
     exchange_dates = []
     exchange_rates = []
     reverse_exchange_rates = []
+    all_input_mat = []
+    all_angle_mat = []
     tr_input_mat = []
     tr_angle_mat = []
+    ts_input_mat = []
 
-    # TODO: バックテスト用の入力データもよろしくやる必要がある
-    if os.path.exists("./tr_input_mat.pickle"):
-        with open('./tr_input_mat.pickle', 'rb') as f:
-            tr_input_mat = pickle.load(f)
-        with open('./tr_angle_mat.pickle', 'rb') as f:
-            tr_angle_mat = pickle.load(f)
+    if os.path.exists("./exchange_rates.pickle"):
+        with open("./exchange_dates.pickle", 'rb') as f:
+            exchange_dates = pickle.load(f)
+        with open("./exchange_rates.pickle", 'rb') as f:
+            exchange_rates = pickle.load(f)
     else:
         rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
         for line in rates_fd:
             splited = line.split(",")
             if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[
-                0] != "20004/04/26":
+                0] != "20004/04/26" and is_weekend(splited[0]) == False:
                 time = splited[0].replace("/", "-")  # + " " + splited[1]
                 val = float(splited[1])
                 exchange_dates.append(time)
                 exchange_rates.append(val)
+        with open("./exchange_rates.pickle", 'wb') as f:
+            pickle.dump(exchange_rates, f)
+        with open("./exchange_dates.pickle", 'wb') as f:
+            pickle.dump(exchange_dates, f)
+    if os.path.exists("./all_input_mat.pickle"):
+        with open('./all_input_mat.pickle', 'rb') as f:
+            all_input_mat = pickle.load(f)
+        with open('./all_angle_mat.pickle', 'rb') as f:
+            all_angle_mat = pickle.load(f)
+    else:
+        # prev_org = -1
+        # prev = -1
+        # for rate in exchange_rates:
+        #     if prev_org != -1:
+        #         diff = rate - prev_org
+        #         reverse_exchange_rates.append(prev - diff)
+        #         prev_org = rate
+        #         prev = prev - diff
+        #     else:
+        #         reverse_exchange_rates.append(rate)
+        #         prev_org = rate
+        #         prev = rate
 
-        prev_org = -1
-        prev = -1
-        for rate in exchange_rates:
-            if prev_org != -1:
-                diff = rate - prev_org
-                reverse_exchange_rates.append(prev - diff)
-                prev_org = rate
-                prev = prev - diff
-            else:
-                reverse_exchange_rates.append(rate)
-                prev_org = rate
-                prev = rate
+        all_input_mat, all_angle_mat = \
+            make_serialized_data(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - PREDICT_FUTURE_LEGS, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS, './all_input_mat.pickle', './all_angle_mat.pickle')
 
-        tr_input_mat, tr_angle_mat = \
-            make_serialized_data(DATA_HEAD_ASOBI, len(exchange_rates) - DATA_HEAD_ASOBI - PREDICT_FUTURE_LEGS, SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS, './tr_input_mat.pickle', y_arr_fpath='./tr_angle_mat.pickle')
+    tr_input_arr = np.array(all_input_mat[0:COMPETITION_TRAIN_DATA_NUM])
+    tr_angle_arr = np.array(all_angle_mat[0:COMPETITION_TRAIN_DATA_NUM])
+    ts_input_arr = np.array(all_input_mat[COMPETITION_TRAIN_DATA_NUM:])
 
-    data_len = len(exchange_rates)
-
-    print("data size of rates: " + str(data_len))
-    print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
+    print("data size of all rates for train and test: " + str(len(exchange_rates)))
+    #print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
     print("input features sets for tarin: " + str(COMPETITION_TRAIN_DATA_NUM))
-
-    tr_input_arr = np.array(tr_input_mat[0:COMPETITION_TRAIN_DATA_NUM])
-    tr_angle_arr = np.array(tr_angle_mat[0:COMPETITION_TRAIN_DATA_NUM])
-
-    print("finished dump serialized data.")
+    print("input features sets for test: " + str(len(ts_input_arr)))
+    print("finished setup environment data.")
 
 def run_backtest():
     data_len = len(exchange_rates)
@@ -359,18 +366,11 @@ def run_backtest():
     ts_input_mat = []
     ts_input_arr = None
 
-    if os.path.exists("./ts_input_mat.pickle"):
-        with open('./ts_input_mat.pickle', 'rb') as f:
-            ts_input_mat = pickle.load(f)
-    else:
-        raise Exception("serialized backtest data is not found.")
-
     ts_input_arr = np.array(ts_input_mat)
 
     # TODO: agentに環境を提供するような形でバックテストを実装する
-    for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR - PREDICT_FUTURE_LEGS):
-        #current_spot = DATA_HEAD_ASOBI + window_s # for trying backtest with trained period
-        current_spot = COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR + window_s + PREDICT_FUTURE_LEGS
+    for window_s in range(data_len - COMPETITION_TRAIN_DATA_NUM - PREDICT_FUTURE_LEGS):
+        current_spot = COMPETITION_TRAIN_DATA_NUM + window_s + PREDICT_FUTURE_LEGS
 
         logfile_writeln_bt(a_log_str_line)
         a_log_str_line = "log," + str(window_s)
@@ -393,17 +393,20 @@ def run_backtest():
     log_fd_bt.close()
     return portfolio
 
-def run_script(mode):
-    if mode == "GEN_PICKLES":
-        setup_serialized_fx_data()
-    elif mode == "BACKTEST":
-        run_backtest()
-    else:
-        raise Exception(str(mode) + " mode is invalid.")
-
 # TODO:クラスとして利用できるようにまとめないといけない
 #      get_env(学習用 or 評価用) ってな感じでenvを得られるように
+# def run_script(mode):
+#     if mode == "GEN_PICKLES":
+#         setup_serialized_fx_data()
+#     elif mode == "BACKTEST":
+#         run_backtest()
+#     else:
+#         raise Exception(str(mode) + " mode is invalid.")
+#
+# if __name__ == '__main__':
+#     if len(sys.argv) == 1:
+#         run_script("TRAIN")
+#         run_script("TRADE")
+
 if __name__ == '__main__':
-    if len(sys.argv) == 1:
-        run_script("TRAIN")
-        run_script("TRADE")
+    setup_serialized_fx_data()
