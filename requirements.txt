@@ -25,12 +25,14 @@ protobuf==3.11.2
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pyglet==1.3.2
+pytz==2019.3
 PyYAML==5.3
 requests==2.22.0
 requests-oauthlib==1.3.0
 rsa==4.0
 scipy==1.4.1
 six==1.14.0
+TA-Lib==0.4.17
 tensorboard==2.1.0
 tensorflow==2.1.0
 tensorflow-estimator==2.1.0
