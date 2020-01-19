@@ -109,14 +109,7 @@ class Actor:
         else:
             action = np.random.choice([0, 2])  # ランダムに行動する
 
-        if action == 0:
-            return 'HOLD'
-        elif action == 1:
-            return 'BUY'
-        elif action == 2:
-            return 'SELL'
-        else:
-            raise Exception(str(action) + " is invalid.")
+        return action
 
 # TODO: 学習済みのエージェントを回せるようにしないといけない
 #        学習済みのQ関数等々を保存する方法が必要
@@ -146,7 +139,7 @@ def tarin_agent():
     actor = Actor()
 
     #state, reward, done, _ = env.step(env.action_space.sample())  # 1step目は適当な行動をとる
-    state, reward, done, _ = env.step("BUY")  # 1step目は適当な行動をとる
+    state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("HOLD")
     #state = np.reshape(state, [1, 4])  # list型のstateを、1行4列の行列に変換
     state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
 
@@ -156,7 +149,7 @@ def tarin_agent():
         targetQN.model.set_weights(mainQN.model.get_weights())
 
         action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
-        next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+        next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
         next_state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
 
@@ -175,6 +168,12 @@ def tarin_agent():
         if done:
             print('all training period learned.')
             break
+
+        # モデルとメモリのスナップショットをとっておく
+        if(episode % 10000 == 0):
+            targetQN.save_model("targetQN")
+            mainQN.save_model("mainQN")
+            memory.save_memory("memory")
 
 if __name__ == '__main__':
     tarin_agent()

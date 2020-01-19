@@ -327,9 +327,12 @@ class FXEnvironment:
             all_input_mat, all_angle_mat = \
                 self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS, './all_input_mat.pickle', './all_angle_mat.pickle')
 
-        self.tr_input_arr = np.array(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        self.tr_angle_arr = np.array(all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        self.ts_input_arr = np.array(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:])
+        # self.tr_input_arr = np.array(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
+        # self.tr_angle_arr = np.array(all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
+        # self.ts_input_arr = np.array(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:])
+        self.tr_input_arr = all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
+        self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
+        self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:]
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
         #print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
@@ -369,15 +372,26 @@ class FXEnvironment:
             self.log_fd_bt.write(log_str + "\n")
             self.log_fd_bt.flush()
 
-        def step(self, action):
+        def step(self, action_num):
             data_len = len(self.exchange_rates)
-            self.logfile_writeln_bt("start backtest...")
 
             future_price_diff = self.angle_arr[self.cur_idx]
 
             # TODO: 報酬も環境の中で返すようにする
-            a_log_str_line = "log," + str(self.cur_idx) + "," + action
+
             reward = 0
+            action = -1
+
+            if action_num == 0:
+                action = 'HOLD'
+            elif action_num == 1:
+                action = 'BUY'
+            elif action_num == 2:
+                action = 'SELL'
+            else:
+                raise Exception(str(action_num) + " is invalid.")
+
+            a_log_str_line = "log," + str(self.cur_idx) + "," + action
 
             if action == "BUY":
                 if self.pos_kind == self.SHORT:
@@ -385,6 +399,7 @@ class FXEnvironment:
                     self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.half_spread))
                     self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
                     self.pos_kind = self.NOT_HAVE
+                    self.positions = 0
                     a_log_str_line += ",CLOSE_SHORT"
 
                     if self.trade_val > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
@@ -412,6 +427,7 @@ class FXEnvironment:
                     self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.half_spread))
                     self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
                     self.pos_kind = self.NOT_HAVE
+                    self.positions = 0
                     a_log_str_line += ",CLOSE_SHORT"
 
                     if self.trade_val < self.exchange_rates[self.cur_idx] + future_price_diff - self.half_spread:
@@ -456,7 +472,7 @@ class FXEnvironment:
             else:
                 raise Exception(str(action) + " is invalid.")
 
-            a_log_str_line += "," + str(self.portfolio) + "," + str(self.won_pips)
+            a_log_str_line += "," + str(self.portfolio) + "," + str(self.won_pips) + "," + str(self.positions)
             self.logfile_writeln_bt(a_log_str_line)
 
             if self.cur_idx >= len(self.input_arr):
@@ -471,7 +487,7 @@ class FXEnvironment:
                 return None, reward, True
             else:
                 self.cur_idx += 1
-                next_state = self.input_arr[self.cur_idx] + [self.POS_KIND] + [self.trade_val]
+                next_state = self.input_arr[self.cur_idx] + [self.pos_kind] + [self.trade_val]
                 return next_state, reward, False
 
 # TODO:クラスとして利用できるようにまとめないといけない
