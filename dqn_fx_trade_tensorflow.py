@@ -124,19 +124,19 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
+# ---
+gamma = 0.99  # 割引係数
+# TODO: 50ぐらいにしておきたい
+hidden_size = 50  # 16               # Q-networkの隠れ層のニューロンの数
+learning_rate = 0.0001  # 0.00001         # Q-networkの学習係数
+memory_size = 10000  # バッファーメモリの大きさ
+batch_size = 32  # Q-networkを更新するバッチの大きさ
 
 def tarin_agent():
     env_master = FXEnvironment()
     env = env_master.get_env('train')
     num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-    gamma = 0.99    # 割引係数
     islearned = 0  # 学習が終わったフラグ
-    # ---
-    # TODO: 50ぐらいにしておきたい
-    hidden_size = 50 #16               # Q-networkの隠れ層のニューロンの数
-    learning_rate = 0.0001 #0.00001         # Q-networkの学習係数
-    memory_size = 10000            # バッファーメモリの大きさ
-    batch_size = 32                # Q-networkを更新するバッチの大きさ
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
@@ -157,7 +157,8 @@ def tarin_agent():
 
         action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
         next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-        next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
+        #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
+        next_state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
 
         memory.add((state, action, reward, next_state))     # メモリを更新する
         state = next_state  # 状態更新
@@ -170,7 +171,7 @@ def tarin_agent():
             # 行動決定と価値計算のQネットワークをおなじにする
             targetQN.model.set_weights(mainQN.model.get_weights())
 
-        # テスト期間が最後までいった場合
+        # 環境が提供する期間が最後までいった場合
         if done:
             print('all training period learned.')
             break
