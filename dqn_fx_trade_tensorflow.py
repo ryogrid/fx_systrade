@@ -28,6 +28,9 @@ def huberloss(y_true, y_pred):
 class QNetwork:
     def __init__(self, learning_rate=0.01, state_size=4, action_size=2, hidden_size=10):
         self.model = Sequential()
+        # TODO: 過去の為替予測のコードを参照して、一層足して、最終層以外にBatchNormalization
+        #       と Dropout の 0.2 ぐらいを入れてみた方がよさそう。もしくはBatchNormalizationだけ。
+        #       もしくは、層を足すだけにするか。
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
         self.model.add(Dense(action_size, activation='linear'))
@@ -90,7 +93,8 @@ class Actor:
 
         return action
 
-
+# TODO: 学習済みのエージェントを回せるようにしないといけない
+#        学習済みのQ関数等々を保存する方法が必要
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
 DQN_MODE = 0    # 1がDQN、0がDDQNです
@@ -104,8 +108,8 @@ num_consecutive_iterations = 10  # 学習完了評価の平均計算を行う試
 total_reward_vec = np.zeros(num_consecutive_iterations)  # 各試行の報酬を格納
 gamma = 0.99    # 割引係数
 islearned = 0  # 学習が終わったフラグ
-isrender = 0  # 描画フラグ
 # ---
+# TODO: 50ぐらいにしておきたい
 hidden_size = 16               # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0001 #0.00001         # Q-networkの学習係数
 memory_size = 10000            # バッファーメモリの大きさ
@@ -178,14 +182,4 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     # 複数施行の平均報酬で終了を判断
     if total_reward_vec.mean() >= goal_average_reward:
         print('Episode %d train agent successfuly!' % episode)
-        islearned = 1
-        if isrender == 0:   # 学習済みフラグを更新
-            isrender = 1
 
-            # env = wrappers.Monitor(env, './movie/cartpoleDDQN')  # 動画保存する場合
-            # 10エピソードだけでどんな挙動になるのか見たかったら、以下のコメントを外す
-            # if episode>10:
-            #    if isrender == 0:
-            #        env = wrappers.Monitor(env, './movie/cartpole-experiment-1') #動画保存する場合
-            #        isrender = 1
-            #    islearned=1;
