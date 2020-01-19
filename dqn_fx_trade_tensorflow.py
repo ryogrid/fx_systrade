@@ -98,14 +98,13 @@ class Memory:
 
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
-    def get_action(self, state, episode, mainQN):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
         epsilon = 0.001 + 0.9 / (1.0+(episode/100))
 
-        if epsilon <= np.random.uniform(0, 1):
+        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
-
         else:
             action = np.random.choice([0, 2])  # ランダムに行動する
 
@@ -175,5 +174,31 @@ def tarin_agent():
             mainQN.save_model("mainQN")
             memory.save_memory("memory")
 
+def run_backtest(period_kind):
+    env_master = FXEnvironment()
+    env = env_master.get_env(period_kind)
+    num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
+    islearned = 0  # 学習が終わったフラグ
+
+    # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
+    mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
+    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)   # 価値を計算するQネットワーク
+    # plot_model(mainQN.model, to_file='Qnetwork.png', show_shapes=True)        # Qネットワークの可視化
+    actor = Actor()
+
+    mainQN.load_model("mainQN")
+
+    # HOLD でスタート
+    state, reward, done = env.step(0)
+    for episode in range(num_episodes):  # 試行数分繰り返す
+        action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+        state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+
+        # 環境が提供する期間が最後までいった場合
+        if done:
+            print('all training period learned.')
+            break
+
 if __name__ == '__main__':
     tarin_agent()
+    #run_backtest('train')
