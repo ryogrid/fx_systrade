@@ -3,7 +3,7 @@
 import gym  # 倒立振子(cartpole)の実行環境
 import numpy as np
 import time
-from keras.models import Sequential
+from keras.models import Sequential, model_from_json
 from keras.layers import Dense
 from keras.optimizers import Adam
 from keras.utils import plot_model
@@ -11,6 +11,7 @@ from collections import deque
 from gym import wrappers  # gymの画像保存
 from keras import backend as K
 import tensorflow as tf
+import pickle
 
 
 # [1]損失関数の定義
@@ -60,6 +61,15 @@ class QNetwork:
         # shiglayさんよりアドバイスいただき、for文の外へ修正しました
         self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
+    def save_model(self, file_path_prefix_str):
+        with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
+            f.write(self.model.to_json())
+        self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
+
+    def load_model(self, file_path_prefix_str):
+        with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
+            self.model = model_from_json(f.read())
+        self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
@@ -76,6 +86,13 @@ class Memory:
     def len(self):
         return len(self.buffer)
 
+    def save_memory(self, file_path_prefix_str):
+        with open("./" + file_path_prefix_str + ".pickle", 'wb') as f:
+            pickle.dump(self.buffer, f)
+
+    def load_memory(self, file_path_prefix_str):
+        with open("./" + file_path_prefix_str + ".pickle", 'rb') as f:
+            self.buffer = pickle.load(f)
 
 # [4]カートの状態に応じて、行動を決定するクラス
 # アドバイスいただき、引数にtargetQNを使用していたのをmainQNに修正しました
