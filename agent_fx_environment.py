@@ -377,21 +377,89 @@ class FXEnvironment:
 
             # TODO: 報酬も環境の中で返すようにする
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
+            reward = 0
 
-            if self.pos_kind != self.NOT_HAVE:
-                if self.pos_kind == self.LONG:
-                    self.portfolio = self.positions * (self.exchange_rates[self.idx_geta + self.cur_idx] - self.HALF_SPREAD)
-                    self.won_pips += (self.exchange_rates[self.idx_geta + self.cur_idx] - self.HALF_SPREAD) - self.trade_val
-                    a_log_str_line += ",CLOSE_LONG"
-                elif self.pos_kind == self.SHORT:
-                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.HALF_SPREAD))
-                    self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.HALF_SPREAD)
+            if action == "BUY":
+                if self.pos_kind == self.SHORT:
+                    # 保持しているショートポジションをクローズする
+                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.half_spread))
+                    self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    self.pos_kind = self.NOT_HAVE
                     a_log_str_line += ",CLOSE_SHORT"
+
+                    if self.trade_val > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
+                        # クローズが早すぎた場合
+                        reward = -1
+                    else:
+                        reward = 1
+                elif self.pos_kind == self.LONG:
+                    a_log_str_line += ",POSITION_HOLD"
+                    reward = 0
+                elif self.pos_kind == self.NOT_HAVE:
+                    # ロングポジションを購入する
+                    self.pos_kind = self.LONG
+                    self.positions = self.portfolio / (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+                    a_log_str_line += ",BUY_LONG"
+                    if self.exchange_rates[self.idx_geta + self.cur_idx] > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
+                        # ロングポジションの購入が早すぎた場合
+                        reward = -1
+                    else:
+                        reward = 1
+            elif action == "SELL":
+                if self.pos_kind == self.LONG:
+                    # 保持しているロングポジションをクローズする
+                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.half_spread))
+                    self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    self.pos_kind = self.NOT_HAVE
+                    a_log_str_line += ",CLOSE_SHORT"
+
+                    if self.trade_val < self.exchange_rates[self.cur_idx] + future_price_diff - self.half_spread:
+                        #クローズが早すぎた場合
+                        reward = -1
+                    else:
+                        reward = 1
+                elif self.pos_kind == self.SHORT:
+                    reward = 0
+                    a_log_str_line += ",POSITION_HOLD"
+                elif self.pos_kind == self.NOT_HAVE:
+                    # ショートポジションを購入する
+                    self.pos_kind = self.SHORT
+                    self.positions = self.portfolio / (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread)
+                    trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
+                    a_log_str_line += ",BUY_SHORT"
+                    if self.exchange_rates[self.idx_geta + self.cur_idx] < self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff - self.half_spread:
+                        # ショートポジションの購入が早すぎた場合
+                        reward = -1
+                    else:
+                        reward = 1
+            elif action == "HOLD":
+                if self.pos_kind == self.LONG:
+                    if self.trade_val > self.exchange_rates[self.cur_idx] + future_price_diff - self.half_spread:
+                        # 損切りしておいた方がよかった場合
+                        reward = -1
+                    else:
+                        # キープで正解
+                        reward = 1
+                if self.pos_kind == self.SHORT:
+                    if self.trade_val < self.exchange_rates[self.cur_idx] + future_price_diff + self.half_spread:
+                        # 損切りしておいた方がよかった場合
+                        reward = -1
+                    else:
+                        # キープで正解
+                        reward = 1
+
+                if self.pos_kind == self.NOT_HAVE:
+                    a_log_str_line += ",KEEP_NO_POSITION"
+                else:
+                    a_log_str_line += ",POSITION_HOLD"
+            else:
+                raise Exception(str(action) + " is invalid.")
 
             a_log_str_line += "," + str(self.portfolio) + "," + str(self.won_pips)
             self.logfile_writeln_bt(a_log_str_line)
 
-            if self.done:
+            if self.cur_idx >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
                 process_time = time.time() - self.start
@@ -400,7 +468,7 @@ class FXEnvironment:
                 print("result of portfolio: " + str(self.portfolio))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
-                return next_state, reward, done
+                return None, reward, True
             else:
                 self.cur_idx += 1
                 next_state = self.input_arr[self.cur_idx] + [self.POS_KIND] + [self.trade_val]
