@@ -2,7 +2,7 @@
 # [0]必要なライブラリのインポート
 
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
-# I am very grateful to work of Mr.suguru
+# I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
 import gym  # 倒立振子(cartpole)の実行環境
 import numpy as np
