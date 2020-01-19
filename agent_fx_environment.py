@@ -482,6 +482,7 @@ class FXEnvironment:
                 self.trade_val = -1
                 self.pos_kind = self.NOT_HAVE
 
+            self.cur_idx += 1
             if self.cur_idx >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
@@ -493,7 +494,6 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True
             else:
-                self.cur_idx += 1
                 next_state = self.input_arr[self.cur_idx] + [self.pos_kind] + [self.trade_val]
                 return next_state, reward, False
 
