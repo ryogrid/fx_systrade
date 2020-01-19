@@ -100,7 +100,7 @@ class Memory:
 class Actor:
     def get_action(self, state, episode, mainQN):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0+episode)
+        epsilon = 0.001 + 0.9 / (1.0+(episode/100))
 
         if epsilon <= np.random.uniform(0, 1):
             retTargetQs = mainQN.model.predict(state)[0]
