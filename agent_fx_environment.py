@@ -376,7 +376,7 @@ class FXEnvironment:
             future_price_diff = self.angle_arr[self.cur_idx]
 
             # TODO: 報酬も環境の中で返すようにする
-            a_log_str_line = "log," + str(self.cur_idx)
+            a_log_str_line = "log," + str(self.cur_idx) + "," + action
 
             if self.pos_kind != self.NOT_HAVE:
                 if self.pos_kind == self.LONG:
@@ -388,6 +388,7 @@ class FXEnvironment:
                     self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.HALF_SPREAD)
                     a_log_str_line += ",CLOSE_SHORT"
 
+            a_log_str_line += "," + str(self.portfolio) + "," + str(self.won_pips)
             self.logfile_writeln_bt(a_log_str_line)
 
             if self.done:
