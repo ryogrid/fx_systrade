@@ -1,5 +1,9 @@
 # coding:utf-8
 # [0]必要なライブラリのインポート
+
+# this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
+# I am very grateful to work of Mr.suguru
+
 import gym  # 倒立振子(cartpole)の実行環境
 import numpy as np
 import time
@@ -15,7 +19,7 @@ import pickle
 
 
 # [1]損失関数の定義
-# 損失関数にhuber関数を使用します 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
+# 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
 def huberloss(y_true, y_pred):
     err = y_true - y_pred
     cond = K.abs(err) < 1.0
@@ -58,7 +62,6 @@ class QNetwork:
             targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
 
-        # shiglayさんよりアドバイスいただき、for文の外へ修正しました
         self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
@@ -95,7 +98,6 @@ class Memory:
             self.buffer = pickle.load(f)
 
 # [4]カートの状態に応じて、行動を決定するクラス
-# アドバイスいただき、引数にtargetQNを使用していたのをmainQNに修正しました
 class Actor:
     def get_action(self, state, episode, mainQN):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
@@ -146,11 +148,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     state = np.reshape(state, [1, 4])   # list型のstateを、1行4列の行列に変換
     episode_reward = 0
 
-
-    # 2018.05.16
-    # skanmeraさんより間違いを修正いただきました
-    # targetQN = mainQN   # 行動決定と価値計算のQネットワークをおなじにする
-    # ↓
+    # 行動決定と価値計算のQネットワークをおなじにする
     targetQN.model.set_weights(mainQN.model.get_weights())
 
     for t in range(max_number_of_steps + 1):  # 1試行のループ
@@ -184,10 +182,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
             mainQN.replay(memory, batch_size, gamma, targetQN)
 
         if DQN_MODE:
-        # 2018.06.12
-        # shiglayさんさんより間違いを修正いただきました
-        # targetQN = mainQN   # 行動決定と価値計算のQネットワークをおなじにする
-        # ↓
+            # 行動決定と価値計算のQネットワークをおなじにする
             targetQN.model.set_weights(mainQN.model.get_weights())
 
         # 1施行終了時の処理
