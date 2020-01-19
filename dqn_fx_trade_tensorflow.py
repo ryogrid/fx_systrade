@@ -71,6 +71,7 @@ class QNetwork:
     def load_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
             self.model = model_from_json(f.read())
+        self.model.compile(loss=huberloss, optimizer=self.optimizer)
         self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス

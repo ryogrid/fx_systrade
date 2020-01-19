@@ -396,7 +396,7 @@ class FXEnvironment:
             if action == "BUY":
                 if self.pos_kind == self.SHORT:
                     # 保持しているショートポジションをクローズする
-                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.half_spread))
+                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread))
                     self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
@@ -424,8 +424,8 @@ class FXEnvironment:
             elif action == "SELL":
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
-                    self.portfolio = self.portfolio + (self.positions * self.trade_val - self.positions * (self.exchange_rates[self.cur_idx] + self.half_spread))
-                    self.won_pips  += self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    self.portfolio = self.portfolio + (self.positions * (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.positions * self.trade_val)
+                    self.won_pips  += (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
                     a_log_str_line += ",CLOSE_SHORT"
