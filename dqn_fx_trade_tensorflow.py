@@ -196,10 +196,11 @@ def run_backtest(period_kind):
 
     # HOLD でスタート
     state, reward, done = env.step(0)
-    for episode in range(num_episodes):  # 試行数分繰り返す
+    state = np.reshape(state, [1, 15])
+    for episode in range(num_episodes):   # 試行数分繰り返す
         action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
         state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-
+        state = np.reshape(state, [1, 15])
         # 環境が提供する期間が最後までいった場合
         if done:
             print('all training period learned.')
