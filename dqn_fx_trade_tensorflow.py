@@ -4,7 +4,6 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
-import gym  # 倒立振子(cartpole)の実行環境
 import numpy as np
 import time
 from keras.models import Sequential, model_from_json
@@ -16,6 +15,7 @@ from keras import backend as K
 import tensorflow as tf
 import pickle
 from agent_fx_environment import FXEnvironment
+import os
 
 # [1]損失関数の定義
 # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
@@ -123,11 +123,11 @@ hidden_size = 50  # 16               # Q-networkの隠れ層のニューロン�
 learning_rate = 0.0001  # 0.00001         # Q-networkの学習係数
 memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
+num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
+iteration_num = 10
 
 def tarin_agent():
     env_master = FXEnvironment()
-    env = env_master.get_env('train')
-    num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
     islearned = 0  # 学習が終わったフラグ
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
@@ -137,42 +137,47 @@ def tarin_agent():
     memory = Memory(max_size=memory_size)
     actor = Actor()
 
-    #state, reward, done, _ = env.step(env.action_space.sample())  # 1step目は適当な行動をとる
-    state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("HOLD")
-    #state = np.reshape(state, [1, 4])  # list型のstateを、1行4列の行列に変換
-    state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
+    if os.path.exists("./mainQN_nw.json"):
+        # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
+        mainQN.load_model("mainQN")
+        targetQN.load_model("targetQN")
+        memory.load_memory("memory")
 
-    # [5.3]メインルーチン--------------------------------------------------------
-    for episode in range(num_episodes):  # 試行数分繰り返す
-        # 行動決定と価値計算のQネットワークをおなじにする
-        targetQN.model.set_weights(mainQN.model.get_weights())
+    for cur_itr in range(iteration_num):
+        env = env_master.get_env('train')
+        state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("HOLD")
+        state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
 
-        action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
-        next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-        #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
-        next_state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
-
-        memory.add((state, action, reward, next_state))     # メモリを更新する
-        state = next_state  # 状態更新
-
-        # Qネットワークの重みを学習・更新する replay
-        if (memory.len() > batch_size) and not islearned:
-            mainQN.replay(memory, batch_size, gamma, targetQN)
-
-        if DQN_MODE:
+        for episode in range(num_episodes):  # 試行数分繰り返す
             # 行動決定と価値計算のQネットワークをおなじにする
             targetQN.model.set_weights(mainQN.model.get_weights())
 
-        # 環境が提供する期間が最後までいった場合
-        if done:
-            print('all training period learned.')
-            break
+            action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
+            next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+            #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
+            next_state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
 
-        # モデルとメモリのスナップショットをとっておく
-        if(episode % 10000 == 0):
-            targetQN.save_model("targetQN")
-            mainQN.save_model("mainQN")
-            memory.save_memory("memory")
+            memory.add((state, action, reward, next_state))     # メモリを更新する
+            state = next_state  # 状態更新
+
+            # Qネットワークの重みを学習・更新する replay
+            if (memory.len() > batch_size) and not islearned:
+                mainQN.replay(memory, batch_size, gamma, targetQN)
+
+            if DQN_MODE:
+                # 行動決定と価値計算のQネットワークをおなじにする
+                targetQN.model.set_weights(mainQN.model.get_weights())
+
+            # 環境が提供する期間が最後までいった場合
+            if done:
+                print('all training period learned.')
+                break
+
+            # モデルとメモリのスナップショットをとっておく
+            if(episode % 10000 == 0):
+                targetQN.save_model("targetQN")
+                mainQN.save_model("mainQN")
+                memory.save_memory("memory")
 
 def run_backtest(period_kind):
     env_master = FXEnvironment()
