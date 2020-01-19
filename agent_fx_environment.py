@@ -475,6 +475,13 @@ class FXEnvironment:
             a_log_str_line += "," + str(self.portfolio) + "," + str(self.won_pips) + "," + str(self.positions)
             self.logfile_writeln_bt(a_log_str_line)
 
+            # 資産が1%まで減少してしまった場合はリセットする
+            if self.portfolio <= 10000:
+                self.portfolio = 1000000
+                self.positions = 0
+                self.trade_val = -1
+                self.pos_kind = self.NOT_HAVE
+
             if self.cur_idx >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
