@@ -16,6 +16,7 @@ import tensorflow as tf
 import pickle
 from agent_fx_environment import FXEnvironment
 import os
+import sys
 
 # [1]損失関数の定義
 # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
@@ -44,7 +45,7 @@ class QNetwork:
 
     # 重みの学習
     def replay(self, memory, batch_size, gamma, targetQN):
-        inputs = np.zeros((batch_size, 15))
+        inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 3))
         mini_batch = memory.sample(batch_size)
 
@@ -126,14 +127,15 @@ memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 10
+feature_num = 11
 
 def tarin_agent():
     env_master = FXEnvironment()
     islearned = 0  # 学習が終わったフラグ
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
-    mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
-    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)   # 価値を計算するQネットワーク
+    mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num)     # メインのQネットワーク
+    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num)   # 価値を計算するQネットワーク
     # plot_model(mainQN.model, to_file='Qnetwork.png', show_shapes=True)        # Qネットワークの可視化
     memory = Memory(max_size=memory_size)
     actor = Actor()
@@ -147,7 +149,7 @@ def tarin_agent():
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
         state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("HOLD")
-        state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
+        state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             # 行動決定と価値計算のQネットワークをおなじにする
@@ -156,7 +158,7 @@ def tarin_agent():
             action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
-            next_state = np.reshape(state, [1, 15])  # list型のstateを、1行15列の行列に変換
+            next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
             memory.add((state, action, reward, next_state))     # メモリを更新する
             state = next_state  # 状態更新
@@ -196,16 +198,20 @@ def run_backtest(period_kind):
 
     # HOLD でスタート
     state, reward, done = env.step(0)
-    state = np.reshape(state, [1, 15])
+    state = np.reshape(state, [1, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
         state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-        state = np.reshape(state, [1, 15])
+        state = np.reshape(state, [1, feature_num])
         # 環境が提供する期間が最後までいった場合
         if done:
             print('all training period learned.')
             break
 
 if __name__ == '__main__':
-    tarin_agent()
-    #run_backtest('train')
+    if sys.argv[1] == "train":
+        tarin_agent()
+    elif sys.argv[1] == "backtest":
+        run_backtest('train')
+    else:
+        print("please pass argument 'train' or 'backtest'")

@@ -30,8 +30,9 @@ class FXEnvironment:
         self.VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
         self.DATA_HEAD_ASOBI = 200
 
-        self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "cci", "mo","vorariity", "macd", "chart_type"]
-
+        #self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "cci", "mo","vorariity", "macd", "chart_type"]
+        self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1",
+                              "bb_2", "cci", "mo", "vorariity"]
         self.tr_input_arr = None
         self.tr_angle_arr = None
         self.val_input_arr = None
@@ -232,12 +233,12 @@ class FXEnvironment:
                  self.get_ma_kairi(self.exchange_rates, i),
                  self.get_bb_1(self.exchange_rates, i),
                  self.get_bb_2(self.exchange_rates, i),
-                 self.get_ema(self.exchange_rates, i),
+                 #self.get_ema(self.exchange_rates, i),
                  self.get_cci(self.exchange_rates, i),
                  self.get_mo(self.exchange_rates, i),
-                 self.get_vorarity(self.exchange_rates, i),
-                 self.get_macd(self.exchange_rates, i),
-                 self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
+                 self.get_vorarity(self.exchange_rates, i)#,
+                 #self.get_macd(self.exchange_rates, i),
+                 #self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
                  ]
             )
             # input_mat.append(
@@ -305,6 +306,7 @@ class FXEnvironment:
                 pickle.dump(self.exchange_rates, f)
             with open("./exchange_dates.pickle", 'wb') as f:
                 pickle.dump(self.exchange_dates, f)
+
         if os.path.exists("./all_input_mat.pickle"):
             with open('./all_input_mat.pickle', 'rb') as f:
                 all_input_mat = pickle.load(f)
@@ -393,6 +395,24 @@ class FXEnvironment:
 
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
 
+            def open_position(short_or_long_str):
+                nonlocal a_log_str_line
+                nonlocal self
+
+                if short_or_long_str == "LONG":
+                    # ロングポジションを購入する
+                    self.pos_kind = self.LONG
+                    self.positions = float(self.portfolio) / float(
+                        (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread))
+                    self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+                    a_log_str_line += ",BUY_LONG,0,0,0,0"
+                else: # SHORT
+                    # ショートポジションを購入する
+                    self.pos_kind = self.SHORT
+                    self.positions = float(self.portfolio) / float(self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread)
+                    self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
+                    a_log_str_line += ",BUY_SHORT,0,0,0,0"
+
             if action == "BUY":
                 if self.pos_kind == self.SHORT:
                     # 保持しているショートポジションをクローズする
@@ -403,27 +423,24 @@ class FXEnvironment:
                     self.won_pips  += won_pips_diff
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
-                    a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result)+ "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+                    a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(trade_result)+ "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
-                    if self.trade_val > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
-                        # クローズが早すぎた場合
-                        reward = -1
-                    else:
-                        reward = 1
+                    # ロングポジションを購入する
+                    open_position("LONG")
+
+                    # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
+                    reward = won_pips_diff + (future_price_diff + self.half_spread)
                 elif self.pos_kind == self.LONG:
                     a_log_str_line += ",POSITION_HOLD,0,0,0,0"
-                    reward = 0
+                    # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
+                    reward = future_price_diff + self.half_spread
                 elif self.pos_kind == self.NOT_HAVE:
                     # ロングポジションを購入する
-                    self.pos_kind = self.LONG
-                    self.positions = float(self.portfolio) / float((self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread))
-                    self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
-                    a_log_str_line += ",BUY_LONG,0,0,0,0"
-                    if self.exchange_rates[self.idx_geta + self.cur_idx] > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
-                        # ロングポジションの購入が早すぎた場合
-                        reward = -1
-                    else:
-                        reward = 1
+                    open_position("LONG")
+                    a_log_str_line += ",OPEN_LONG" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
+
+                    # 購入が正しかったか未来とのpipsの差分で与える
+                    reward = future_price_diff + self.half_spread
             elif action == "SELL":
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
@@ -434,43 +451,37 @@ class FXEnvironment:
                     self.won_pips  +=  won_pips_diff
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
-                    a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
-                    if self.trade_val < self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff - self.half_spread:
-                        #クローズが早すぎた場合
-                        reward = -1
-                    else:
-                        reward = 1
+                    a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(trade_result) + "," + str(
+                        won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+
+                    # ショートポジションを購入する
+                    open_position("SHORT")
+
+                    # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
+                    reward = won_pips_diff - (future_price_diff - self.half_spread)
                 elif self.pos_kind == self.SHORT:
-                    reward = 0
+                    # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
+                    reward = -1 * (future_price_diff + self.half_spread)
                     a_log_str_line += ",POSITION_HOLD,0,0,0,0"
                 elif self.pos_kind == self.NOT_HAVE:
                     # ショートポジションを購入する
-                    self.pos_kind = self.SHORT
-                    self.positions = float(self.portfolio) / float(self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread)
-                    self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
-                    a_log_str_line += ",BUY_SHORT,0,0,0,0"
-                    if self.exchange_rates[self.idx_geta + self.cur_idx] < self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff - self.half_spread:
-                        # ショートポジションの購入が早すぎた場合
-                        reward = -1
-                    else:
-                        reward = 1
+                    open_position("SHORT")
+                    a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
+
+                    # 購入が正しかったか未来とのpipsの差分で与える
+                    reward = -1 * (future_price_diff - self.half_spread)
             elif action == "HOLD":
                 if self.pos_kind == self.LONG:
-                    if self.trade_val > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff - self.half_spread:
-                        # 損切りしておいた方がよかった場合
-                        reward = -1
-                    else:
-                        # キープで正解
-                        reward = 1
+                    # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
+                    reward = future_price_diff + self.half_spread
                 if self.pos_kind == self.SHORT:
-                    if self.trade_val < self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
-                        # 損切りしておいた方がよかった場合
-                        reward = -1
-                    else:
-                        # キープで正解
-                        reward = 1
+                    # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
+                    reward = -1 * (future_price_diff + self.half_spread)
 
+                # self.pos_kind == self.NOT_HAVE だった場合は reward は 0
+
+                # ここでまとめてログ文字列の設定
                 if self.pos_kind == self.NOT_HAVE:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
                 else:
@@ -501,7 +512,16 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True
             else:
-                next_state = self.input_arr[self.cur_idx] + [self.pos_kind] + [self.trade_val]
+                #保有ポジションのpipsでの評価値を計算（次の足で計算する）
+                pos_cur_val = -1
+                if self.pos_kind == self.LONG:
+                    pos_cur_val = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
+                elif self.pos_kind == self.SHORT:
+                    pos_cur_val = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.trade_val)
+                else: # self.NOT_HAVE
+                    pos_cur_val = 0
+
+                next_state = self.input_arr[self.cur_idx] + [pos_cur_val]
                 return next_state, reward, False
 
 # TODO:クラスとして利用できるようにまとめないといけない
