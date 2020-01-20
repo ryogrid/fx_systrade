@@ -436,7 +436,7 @@ class FXEnvironment:
                     self.positions = 0
                     a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
-                    if self.trade_val < self.exchange_rates[self.cur_idx] + future_price_diff - self.half_spread:
+                    if self.trade_val < self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff - self.half_spread:
                         #クローズが早すぎた場合
                         reward = -1
                     else:
@@ -457,14 +457,14 @@ class FXEnvironment:
                         reward = 1
             elif action == "HOLD":
                 if self.pos_kind == self.LONG:
-                    if self.trade_val > self.exchange_rates[self.cur_idx] + future_price_diff - self.half_spread:
+                    if self.trade_val > self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff - self.half_spread:
                         # 損切りしておいた方がよかった場合
                         reward = -1
                     else:
                         # キープで正解
                         reward = 1
                 if self.pos_kind == self.SHORT:
-                    if self.trade_val < self.exchange_rates[self.cur_idx] + future_price_diff + self.half_spread:
+                    if self.trade_val < self.exchange_rates[self.idx_geta + self.cur_idx] + future_price_diff + self.half_spread:
                         # 損切りしておいた方がよかった場合
                         reward = -1
                     else:

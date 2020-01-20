@@ -207,5 +207,5 @@ def run_backtest(period_kind):
             break
 
 if __name__ == '__main__':
-    tarin_agent()
+    XStarin_agent()
     #run_backtest('train')
