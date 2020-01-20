@@ -517,7 +517,7 @@ class FXEnvironment:
                 if self.pos_kind == self.LONG:
                     pos_cur_val = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
                 elif self.pos_kind == self.SHORT:
-                    pos_cur_val = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.trade_val)
+                    pos_cur_val = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
                 else: # self.NOT_HAVE
                     pos_cur_val = 0
 
