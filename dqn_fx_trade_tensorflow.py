@@ -65,11 +65,15 @@ class QNetwork:
             #     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
             #     target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
 
-            if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
-                # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
-                retmainQs = self.model.predict(next_state_b)[0]
-                next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                target = reward_b + gamma * self.model.predict(next_state_b)[0][next_action]
+            # if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
+            #     # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
+            #     retmainQs = self.model.predict(next_state_b)[0]
+            #     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            #     target = reward_b + gamma * self.model.predict(next_state_b)[0][next_action]
+
+            retmainQs = self.model.predict(next_state_b)[0]
+            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            target = reward_b + gamma * retmainQs[next_action]
 
             targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
