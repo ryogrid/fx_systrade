@@ -46,8 +46,11 @@ class QNetwork:
         # self.model.compile(loss='mse', optimizer=self.optimizer)
         self.model.compile(loss=huberloss, optimizer=self.optimizer)
 
+
+    #def replay(self, memory, batch_size, gamma, targetQN):
     # 重みの学習
-    def replay(self, memory, batch_size, gamma, targetQN):
+    # targetQNを利用しないようにした
+    def replay(self, memory, batch_size, gamma):
         inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 3))
         mini_batch = memory.sample(batch_size)
@@ -56,11 +59,17 @@ class QNetwork:
             inputs[i:i + 1] = state_b
             target = reward_b
 
+            # if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
+            #     # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
+            #     retmainQs = self.model.predict(next_state_b)[0]
+            #     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            #     target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
+
             if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
                 # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
                 retmainQs = self.model.predict(next_state_b)[0]
                 next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
+                target = reward_b + gamma * self.model.predict(next_state_b)[0][next_action]
 
             targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
@@ -117,7 +126,7 @@ class Actor:
 
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
-DQN_MODE = 0    # 1がDQN、0がDDQNです
+DQN_MODE = 1    # 1がDQN、0がDDQNです
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
@@ -135,7 +144,7 @@ def tarin_agent():
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num)     # メインのQネットワーク
-    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num)   # 価値を計算するQネットワーク
+    # targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num)   # 価値を計算するQネットワーク
     # plot_model(mainQN.model, to_file='Qnetwork.png', show_shapes=True)        # Qネットワークの可視化
     memory = Memory(max_size=memory_size)
     actor = Actor()
@@ -143,7 +152,7 @@ def tarin_agent():
     if os.path.exists("./mainQN_nw.json"):
         # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
         mainQN.load_model("mainQN")
-        targetQN.load_model("targetQN")
+        # targetQN.load_model("targetQN")
         memory.load_memory("memory")
 
     for cur_itr in range(iteration_num):
@@ -152,8 +161,8 @@ def tarin_agent():
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
         for episode in range(num_episodes):  # 試行数分繰り返す
-            # 行動決定と価値計算のQネットワークをおなじにする
-            targetQN.model.set_weights(mainQN.model.get_weights())
+            # # 行動決定と価値計算のQネットワークをおなじにする
+            # targetQN.model.set_weights(mainQN.model.get_weights())
 
             action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
@@ -165,11 +174,12 @@ def tarin_agent():
 
             # Qネットワークの重みを学習・更新する replay
             if (memory.len() > batch_size) and not islearned:
-                mainQN.replay(memory, batch_size, gamma, targetQN)
+                mainQN.replay(memory, batch_size, gamma)
+                #mainQN.replay(memory, batch_size, gamma, targetQN)
 
-            if DQN_MODE:
-                # 行動決定と価値計算のQネットワークをおなじにする
-                targetQN.model.set_weights(mainQN.model.get_weights())
+            # if DQN_MODE:
+            #     # 行動決定と価値計算のQネットワークをおなじにする
+            #     targetQN.model.set_weights(mainQN.model.get_weights())
 
             # 環境が提供する期間が最後までいった場合
             if done:
@@ -178,7 +188,7 @@ def tarin_agent():
 
             # モデルとメモリのスナップショットをとっておく
             if(episode % 10000 == 0):
-                targetQN.save_model("targetQN")
+                # targetQN.save_model("targetQN")
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
 
