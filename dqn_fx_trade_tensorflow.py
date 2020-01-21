@@ -127,7 +127,7 @@ memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 10
-feature_num = 11
+feature_num = 10
 
 def tarin_agent():
     env_master = FXEnvironment()
