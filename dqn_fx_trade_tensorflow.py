@@ -7,7 +7,7 @@
 import numpy as np
 import time
 from keras.models import Sequential, model_from_json
-from keras.layers import Dense
+from keras.layers import Dense, BatchNormalization, Dropout
 from keras.optimizers import Adam
 from keras.utils import plot_model
 from collections import deque
@@ -37,7 +37,14 @@ class QNetwork:
         #       と Dropout の 0.2 ぐらいを入れてみた方がよさそう。もしくはBatchNormalizationだけ。
         #       もしくは、層を足すだけにするか。
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
+        self.model.add(BatchNormalization())
+        self.model.add(Dropout(0.2))
         self.model.add(Dense(hidden_size, activation='relu'))
+        self.model.add(BatchNormalization())
+        self.model.add(Dropout(0.2))
+        self.model.add(Dense(int(hidden_size/2), activation='relu'))
+        self.model.add(BatchNormalization())
+        self.model.add(Dropout(0.2))
         self.model.add(Dense(action_size, activation='linear'))
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         # self.model.compile(loss='mse', optimizer=self.optimizer)
