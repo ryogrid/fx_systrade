@@ -41,7 +41,8 @@ class QNetwork:
         self.model.add(Dropout(0.2))
 
         self.model.add(Dense(action_size, activation='linear'))
-        self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
+        #self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
+        self.optimizer = Adam()  # 誤差を減らす学習方法はAdam. 学習係数はAdam optimizerのデフォルト値を使う.
         # self.model.compile(loss='mse', optimizer=self.optimizer)
         self.model.compile(loss=huberloss, optimizer=self.optimizer)
 
