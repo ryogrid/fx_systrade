@@ -523,21 +523,6 @@ class FXEnvironment:
                 next_state = self.input_arr[self.cur_idx] + [pos_cur_val]
                 return next_state, reward, False
 
-# TODO:クラスとして利用できるようにまとめないといけない
-#      get_env(学習用 or 評価用) ってな感じでenvを得られるように
-# def run_script(mode):
-#     if mode == "GEN_PICKLES":
-#         setup_serialized_fx_data()
-#     elif mode == "BACKTEST":
-#         run_backtest()
-#     else:
-#         raise Exception(str(mode) + " mode is invalid.")
-#
-# if __name__ == '__main__':
-#     if len(sys.argv) == 1:
-#         run_script("TRAIN")
-#         run_script("TRADE")
-
 if __name__ == '__main__':
     fx_env = FXEnvironment()
 #    fx_env.setup_serialized_fx_data()

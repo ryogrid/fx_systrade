@@ -33,18 +33,13 @@ def huberloss(y_true, y_pred):
 class QNetwork:
     def __init__(self, learning_rate=0.01, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
-        # TODO: 過去の為替予測のコードを参照して、一層足して、最終層以外にBatchNormalization
-        #       と Dropout の 0.2 ぐらいを入れてみた方がよさそう。もしくはBatchNormalizationだけ。
-        #       もしくは、層を足すだけにするか。
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(BatchNormalization())
         self.model.add(Dropout(0.2))
         self.model.add(Dense(hidden_size, activation='relu'))
         self.model.add(BatchNormalization())
         self.model.add(Dropout(0.2))
-        self.model.add(Dense(int(hidden_size/2), activation='relu'))
-        self.model.add(BatchNormalization())
-        self.model.add(Dropout(0.2))
+
         self.model.add(Dense(action_size, activation='linear'))
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         # self.model.compile(loss='mse', optimizer=self.optimizer)
@@ -119,15 +114,12 @@ class Actor:
 
         return action
 
-# TODO: 学習済みのエージェントを回せるようにしないといけない
-#        学習済みのQ関数等々を保存する方法が必要
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
 DQN_MODE = 0    # 1がDQN、0がDDQNです
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
-# TODO: 50ぐらいにしておきたい
 hidden_size = 50  # 16               # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0001  # 0.00001         # Q-networkの学習係数
 memory_size = 1000000 #10000  # バッファーメモリの大きさ
