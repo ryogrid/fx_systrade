@@ -118,7 +118,7 @@ class Memory:
 class Actor:
     def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0+(episode/100))
+        epsilon = 0.001 + 0.9 / (1.0+(episode/400))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -153,12 +153,14 @@ def tarin_agent():
     memory = Memory(max_size=memory_size)
     actor = Actor()
 
+
     if os.path.exists("./mainQN_nw.json"):
         # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
         mainQN.load_model("mainQN")
         # targetQN.load_model("targetQN")
         memory.load_memory("memory")
 
+    total_get_acton_cnt = 1
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
         state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("HOLD")
@@ -168,7 +170,9 @@ def tarin_agent():
             # # 行動決定と価値計算のQネットワークをおなじにする
             # targetQN.model.set_weights(mainQN.model.get_weights())
 
-            action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
+            total_get_acton_cnt += 1
+            action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
+            #action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
