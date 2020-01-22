@@ -521,7 +521,7 @@ class FXEnvironment:
                 else: # self.NOT_HAVE
                     pos_cur_val = 0
 
-                next_state = self.input_arr[self.cur_idx] + [pos_cur_val]
+                next_state = self.input_arr[self.cur_idx] #+ [pos_cur_val]
                 # stateのバリエーションが1イテレーションで網羅されなくなってしまうので 保有ポジションの情報はひとまずstateに加えないでやってみる
                 #next_state = self.input_arr[self.cur_idx]
                 return next_state, reward, False
