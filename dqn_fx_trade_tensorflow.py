@@ -20,14 +20,16 @@ import sys
 
 # [1]損失関数の定義
 # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
-def huberloss(y_true, y_pred):
-    err = y_true - y_pred
-    cond = K.abs(err) < 1.0
-    L2 = 0.5 * K.square(err)
-    L1 = (K.abs(err) - 0.5)
-    loss = tf.where(cond, L2, L1)  # Keras does not cover where function in tensorflow :-(
-    return K.mean(loss)
+#def huberloss(y_true, y_pred):
+#    err = y_true - y_pred
+#    cond = K.abs(err) < 1.0
+#    L2 = 0.5 * K.square(err)
+#    L1 = (K.abs(err) - 0.5)
+#    loss = tf.where(cond, L2, L1)  # Keras does not cover where function in tensorflow :-(
+#    return K.mean(loss)
 
+def huberloss(y_true, y_pred):
+    return tf.compat.v1.losses.huber_loss(y_true,y_pred)
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
@@ -35,10 +37,8 @@ class QNetwork:
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(BatchNormalization())
-        self.model.add(Dropout(0.2))
         self.model.add(Dense(hidden_size, activation='relu'))
         self.model.add(BatchNormalization())
-        self.model.add(Dropout(0.2))
 
         self.model.add(Dense(action_size, activation='linear'))
         #self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
