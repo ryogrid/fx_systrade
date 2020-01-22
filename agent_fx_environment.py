@@ -360,7 +360,7 @@ class FXEnvironment:
 
             self.done = False
 
-            self.portfolio = 1000000
+            self.portfolio = 1000000.0
             self.won_pips = 0
             self.NOT_HAVE = 0
             self.LONG = 1
@@ -407,7 +407,7 @@ class FXEnvironment:
                 else: # SHORT
                     # ショートポジションを購入する
                     self.pos_kind = self.SHORT
-                    self.positions = float(self.portfolio) / float(self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread)
+                    self.positions = self.portfolio / (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread)
                     self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     #a_log_str_line += ",BUY_SHORT,0,0,0,0"
             ########################## definitin of open_position func end ##########################
@@ -416,9 +416,9 @@ class FXEnvironment:
                 if self.pos_kind == self.SHORT:
                     # 保持しているショートポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
-                    trade_result = (float(self.positions) * self.trade_val - float(self.positions) * cur_price)
-                    self.portfolio = float(self.portfolio) + trade_result
-                    won_pips_diff = float(self.trade_val) - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    trade_result = self.positions * self.trade_val - self.positions * cur_price
+                    self.portfolio = self.portfolio + trade_result
+                    won_pips_diff = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
                     self.won_pips  += won_pips_diff
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
@@ -444,10 +444,11 @@ class FXEnvironment:
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
-                    trade_result = (float(self.positions) * cur_price - float(self.positions) * self.trade_val)
+                    trade_result = self.positions * cur_price - self.positions * self.trade_val
                     self.portfolio = self.portfolio + trade_result
-                    won_pips_diff = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - float(self.trade_val)
-                    self.won_pips  +=  won_pips_diff
+                    won_pips_diff = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
+
+                    self.won_pips += won_pips_diff
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
 
@@ -520,9 +521,9 @@ class FXEnvironment:
                 else: # self.NOT_HAVE
                     pos_cur_val = 0
 
-                #next_state = self.input_arr[self.cur_idx] + [pos_cur_val]
+                next_state = self.input_arr[self.cur_idx] + [pos_cur_val]
                 # stateのバリエーションが1イテレーションで網羅されなくなってしまうので 保有ポジションの情報はひとまずstateに加えないでやってみる
-                next_state = self.input_arr[self.cur_idx]
+                #next_state = self.input_arr[self.cur_idx]
                 return next_state, reward, False
 
 if __name__ == '__main__':

@@ -29,11 +29,11 @@ import sys
 #    return K.mean(loss)
 
 def huberloss(y_true, y_pred):
-    return tf.compat.v1.losses.huber_loss(y_true,y_pred)
+    return tf.compat.v1.losses.huber_loss(y_true, y_pred)
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
-    def __init__(self, learning_rate=0.01, state_size=15, action_size=3, hidden_size=10):
+    def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(BatchNormalization())
@@ -58,18 +58,6 @@ class QNetwork:
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             inputs[i:i + 1] = state_b
             target = reward_b
-
-            # if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
-            #     # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
-            #     retmainQs = self.model.predict(next_state_b)[0]
-            #     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            #     target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
-
-            # if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
-            #     # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
-            #     retmainQs = self.model.predict(next_state_b)[0]
-            #     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            #     target = reward_b + gamma * self.model.predict(next_state_b)[0][next_action]
 
             retmainQs = self.model.predict(next_state_b)[0]
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
@@ -122,9 +110,10 @@ class Actor:
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
+            print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
-            action = np.random.choice([0, 2])  # ランダムに行動する
+            action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
         return action
 
@@ -135,12 +124,12 @@ TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
 hidden_size = 50  # 16               # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.0001  # 0.00001         # Q-networkの学習係数
+learning_rate = 0.0001 # <- 今は使用されていない  # 0.00001         # Q-networkの学習係数
 memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 10
-feature_num = 10
+feature_num = 11
 
 def tarin_agent():
     env_master = FXEnvironment()
@@ -152,7 +141,6 @@ def tarin_agent():
     # plot_model(mainQN.model, to_file='Qnetwork.png', show_shapes=True)        # Qネットワークの可視化
     memory = Memory(max_size=memory_size)
     actor = Actor()
-
 
     if os.path.exists("./mainQN_nw.json"):
         # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
@@ -175,7 +163,7 @@ def tarin_agent():
             #action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             #next_state = np.reshape(next_state, [1, 4])     # list型のstateを、1行4列の行列に変換
-            next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
+            next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
             memory.add((state, action, reward, next_state))     # メモリを更新する
             state = next_state  # 状態更新
