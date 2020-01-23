@@ -38,7 +38,7 @@ class QNetwork:
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
         #self.model.add(BatchNormalization()) -> バックテストしたらすごい勢いで減少した」
-        self.model.add(Dropout(0.5))
+        #self.model.add(Dropout(0.5))
 
         self.model.add(Dense(action_size, activation='linear'))
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
@@ -128,8 +128,8 @@ learning_rate = 0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 5
-feature_num = 10
+iteration_num = 25
+feature_num = 11
 
 def tarin_agent():
     env_master = FXEnvironment()
