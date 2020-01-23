@@ -128,7 +128,7 @@ learning_rate = 0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 10
+iteration_num = 5
 feature_num = 10
 
 def tarin_agent():
