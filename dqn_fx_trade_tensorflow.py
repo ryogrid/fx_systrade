@@ -36,9 +36,9 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
-        #self.model.add(BatchNormalization())
         self.model.add(Dense(hidden_size, activation='relu'))
-        self.model.add(BatchNormalization())
+        #self.model.add(BatchNormalization()) -> バックテストしたらすごい勢いで減少した」
+        self.model.add(Dropout(0.5))
 
         self.model.add(Dense(action_size, activation='linear'))
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
