@@ -463,7 +463,7 @@ class FXEnvironment:
                     # # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
                     # reward = won_pips_diff - (future_price_diff + self.half_spread)
 
-                    reward = won_pips_diff
+                    reward = won_pips_diff + (future_price_diff - self.half_spread)
                 # elif self.pos_kind == self.SHORT:
                 #     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
                 #     reward = -1.0 * (future_price_diff + self.half_spread)
