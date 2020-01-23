@@ -59,11 +59,11 @@ class QNetwork:
             inputs[i:i + 1] = state_b
             target = reward_b
 
-            #retmainQs = self.model.predict(next_state_b)[0]
-            retmainQs = self.model.predict(state_b)[0]
-            #next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            #target = reward_b + gamma * retmainQs[next_action]
-            target = reward_b + gamma * retmainQs[action_b]
+            retmainQs = self.model.predict(next_state_b)[0]
+            #retmainQs = self.model.predict(state_b)[0]
+            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            target = reward_b + gamma * retmainQs[next_action]
+            #target = reward_b + gamma * retmainQs[action_b]
 
             targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
