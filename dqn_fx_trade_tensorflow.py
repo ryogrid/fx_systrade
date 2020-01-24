@@ -133,6 +133,7 @@ num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念の�
 iteration_num = 25
 feature_num = 11
 
+
 def tarin_agent():
     env_master = FXEnvironment()
     islearned = 0  # 学習が終わったフラグ

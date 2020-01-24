@@ -132,6 +132,7 @@ for episode in range(num_episodes):  # 試行数分繰り返す
     # ↓
     targetQN.model.set_weights(mainQN.model.get_weights())
 
+
     for t in range(max_number_of_steps + 1):  # 1試行のループ
         if (islearned == 1) and LENDER_MODE:  # 学習終了したらcartPoleを描画する
             env.render()
