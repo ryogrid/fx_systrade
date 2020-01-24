@@ -472,7 +472,7 @@ class FXEnvironment:
                     # # ショートポジションを購入する
                     # open_position("SHORT")
                     # a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
-                    a_log_str_line += ",KEEP_NO_POSITION" + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
+                    a_log_str_line += ",KEEP_NO_POSITION," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
 
                     # # 購入が正しかったか未来とのpipsの差分で与える
                     # reward = -1.0 * (future_price_diff + self.half_spread)
