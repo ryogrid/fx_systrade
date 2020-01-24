@@ -432,7 +432,8 @@ class FXEnvironment:
                 #     reward = won_pips_diff + (future_price_diff - self.half_spread)
                 #elif self.pos_kind == self.LONG:
                 if self.pos_kind == self.LONG:
-                    a_log_str_line += ",POSITION_HOLD,0,0,0,0"
+                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+                    a_log_str_line += ",POSITION_HOLD,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
                     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
                     reward = future_price_diff - self.half_spread
                 elif self.pos_kind == self.NOT_HAVE:
@@ -454,7 +455,7 @@ class FXEnvironment:
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
 
-                    a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(trade_result) + "," + str(
+                    a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
                         won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
                     # # ショートポジションを購入する
@@ -490,7 +491,8 @@ class FXEnvironment:
                 if self.pos_kind == self.NOT_HAVE:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
                 else:
-                    a_log_str_line += ",POSITION_HOLD,0,0,0,0"
+                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+                    a_log_str_line += ",POSITION_HOLD,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
             else:
                 raise Exception(str(action) + " is invalid.")
 
