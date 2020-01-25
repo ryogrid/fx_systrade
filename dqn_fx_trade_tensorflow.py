@@ -125,7 +125,7 @@ DQN_MODE = 1    # 1がDQN、0がDDQNです
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
-hidden_size = 50  # 16               # Q-networkの隠れ層のニューロンの数
+hidden_size = 100 #50  # 16               # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.01 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = 1000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
