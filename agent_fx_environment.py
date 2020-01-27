@@ -465,7 +465,8 @@ class FXEnvironment:
                     # # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
                     # reward = won_pips_diff - (future_price_diff + self.half_spread)
 
-                    reward = won_pips_diff + (future_price_diff - self.half_spread)
+                    #reward = won_pips_diff + (future_price_diff - self.half_spread)
+                    reward = future_price_diff - self.half_spread
                 # elif self.pos_kind == self.SHORT:
                 #     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
                 #     reward = -1.0 * (future_price_diff + self.half_spread)
@@ -475,6 +476,8 @@ class FXEnvironment:
                     # open_position("SHORT")
                     # a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
+
+                    # reward は 0
 
                     # # 購入が正しかったか未来とのpipsの差分で与える
                     # reward = -1.0 * (future_price_diff + self.half_spread)
@@ -529,9 +532,8 @@ class FXEnvironment:
                 else: # self.NOT_HAVE
                     pos_cur_val = 0
 
-                next_state = self.input_arr[self.cur_idx] + [pos_cur_val]
                 # stateのバリエーションが1イテレーションで網羅されなくなってしまうので 保有ポジションの情報はひとまずstateに加えないでやってみる
-                #next_state = self.input_arr[self.cur_idx]
+                next_state = self.input_arr[self.cur_idx] # + [pos_cur_val]
                 return next_state, reward, False
 
 if __name__ == '__main__':
