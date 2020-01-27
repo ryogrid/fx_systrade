@@ -443,7 +443,8 @@ class FXEnvironment:
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
 
                     # 購入が正しかったか未来とのpipsの差分で与える
-                    reward = future_price_diff + self.half_spread
+                    #reward = future_price_diff + self.half_spread
+                    reward = future_price_diff
             elif action == "CLOSE":
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
@@ -466,7 +467,8 @@ class FXEnvironment:
                     # reward = won_pips_diff - (future_price_diff + self.half_spread)
 
                     #reward = won_pips_diff + (future_price_diff - self.half_spread)
-                    reward = -1 * (future_price_diff - self.half_spread)
+                    #reward = -1 * (future_price_diff - self.half_spread)
+                    reward = -1 * future_price_diff
                 # elif self.pos_kind == self.SHORT:
                 #     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
                 #     reward = -1.0 * (future_price_diff + self.half_spread)
@@ -484,7 +486,8 @@ class FXEnvironment:
             elif action == "HOLD":
                 if self.pos_kind == self.LONG:
                     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
-                    reward = future_price_diff - self.half_spread
+                    #reward = future_price_diff - self.half_spread
+                    reward = future_price_diff
                 # if self.pos_kind == self.SHORT:
                 #     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
                 #     reward = -1.0 * (future_price_diff + self.half_spread)
