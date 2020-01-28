@@ -47,7 +47,28 @@ class QNetwork:
         self.model.compile(loss=huberloss, optimizer=self.optimizer)
 
 
-    #def replay(self, memory, batch_size, gamma, targetQN):
+    # # 重みの学習
+    # # targetQNを利用しないようにした
+    # def replay(self, memory, batch_size, gamma):
+    #     inputs = np.zeros((batch_size, feature_num))
+    #     targets = np.zeros((batch_size, 3))
+    #     mini_batch = memory.sample(batch_size)
+    #
+    #     for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+    #         inputs[i:i + 1] = state_b
+    #         target = reward_b
+    #
+    #         retmainQs = self.model.predict(next_state_b)[0]
+    #         #retmainQs = self.model.predict(state_b)[0]
+    #         next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+    #         target = reward_b + gamma * retmainQs[next_action]
+    #         #target = reward_b + gamma * retmainQs[action_b]
+    #
+    #         targets[i] = self.model.predict(state_b)    # Qネットワークの出力
+    #         targets[i][action_b] = target               # 教師信号
+    #
+    #     self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+
     # 重みの学習
     # targetQNを利用しないようにした
     def replay(self, memory, batch_size, gamma):
@@ -57,18 +78,11 @@ class QNetwork:
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             inputs[i:i + 1] = state_b
-            target = reward_b
 
-            retmainQs = self.model.predict(next_state_b)[0]
-            #retmainQs = self.model.predict(state_b)[0]
-            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            target = reward_b + gamma * retmainQs[next_action]
-            #target = reward_b + gamma * retmainQs[action_b]
+            targets[i] = self.model.predict(state_b)  # Qネットワークの出力
+            targets[i][action_b] = reward_b  # 教師信号
 
-            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
-            targets[i][action_b] = target               # 教師信号
-
-        self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
