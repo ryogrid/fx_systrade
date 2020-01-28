@@ -389,7 +389,7 @@ class FXEnvironment:
             elif action_num == 1:
                 action = "BUY"
             elif action_num == 2:
-                action = "CLOSE"
+                action = "SELL"
             else:
                 raise Exception(str(action_num) + " is invalid.")
 
@@ -415,24 +415,25 @@ class FXEnvironment:
             ########################## definitin of open_position func end ##########################
 
             if action == "BUY":
-                # if self.pos_kind == self.SHORT:
-                #     # 保持しているショートポジションをクローズする
-                #     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
-                #     trade_result = self.positions * self.trade_val - self.positions * cur_price
-                #     self.portfolio = self.portfolio + trade_result
-                #     won_pips_diff = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
-                #     self.won_pips  += won_pips_diff
-                #     self.pos_kind = self.NOT_HAVE
-                #     self.positions = 0
-                #     a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(trade_result)+ "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
-                #
-                #     # ロングポジションを購入する
-                #     open_position("LONG")
-                #
-                #     # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
-                #     reward = won_pips_diff + (future_price_diff - self.half_spread)
-                #elif self.pos_kind == self.LONG:
-                if self.pos_kind == self.LONG:
+                if self.pos_kind == self.SHORT:
+                    # 保持しているショートポジションをクローズする
+                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+                    trade_result = self.positions * self.trade_val - self.positions * cur_price
+                    self.portfolio = self.portfolio + trade_result
+                    won_pips_diff = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    self.won_pips  += won_pips_diff
+                    self.pos_kind = self.NOT_HAVE
+                    self.positions = 0
+                    a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(trade_result)+ "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+
+                    # ロングポジションを購入する
+                    open_position("LONG")
+
+                    # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
+                    # reward = won_pips_diff + (future_price_diff - self.half_spread)
+
+                    reward = future_price_diff
+                elif self.pos_kind == self.LONG:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
                     a_log_str_line += ",POSITION_HOLD,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
                     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
@@ -446,7 +447,7 @@ class FXEnvironment:
                     # 購入が正しかったか未来とのpipsの差分で与える
                     #reward = future_price_diff + self.half_spread
                     reward = future_price_diff
-            elif action == "CLOSE":
+            elif action == "SELL":
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
@@ -457,11 +458,11 @@ class FXEnvironment:
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
 
-                    a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
+                    a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(trade_result) + "," + str(
                         won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
-                    # # ショートポジションを購入する
-                    # open_position("SHORT")
+                    # ショートポジションを購入する
+                    open_position("SHORT")
 
                     # # クローズでのpipsでの勝ち負けと、未来で見た時のポジション購入のpipsでの評価
                     # reward = won_pips_diff - (future_price_diff + self.half_spread)
@@ -469,24 +470,29 @@ class FXEnvironment:
                     #reward = won_pips_diff + (future_price_diff - self.half_spread)
                     #reward = -1 * (future_price_diff - self.half_spread)
                     reward = -1 * future_price_diff
-                # elif self.pos_kind == self.SHORT:
-                #     # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
-                #     reward = -1.0 * (future_price_diff + self.half_spread)
-                #     a_log_str_line += ",POSITION_HOLD,0,0,0,0"
+                elif self.pos_kind == self.SHORT:
+                    #reward = -1.0 * (future_price_diff + self.half_spread)
+
+                    # 損切りすべきだったか、見送りが正解だったかを未来とのpipsの差分で与える
+                    reward = -1.0 * future_price_diff
+                    a_log_str_line += ",POSITION_HOLD,0,0,0,0"
                 elif self.pos_kind == self.NOT_HAVE:
-                    # # ショートポジションを購入する
-                    # open_position("SHORT")
+                    # ショートポジションを購入する
+                    open_position("SHORT")
                     # # 購入が正しかったか未来とのpipsの差分で与える
                     # reward = -1.0 * (future_price_diff + self.half_spread)
-                    # a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
+                    a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
 
-                    a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
+                    #a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
 
-                    # # reward は 0
-                    # 仮に購入していた場合の評価を未来の価格とのpipsとの差分で与える（CLOSEした場合に合わせる意味もある）
+                    # # 仮に購入していた場合の評価を未来の価格とのpipsとの差分で与える（CLOSEした場合に合わせる意味もある）
+
                     reward = -1 * future_price_diff
             elif action == "HOLD":
                 if self.pos_kind == self.LONG:
+                    # 売買してないし、HOLDと言っているので 0 （?）
+                    reward = 0
+                elif self.pos_kind == self.SHORT:
                     # 売買してないし、HOLDと言っているので 0 （?）
                     reward = 0
 
