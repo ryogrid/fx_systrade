@@ -33,7 +33,7 @@ def huberloss(y_true, y_pred):
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
-    def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
+    def __init__(self, learning_rate=0.001, state_size=15, action_size=4, hidden_size=10):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
@@ -47,8 +47,28 @@ class QNetwork:
         self.model.compile(loss=huberloss, optimizer=self.optimizer)
 
 
+    # 重みの学習
+    def replay(self, memory, batch_size, gamma):
+        inputs = np.zeros((batch_size, feature_num))
+        targets = np.zeros((batch_size, 4))
+        mini_batch = memory.sample(batch_size)
+
+        for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+            inputs[i:i + 1] = state_b
+            target = reward_b
+
+            retmainQs = self.model.predict(next_state_b)[0]
+            print(retmainQs)
+            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            target = reward_b + gamma * retmainQs[next_action]
+
+
+            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
+            targets[i][action_b] = target               # 教師信号
+
+            self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+
     # # 重みの学習
-    # # targetQNを利用しないようにした
     # def replay(self, memory, batch_size, gamma):
     #     inputs = np.zeros((batch_size, feature_num))
     #     targets = np.zeros((batch_size, 3))
@@ -56,33 +76,11 @@ class QNetwork:
     #
     #     for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
     #         inputs[i:i + 1] = state_b
-    #         target = reward_b
     #
-    #         retmainQs = self.model.predict(next_state_b)[0]
-    #         #retmainQs = self.model.predict(state_b)[0]
-    #         next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-    #         target = reward_b + gamma * retmainQs[next_action]
-    #         #target = reward_b + gamma * retmainQs[action_b]
-    #
-    #         targets[i] = self.model.predict(state_b)    # Qネットワークの出力
-    #         targets[i][action_b] = target               # 教師信号
+    #         targets[i] = self.model.predict(state_b)  # Qネットワークの出力
+    #         targets[i][action_b] = reward_b  # 教師信号
     #
     #     self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
-
-    # 重みの学習
-    # targetQNを利用しないようにした
-    def replay(self, memory, batch_size, gamma):
-        inputs = np.zeros((batch_size, feature_num))
-        targets = np.zeros((batch_size, 3))
-        mini_batch = memory.sample(batch_size)
-
-        for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            inputs[i:i + 1] = state_b
-
-            targets[i] = self.model.predict(state_b)  # Qネットワークの出力
-            targets[i][action_b] = reward_b  # 教師信号
-
-        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
@@ -126,10 +124,10 @@ class Actor:
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
-            print(retTargetQs)
+            #print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
-            action = np.random.choice([0, 1, 2])  # ランダムに行動する
+            action = np.random.choice([0, 1, 2,3])  # ランダムに行動する
 
         return action
 
