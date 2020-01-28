@@ -345,10 +345,10 @@ class FXEnvironment:
 
     # type_str: "train", "test"
     def get_env(self, type_str):
-        return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = self.PREDICT_FUTURE_LEGS, angle_arr=self.tr_angle_arr)
+        return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=1, angle_arr = None, half_spred=0.0015):
             self.input_arr = input_arr
             self.angle_arr = angle_arr
             self.exchange_dates = exchange_dates
