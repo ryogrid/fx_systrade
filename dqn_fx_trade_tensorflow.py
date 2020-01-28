@@ -142,7 +142,7 @@ learning_rate = 0.01 #0.01 #0.001 #0.0001 # 0.00001         # Q-networkの学習
 memory_size = 7000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 25
+iteration_num = 5 #25
 feature_num = 10 # 11
 
 
