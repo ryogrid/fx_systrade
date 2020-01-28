@@ -33,7 +33,7 @@ def huberloss(y_true, y_pred):
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
-    def __init__(self, learning_rate=0.001, state_size=15, action_size=4, hidden_size=10):
+    def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
@@ -50,7 +50,7 @@ class QNetwork:
     # 重みの学習
     def replay(self, memory, batch_size, gamma):
         inputs = np.zeros((batch_size, feature_num))
-        targets = np.zeros((batch_size, 4))
+        targets = np.zeros((batch_size, 3))
         mini_batch = memory.sample(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
@@ -127,7 +127,7 @@ class Actor:
             #print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
-            action = np.random.choice([0, 1, 2,3])  # ランダムに行動する
+            action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
         return action
 

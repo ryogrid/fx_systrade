@@ -389,9 +389,9 @@ class FXEnvironment:
             elif action_num == 1:
                 action = "BUY"
             elif action_num == 2:
-                action = "SELL"
-            elif action_num == 3:
                 action = "CLOSE"
+            # elif action_num == 3:
+            #     action = "SELL"
             else:
                 raise Exception(str(action_num) + " is invalid.")
 
@@ -416,10 +416,21 @@ class FXEnvironment:
                     #a_log_str_line += ",BUY_SHORT,0,0,0,0"
             ########################## definitin of open_position func end ##########################
 
+            ###### IMPORTANT: SELLは来ない。従って、self.pos_kind が self.SHORT であることもない。 ######
             if action == "BUY":
                 if self.pos_kind == self.SHORT:
+                    # 保持しているショートポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
-                    a_log_str_line += ",POSITION_HOLD_SHORT,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
+                    trade_result = self.positions * self.trade_val - self.positions * cur_price
+                    self.portfolio = self.portfolio + trade_result
+                    won_pips_diff = self.trade_val - (
+                                self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    self.won_pips += won_pips_diff
+                    self.pos_kind = self.NOT_HAVE
+                    self.positions = 0
+
+                    a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
+                        cur_price) + "," + str(self.trade_val)
 
                     reward = 0
                 elif self.pos_kind == self.LONG:
@@ -442,10 +453,13 @@ class FXEnvironment:
                     self.pos_kind = self.NOT_HAVE
                     self.positions = 0
 
-                    a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
+                    a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(trade_result) + "," + str(
                         won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
-                    reward = won_pips_diff
+                    # ショートポジションを購入する
+                    open_position("SHORT")
+
+                    reward = 0
                 elif self.pos_kind == self.SHORT:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     a_log_str_line += ",POSITION_HOLD_SHORT,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
