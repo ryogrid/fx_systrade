@@ -546,13 +546,14 @@ class FXEnvironment:
                 pos_cur_val = -1
                 if self.pos_kind == self.LONG:
                     pos_cur_val = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
-                # elif self.pos_kind == self.SHORT:
-                #     pos_cur_val = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                elif self.pos_kind == self.SHORT:
+                    pos_cur_val = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
                 else: # self.NOT_HAVE
                     pos_cur_val = 0
 
-                # stateのバリエーションが1イテレーションで網羅されなくなってしまうので 保有ポジションの情報はひとまずstateに加えないでやってみる
-                next_state = self.input_arr[self.cur_idx] # + [pos_cur_val]
+
+                has_position = 1 if pos_cur_val == 0 else 1
+                next_state = self.input_arr[self.cur_idx] + [has_position] + [pos_cur_val] + [action_num]
                 return next_state, reward, False
 
 if __name__ == '__main__':

@@ -36,7 +36,8 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
-        self.model.add(Dense(hidden_size, activation='relu'))
+        #self.model.add(Dense(hidden_size, activation='relu'))
+
         #self.model.add(BatchNormalization()) -> バックテストしたらすごい勢いで減少した」
         #self.model.add(Dropout(0.5))
 
@@ -54,7 +55,8 @@ class QNetwork:
         mini_batch = memory.sample(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            inputs[i:i + 1] = state_b
+            #inputs[i:i + 1] = state_b
+            inputs[i] = state_b
             target = reward_b
 
             retmainQs = self.model.predict(next_state_b)[0]
@@ -66,7 +68,7 @@ class QNetwork:
             targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
 
-            self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     # # 重みの学習
     # def replay(self, memory, batch_size, gamma):
@@ -138,12 +140,12 @@ TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
 hidden_size = 50 #100 #50  # 16               # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.01 #0.01 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.005 #0.01 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = 7000000 #10000  # バッファーメモリの大きさ
 batch_size = 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 5 #25
-feature_num = 10 # 11
+feature_num = 13 #10 # 11
 
 
 def tarin_agent():
