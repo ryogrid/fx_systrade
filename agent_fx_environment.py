@@ -422,17 +422,22 @@ class FXEnvironment:
                     # 保持しているショートポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
                     trade_result = self.positions * self.trade_val - self.positions * cur_price
-                    self.portfolio = self.portfolio + trade_result
                     won_pips_diff = self.trade_val - (
-                                self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
-                    self.won_pips += won_pips_diff
-                    self.pos_kind = self.NOT_HAVE
-                    self.positions = 0
-
-                    a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
+                            self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+                    if won_pips_diff <= 0:
+                        won_pips_diff = 0
+                        trade_result = 0
+                        a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
                         cur_price) + "," + str(self.trade_val)
-
-                    reward = 0
+                        reward = 0
+                    else:
+                        self.portfolio = self.portfolio + trade_result
+                        self.won_pips += won_pips_diff
+                        self.pos_kind = self.NOT_HAVE
+                        self.positions = 0
+                        a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
+                        cur_price) + "," + str(self.trade_val)
+                        reward = won_pips_diff
                 elif self.pos_kind == self.LONG:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     a_log_str_line += ",POSITION_HOLD_LONG,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
@@ -504,15 +509,22 @@ class FXEnvironment:
                     # 保持しているロングポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     trade_result = self.positions * cur_price - self.positions * self.trade_val
-                    self.portfolio = self.portfolio + trade_result
-                    won_pips_diff = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
-                    self.won_pips += won_pips_diff
-                    self.pos_kind = self.NOT_HAVE
-                    self.positions = 0
-
-                    a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
-                        won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
-                    reward = won_pips_diff
+                    won_pips_diff = (self.exchange_rates[
+                                         self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
+                    if won_pips_diff <= 0:
+                        trade_result = 0
+                        won_pips_diff = 0
+                        a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(
+                            won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+                        reward = won_pips_diff
+                    else:
+                        self.portfolio = self.portfolio + trade_result
+                        self.won_pips += won_pips_diff
+                        self.pos_kind = self.NOT_HAVE
+                        self.positions = 0
+                        a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
+                            won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+                        reward = won_pips_diff
                 else:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
                     reward = 0
