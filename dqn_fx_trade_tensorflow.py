@@ -44,7 +44,9 @@ def sharpratio_loss(y, x):
     # cur_idx_for_loss_calc += 1
     #return K.constant(y, dtype=K.floatx(), name="ret")
     #return K.variable(y)
-    formula = 2*K.square(y)
+    #print(x)
+
+    formula = K.square([y])
     return formula
 
 
@@ -55,10 +57,11 @@ class QNetwork:
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
         #self.model.add(Dropout(0.5))
-        self.model.add(BatchNormalization())
+        #self.model.add(BatchNormalization())
 
 
         self.model.add(Dense(action_size, activation='tanh'))
+
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         #self.optimizer = Adam()  # 誤差を減らす学習方法はAdam. 学習係数はAdam optimizerのデフォルト値を使う.
         # self.model.compile(loss='mse', optimizer=self.optimizer)
