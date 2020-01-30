@@ -231,7 +231,8 @@ def tarin_agent():
                     # target = reward_b + gamma * next_action_val
                     #
                     # #targets[i] = mainQN.model.predict(state_b)  # Qネットワークの出力
-                    targets[i][0] = 0 #target  # 教師信号
+
+                    targets[i][0] = mainQN.model.predict(state_b)[0][0] #target  # 教師信号
 
                 cur_idx_for_loss_calc = episode
                 mainQN.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
