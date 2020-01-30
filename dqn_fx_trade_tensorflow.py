@@ -6,7 +6,7 @@
 
 import numpy as np
 import time
-from keras.models import Sequential, model_from_json
+from keras.models import Sequential, model_from_json, Model
 from keras.layers import Dense, BatchNormalization, Dropout
 from keras.optimizers import Adam
 from keras.utils import plot_model
@@ -57,6 +57,59 @@ def sharpratio_loss_wrapper(r_arr, dummy_r_arr, idx_arr, period, mu_local):
 
     return sharpratio_loss
 
+class DiscriminatorLoss:
+    __name__ = 'discriminator_loss'
+
+    def __init__(self):
+        self.
+        self.gamma = gamma
+        self.k_var = K.variable(0, dtype=K.floatx(), name="discriminator_k")
+        self.m_global_var = K.variable(0, dtype=K.floatx(), name="m_global")
+        self.loss_real_x_var = K.variable(0, name="loss_real_x")  # for observation
+        self.loss_gen_x_var = K.variable(0, name="loss_gen_x")    # for observation
+        self.updates = []
+
+    def __call__(self, y_true, y_pred):  # y_true, y_pred shape: (BS, row, col, ch * 2)
+        data_true, generator_true = y_true[:, :, :, 0:3], y_true[:, :, :, 3:6]
+        data_pred, generator_pred = y_pred[:, :, :, 0:3], y_pred[:, :, :, 3:6]
+        loss_data = K.mean(K.abs(data_true - data_pred), axis=[1, 2, 3])
+        loss_generator = K.mean(K.abs(generator_true - generator_pred), axis=[1, 2, 3])
+        ret = loss_data - self.k_var * loss_generator
+
+        # for updating values in each epoch, use `updates` mechanism
+        # DiscriminatorModel collects Loss Function's updates attributes
+        mean_loss_data = K.mean(loss_data)
+        mean_loss_gen = K.mean(loss_generator)
+
+        # update K
+        new_k = self.k_var + self.lambda_k * (self.gamma * mean_loss_data - mean_loss_gen)
+        new_k = K.clip(new_k, 0, 1)
+        self.updates.append(K.update(self.k_var, new_k))
+
+        # calculate M-Global
+        m_global = mean_loss_data + K.abs(self.gamma * mean_loss_data - mean_loss_gen)
+        self.updates.append(K.update(self.m_global_var, m_global))
+
+        # let loss_real_x mean_loss_data
+        self.updates.append(K.update(self.loss_real_x_var, mean_loss_data))
+
+        # let loss_gen_x mean_loss_gen
+        self.updates.append(K.update(self.loss_gen_x_var, mean_loss_gen))
+
+        return ret
+
+
+class DiscriminatorModel(Model):
+    """Model which collects updates from loss_func.updates"""
+
+    @property
+    def updates(self):
+        updates = super().updates
+        if hasattr(self, 'loss_functions'):
+            for loss_func in self.loss_functions:
+                if hasattr(loss_func, 'updates'):
+                    updates += loss_func.updates
+        return updates
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
@@ -165,7 +218,7 @@ class Actor:
             action_val = retTargetQs[0]
             if math.isnan(action_val):
                 action_val = 1
-            print(action_val)
+            #print(action_val)
             action = round(action_val) + 1
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
