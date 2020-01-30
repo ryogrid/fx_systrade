@@ -30,7 +30,6 @@ import math
 #    return K.mean(loss)
 
 reward_arr = np.array([])
-cur_idx_for_loss_calc = -1
 mu = 1.0
 sigma = 0.04
 SRATIO_PERIOD = 64
@@ -39,12 +38,14 @@ def huberloss(y_true, y_pred):
     return tf.compat.v1.losses.huber_loss(y_true, y_pred)
 
 def sharpratio_loss(y, x):
-    global cur_idx_for_loss_calc
-
-    partial_reward_mean = np.mean(mu*(reward_arr[cur_idx_for_loss_calc - SRATIO_PERIOD:cur_idx_for_loss_calc]))
-    partial_reward_std = np.std(reward_arr[cur_idx_for_loss_calc - SRATIO_PERIOD:cur_idx_for_loss_calc])
-    cur_idx_for_loss_calc += 1
-    return partial_reward_std / partial_reward_mean
+    # global cur_idx_for_loss_calc
+    # ret = K.std(reward_arr[cur_idx_for_loss_calc - SRATIO_PERIOD:cur_idx_for_loss_calc]) / \
+    #       (K.mean(mu*(reward_arr[cur_idx_for_loss_calc - SRATIO_PERIOD:cur_idx_for_loss_calc])) + 0.00001)
+    # cur_idx_for_loss_calc += 1
+    #return K.constant(y, dtype=K.floatx(), name="ret")
+    #return K.variable(y)
+    formula = 2*K.square(y)
+    return formula
 
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
@@ -61,7 +62,7 @@ class QNetwork:
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         #self.optimizer = Adam()  # 誤差を減らす学習方法はAdam. 学習係数はAdam optimizerのデフォルト値を使う.
         # self.model.compile(loss='mse', optimizer=self.optimizer)
-        self.model.compile(loss=huberloss, optimizer=self.optimizer)
+        self.model.compile(loss=sharpratio_loss, optimizer=self.optimizer)
 
 
     # # 重みの学習
@@ -193,7 +194,7 @@ def tarin_agent():
         memory.load_memory("memory")
 
     total_get_acton_cnt = 1
-    do_fit_count = 0
+    do_fit_count = -1
 
     inputs = np.zeros((batch_size, feature_num))
     targets = np.zeros((batch_size, nn_output_size))
@@ -211,19 +212,26 @@ def tarin_agent():
             #action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
-            np.insert(reward_arr, reward_arr.size, reward)
+            reward_arr = np.insert(reward_arr, reward_arr.size, reward)
 
             memory.add((state, action, reward))     # メモリを更新する
             state = next_state  # 状態更新
 
             do_fit_count+= 1
-            if do_fit_count % batch_size == 0 and do_fit_count != 0:
+            if do_fit_count % batch_size == 0 and do_fit_count != 0 and reward_arr.size >= 2*SRATIO_PERIOD:
                 mini_batch = memory.get_last(batch_size)
-
                 for i, (state_b, action_b, reward_b) in enumerate(mini_batch):
                     inputs[i] = state_b
-                    # target = reward_b
+                    #print(reward_arr.size)
+                    sharp_ratio = np.std(reward_arr[episode - 2*SRATIO_PERIOD + i : episode - SRATIO_PERIOD + i]) / \
+                                  (np.mean(mu * (reward_arr[episode - 2*SRATIO_PERIOD + i : episode - SRATIO_PERIOD + i])) + 0.00001)
+                    #print(sharp_ratio.tolist())
+                    sharp_ratio = sharp_ratio.tolist()  + 0.0001
+                    print(i)
+                    print(sharp_ratio)
+                    #targets[i][0] = sharp_ratio
 
+                    # target = reward_b
                     # retmainQs = mainQN.model.predict(next_state_b)[0]
                     # print(retmainQs)
                     # #next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
@@ -231,11 +239,11 @@ def tarin_agent():
                     # target = reward_b + gamma * next_action_val
                     #
                     # #targets[i] = mainQN.model.predict(state_b)  # Qネットワークの出力
+                    # targets[i][0] = mainQN.model.predict(state_b)[0][0] #target  # 教師信号
 
-                    targets[i][0] = mainQN.model.predict(state_b)[0][0] #target  # 教師信号
-
-                cur_idx_for_loss_calc = episode
-                mainQN.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+                # cur_idx_for_loss_calc = episode
+                mainQN.model.fit(inputs, targets, epochs=1, verbose=1,
+                                 batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
                 inputs = np.zeros((batch_size, feature_num))
                 targets = np.zeros((batch_size, nn_output_size))
 
@@ -255,7 +263,7 @@ def tarin_agent():
                 memory.save_memory("memory")
 
         reward_arr = np.array([])
-        do_fit_count = 0
+        do_fit_count = -1
 
 
 def run_backtest(period_kind):
