@@ -53,8 +53,9 @@ class QNetwork:
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
-        self.model.add(BatchNormalization())
         #self.model.add(Dropout(0.5))
+        self.model.add(BatchNormalization())
+
 
         self.model.add(Dense(action_size, activation='tanh'))
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
@@ -148,8 +149,10 @@ class Actor:
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
             #print(retTargetQs)
-            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
-            action = round(action)
+            #action = np.argmax()  # 最大の報酬を返す行動を選択する
+            action_val = retTargetQs[0]
+            print(action_val)
+            action = round(action_val) + 1
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
@@ -210,25 +213,25 @@ def tarin_agent():
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
             np.insert(reward_arr, reward_arr.size, reward)
 
-            memory.add((state, action, reward, next_state))     # メモリを更新する
+            memory.add((state, action, reward))     # メモリを更新する
             state = next_state  # 状態更新
 
             do_fit_count+= 1
             if do_fit_count % batch_size == 0 and do_fit_count != 0:
                 mini_batch = memory.get_last(batch_size)
 
-                for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+                for i, (state_b, action_b, reward_b) in enumerate(mini_batch):
                     inputs[i] = state_b
-                    target = reward_b
+                    # target = reward_b
 
-                    retmainQs = mainQN.model.predict(next_state_b)[0]
-                    print(retmainQs)
-                    #next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                    next_action_val = retmainQs[0]
-                    target = reward_b + gamma * next_action_val
-
-                    #targets[i] = mainQN.model.predict(state_b)  # Qネットワークの出力
-                    targets[i][0] = target  # 教師信号
+                    # retmainQs = mainQN.model.predict(next_state_b)[0]
+                    # print(retmainQs)
+                    # #next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                    # next_action_val = retmainQs[0]
+                    # target = reward_b + gamma * next_action_val
+                    #
+                    # #targets[i] = mainQN.model.predict(state_b)  # Qネットワークの出力
+                    targets[i][0] = 0 #target  # 教師信号
 
                 cur_idx_for_loss_calc = episode
                 mainQN.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
