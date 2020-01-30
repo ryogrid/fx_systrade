@@ -254,6 +254,10 @@ def tarin_agent():
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
 
+        reward_arr = np.array([])
+        do_fit_count = 0
+
+
 def run_backtest(period_kind):
     env_master = FXEnvironment()
     env = env_master.get_env(period_kind)
