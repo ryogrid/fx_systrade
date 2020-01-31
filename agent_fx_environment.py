@@ -242,36 +242,10 @@ class FXEnvironment:
                  #self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
                  ]
             )
-            # input_mat.append(
-            #     [reverse_exchange_rates[i],
-            #      (reverse_exchange_rates[i] - reverse_exchange_rates[i - 1]) / reverse_exchange_rates[i - 1],
-            #      get_rsi(reverse_exchange_rates, i),
-            #      get_ma(reverse_exchange_rates, i),
-            #      get_ma_kairi(reverse_exchange_rates, i),
-            #      get_bb_1(reverse_exchange_rates, i),
-            #      get_bb_2(reverse_exchange_rates, i),
-            #      get_ema(reverse_exchange_rates, i),
-            #      get_cci(reverse_exchange_rates, i),
-            #      get_mo(reverse_exchange_rates, i),
-            #      get_vorarity(reverse_exchange_rates, i),
-            #      get_macd(reverse_exchange_rates, i),
-            #      judge_chart_type(reverse_exchange_rates[i - CHART_TYPE_JDG_LEN:i])
-            #      ]
-            # )
 
             if y_arr_fpath != None:
                 tmp = self.exchange_rates[i + self.PREDICT_FUTURE_LEGS] - self.exchange_rates[i]
                 angle_mat.append(tmp)
-                # if tmp >= 0:
-                #     angle_mat.append(1)
-                # else:
-                #     angle_mat.append(0)
-
-                # tmp = reverse_exchange_rates[i + PREDICT_FUTURE_LEGS] - reverse_exchange_rates[i]
-                # if tmp >= 0:
-                #     angle_mat.append(1)
-                # else:
-                #     angle_mat.append(0)
 
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
@@ -284,9 +258,6 @@ class FXEnvironment:
     def setup_serialized_fx_data(self):
         self.exchange_dates = []
         self.exchange_rates = []
-        #reverse_exchange_rates = []
-        all_input_mat = []
-        all_angle_mat = []
 
         if os.path.exists("./exchange_rates.pickle"):
             with open("./exchange_dates.pickle", 'rb') as f:
@@ -314,31 +285,15 @@ class FXEnvironment:
             with open('./all_angle_mat.pickle', 'rb') as f:
                 all_angle_mat = pickle.load(f)
         else:
-            # prev_org = -1
-            # prev = -1
-            # for rate in exchange_rates:
-            #     if prev_org != -1:
-            #         diff = rate - prev_org
-            #         reverse_exchange_rates.append(prev - diff)
-            #         prev_org = rate
-            #         prev = prev - diff
-            #     else:
-            #         reverse_exchange_rates.append(rate)
-            #         prev_org = rate
-            #         prev = rate
-
             all_input_mat, all_angle_mat = \
                 self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS, './all_input_mat.pickle', './all_angle_mat.pickle')
 
-        # self.tr_input_arr = np.array(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        # self.tr_angle_arr = np.array(all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        # self.ts_input_arr = np.array(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:])
         self.tr_input_arr = all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
         self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
         self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:]
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
-        #print("num of rate datas for tarin: " + str(COMPETITION_TRAIN_DATA_NUM_AT_RATE_ARR))
+        print("num of rate datas for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
         print("input features sets for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
         print("input features sets for test: " + str(len(self.ts_input_arr)))
         print("finished setup environment data.")
@@ -348,7 +303,7 @@ class FXEnvironment:
         return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=1, angle_arr = None, half_spred=0.0015):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015):
             self.input_arr = input_arr
             self.angle_arr = angle_arr
             self.exchange_dates = exchange_dates
@@ -389,7 +344,7 @@ class FXEnvironment:
             elif action_num == 1:
                 action = "BUY"
             elif action_num == 2:
-                action = "CLOSE"
+                action = "SELL"
             # elif action_num == 3:
             #     action = "SELL"
             else:
@@ -418,62 +373,69 @@ class FXEnvironment:
 
             ###### IMPORTANT: SELLは来ない。従って、self.pos_kind が self.SHORT であることもない。 ######
             if action == "BUY":
+                # 定められた本数の先の足で利益がでるか出ないか
+                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) < (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) else -1
+
                 if self.pos_kind == self.SHORT:
                     # 保持しているショートポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
                     trade_result = self.positions * self.trade_val - self.positions * cur_price
                     won_pips_diff = self.trade_val - (
                             self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
-                    if won_pips_diff <= 0:
+                    if False: #won_pips_diff <= 0:
                         won_pips_diff = 0
                         trade_result = 0
                         a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
                         cur_price) + "," + str(self.trade_val)
-                        reward = 0
                     else:
                         self.portfolio = self.portfolio + trade_result
                         self.won_pips += won_pips_diff
                         self.pos_kind = self.NOT_HAVE
                         self.positions = 0
-                        a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
+                        a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
                         cur_price) + "," + str(self.trade_val)
-                        reward = won_pips_diff
+
+                        # ロングポジションを購入する
+                        open_position("LONG")
                 elif self.pos_kind == self.LONG:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     a_log_str_line += ",POSITION_HOLD_LONG,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
-                    reward = 0
                 elif self.pos_kind == self.NOT_HAVE:
                     # ロングポジションを購入する
                     open_position("LONG")
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
-                    reward = 0
             elif action == "SELL":
+                # 定められた本数の先の足で利益がでるか出ないか
+                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) < (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) else -1
+
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     trade_result = self.positions * cur_price - self.positions * self.trade_val
-                    self.portfolio = self.portfolio + trade_result
+
                     won_pips_diff = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
-                    self.won_pips += won_pips_diff
-                    self.pos_kind = self.NOT_HAVE
-                    self.positions = 0
+                    if False: #won_pips_diff <= 0:
+                        won_pips_diff = 0
+                        trade_result = 0
+                        a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
+                        cur_price) + "," + str(self.trade_val)
+                    else:
+                        self.portfolio = self.portfolio + trade_result
+                        self.won_pips += won_pips_diff
+                        self.pos_kind = self.NOT_HAVE
+                        self.positions = 0
+                        a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(trade_result) + "," + str(
+                            won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
 
-                    a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(trade_result) + "," + str(
-                        won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
-
-                    # ショートポジションを購入する
-                    open_position("SHORT")
-
-                    reward = 0
+                        # ショートポジションを購入する
+                        open_position("SHORT")
                 elif self.pos_kind == self.SHORT:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     a_log_str_line += ",POSITION_HOLD_SHORT,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
-                    reward = 0
                 elif self.pos_kind == self.NOT_HAVE:
                     # ショートポジションを購入する
                     open_position("SHORT")
                     a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
-                    reward = 0
             elif action == "DONOT":
                 if self.pos_kind == self.LONG:
                     reward = 0
@@ -492,42 +454,42 @@ class FXEnvironment:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     a_log_str_line += ",POSITION_HOLD_SHORT,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
 
-            elif action == "CLOSE":
-                if self.pos_kind == self.SHORT:
-                    # 保持しているショートポジションをクローズする
-                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
-                    trade_result = self.positions * self.trade_val - self.positions * cur_price
-                    self.portfolio = self.portfolio + trade_result
-                    won_pips_diff = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
-                    self.won_pips  += won_pips_diff
-                    self.pos_kind = self.NOT_HAVE
-                    self.positions = 0
-
-                    a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result)+ "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
-                    reward = won_pips_diff
-                if self.pos_kind == self.LONG:
-                    # 保持しているロングポジションをクローズする
-                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
-                    trade_result = self.positions * cur_price - self.positions * self.trade_val
-                    won_pips_diff = (self.exchange_rates[
-                                         self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
-                    if won_pips_diff <= 0:
-                        trade_result = 0
-                        won_pips_diff = 0
-                        a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(
-                            won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
-                        reward = won_pips_diff
-                    else:
-                        self.portfolio = self.portfolio + trade_result
-                        self.won_pips += won_pips_diff
-                        self.pos_kind = self.NOT_HAVE
-                        self.positions = 0
-                        a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
-                            won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
-                        reward = won_pips_diff
-                else:
-                    a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
-                    reward = 0
+            # elif action == "CLOSE":
+            #     if self.pos_kind == self.SHORT:
+            #         # 保持しているショートポジションをクローズする
+            #         cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+            #         trade_result = self.positions * self.trade_val - self.positions * cur_price
+            #         self.portfolio = self.portfolio + trade_result
+            #         won_pips_diff = self.trade_val - (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
+            #         self.won_pips  += won_pips_diff
+            #         self.pos_kind = self.NOT_HAVE
+            #         self.positions = 0
+            #
+            #         a_log_str_line += ",CLOSE_SHORT" + "," + str(trade_result)+ "," + str(won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+            #         reward = won_pips_diff
+            #     if self.pos_kind == self.LONG:
+            #         # 保持しているロングポジションをクローズする
+            #         cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
+            #         trade_result = self.positions * cur_price - self.positions * self.trade_val
+            #         won_pips_diff = (self.exchange_rates[
+            #                              self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
+            #         if won_pips_diff <= 0:
+            #             trade_result = 0
+            #             won_pips_diff = 0
+            #             a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(
+            #                 won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+            #             reward = won_pips_diff
+            #         else:
+            #             self.portfolio = self.portfolio + trade_result
+            #             self.won_pips += won_pips_diff
+            #             self.pos_kind = self.NOT_HAVE
+            #             self.positions = 0
+            #             a_log_str_line += ",CLOSE_LONG" + "," + str(trade_result) + "," + str(
+            #                 won_pips_diff) + "," + str(cur_price) + "," + str(self.trade_val)
+            #             reward = won_pips_diff
+            #     else:
+            #         a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
+            #         reward = 0
             else:
                 raise Exception(str(action) + " is invalid.")
 
