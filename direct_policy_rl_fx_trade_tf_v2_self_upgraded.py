@@ -162,7 +162,7 @@ def train(num_episodes, gamma=1.0):
                 std_on_partial = np.std(rewards[-1 * MAXIMIZE_PERIOD:])
                 target = partial_return / std_on_partial # sharp ration on MAXIMIZE_PERIOD
                 if(math.isnan(target)):
-                    target = 1
+                    target = 1.0
                     print("target is nan...")
                 calculated_loss_arr = np.array([target])
                 loss_val = train_on_batch(input, calculated_loss_arr)
