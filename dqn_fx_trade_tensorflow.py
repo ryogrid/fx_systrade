@@ -67,7 +67,8 @@ class QNetwork:
         #self.model.add(BatchNormalization())
 
 
-        self.model.add(Dense(action_size, activation='tanh'))
+        #self.model.add(Dense(action_size, activation='tanh'))
+        self.model.add(Dense(action_size, activation='linear'))
 
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         #self.model.compile(loss=sharpratio_loss_wrapper(reward_arr, dummy_reward_arr, cur_fit_idx, SRATIO_PERIOD, mu), optimizer=self.optimizer)
@@ -84,16 +85,18 @@ class QNetwork:
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             #inputs[i:i + 1] = state_b
             inputs[i] = state_b
-            target = reward_b
 
-            retmainQs = self.model.predict(next_state_b)[0]
-            print(retmainQs)
-            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            target = reward_b + gamma * retmainQs[next_action]
+            # retmainQs = self.model.predict(next_state_b)[0]
+            # print(retmainQs)
+            # next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            # target = reward_b + gamma * retmainQs[next_action]
+            #
+            # targets[i] = self.model.predict(state_b)    # Qネットワークの出力
+            # targets[i][action_b] = target               # 教師信号
 
-
-            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
-            targets[i][action_b] = target               # 教師信号
+            # 以下だとただの教師あり学習! だが、あえてそうしている
+            targets[i] = self.model.predict(state_b)      # Qネットワークの出力
+            targets[i][action_b] = reward_b               # 教師信号
 
         self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
@@ -145,13 +148,13 @@ class Actor:
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
-            #print(retTargetQs)
-            #action = np.argmax()  # 最大の報酬を返す行動を選択する
-            action_val = retTargetQs[0]
-            if math.isnan(action_val):
-                action_val = 1
+            print(retTargetQs)
+            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+            # action_val = retTargetQs[0]
+            # if math.isnan(action_val):
+            #     action_val = 1
             #print(action_val)
-            action = round(action_val) + 1
+            # action = round(action_val) + 1
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
@@ -166,11 +169,11 @@ gamma = 0.99  # 割引係数
 hidden_size = 50 #100 #50  # 16               # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.005 #0.01 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = 7000000 #10000  # バッファーメモリの大きさ
-batch_size = 64 #32  # Q-networkを更新するバッチの大きさ
+batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 25 #160 #25
 feature_num = 10 # 11
-nn_output_size = 1
+nn_output_size = 3
 
 def tarin_agent():
     global reward_arr
@@ -211,7 +214,7 @@ def tarin_agent():
             # reward_arr = np.insert(reward_arr, reward_arr.size, reward)
             # dummy_reward_arr = np.insert(dummy_reward_arr, dummy_reward_arr.size, 0.0)
 
-            memory.add((state, action, reward))     # メモリを更新する
+            memory.add((state, action, reward, next_state))     # メモリを更新する
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
@@ -239,7 +242,7 @@ def tarin_agent():
                 break
 
             # モデルとメモリのスナップショットをとっておく
-            if(episode % 10000 == 0):
+            if episode % 10000 == 0 and episode != 0:
                 # targetQN.save_model("targetQN")
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
