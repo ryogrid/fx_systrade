@@ -30,17 +30,19 @@ NUM_STATES = 10
 NUM_ACTIONS = 3
 LEARNING_RATE = 0.0005
 
-class MyModel(tf.keras.layers.Layer):
-    def __init__(self):
-        super().__init__()
-        self.input_dense = layers.Dense(20, activation="relu", input_shape=[1, NUM_STATES])
-        #self.input_dense = layers.Dense(20, activation="relu")
+#class MyModel(tf.keras.layers.Layer):
+class MyModel(tf.keras.Model):
+    def __init__(self, **kwargs):
+        super(MyModel, self).__init__(**kwargs)
+        #self.input_layer = layers.Input((10,))
         self.hidden1 = layers.Dense(20, activation="relu")
+        self.hidden2 = layers.Dense(20, activation="relu")
         self.output_dense = layers.Dense(3, activation="softmax")
 
-    def __call__(self, inputs, training=None):
-        x = self.input_dense(inputs)
-        x = self.hidden1(x)
+    def __call__(self, inputs):
+        #x = self.input_layer(inputs)
+        x = self.hidden1(inputs)
+        x = self.hidden2(x)
         x = self.output_dense(x)
         return x
 
@@ -110,7 +112,7 @@ def train(num_episodes, gamma=1.0):
     @tf.function
     def train_on_batch(X, loss_arr):
         with tf.GradientTape() as tape:
-            pred = model(X, training=True) # Train mode
+            pred = model(X) # Train mode
             loss_val = loss(loss_arr)
         # backward
         graidents = tape.gradient(loss_val, model.trainable_weights)
@@ -130,8 +132,9 @@ def train(num_episodes, gamma=1.0):
         env = env_master.get_env('train')
         state, reward, done = env.step(0)  # first step is HOLD
         while True:
-            action_probs = model(state)[0]
-            print(model(state))
+            input_state = np.reshape(np.array(state), [1, 10])
+            action_probs = model(input_state)[0]
+            print(model(input_state))
             print(action_probs)
             # for ii, elem in enumerate(action_probs):
             #     print(elem)
