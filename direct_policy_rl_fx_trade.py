@@ -6,6 +6,7 @@ REINFORCE(Policy Gradient)
 import collections
 import numpy as np
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 
 from keras.models import Model, Sequential, model_from_json
 from keras.layers import Input, Dense, BatchNormalization, Dropout
