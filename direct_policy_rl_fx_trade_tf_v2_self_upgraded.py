@@ -33,7 +33,8 @@ LEARNING_RATE = 0.0005
 class MyModel(tf.keras.layers.Layer):
     def __init__(self):
         super().__init__()
-        self.input_dense = layers.Dense(128, activation="relu")
+        self.input_dense = layers.Dense(20, activation="relu", input_shape=[1, NUM_STATES])
+        #self.input_dense = layers.Dense(20, activation="relu")
         self.hidden1 = layers.Dense(20, activation="relu")
         self.output_dense = layers.Dense(3, activation="softmax")
 
@@ -108,7 +109,6 @@ def train(num_episodes, gamma=1.0):
 
     @tf.function
     def train_on_batch(X, loss_arr):
-        nonlocal loss_pass
         with tf.GradientTape() as tape:
             pred = model(X, training=True) # Train mode
             loss_val = loss(loss_arr)
@@ -130,7 +130,8 @@ def train(num_episodes, gamma=1.0):
         env = env_master.get_env('train')
         state, reward, done = env.step(0)  # first step is HOLD
         while True:
-            action_probs = model.predict(state)[0]
+            action_probs = model(state)[0]
+            print(model(state))
             print(action_probs)
             # for ii, elem in enumerate(action_probs):
             #     print(elem)
@@ -153,7 +154,7 @@ def train(num_episodes, gamma=1.0):
 
             if action_count > MAXIMIZE_PERIOD:
                 #for t, step in enumerate(partial_episode[[-1 * MAXIMIZE_PERIOD:]]):
-                input = np.array([state])
+                input = np.reshape(np.array(state), [1, 10])
                 partial_return = np.mean(rewards[-1 * MAXIMIZE_PERIOD:])
                 std_on_partial = np.std(rewards[-1 * MAXIMIZE_PERIOD:])
                 target = partial_return / std_on_partial # sharp ration on MAXIMIZE_PERIOD
