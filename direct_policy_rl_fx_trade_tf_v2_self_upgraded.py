@@ -100,27 +100,32 @@ MAXIMIZE_PERIOD = 64
 
 #def train(sess, policy_estimator, num_episodes, gamma=1.0):
 def train(num_episodes, gamma=1.0):
+    tf.keras.backend.set_floatx('float64')
+
     Step = collections.namedtuple("Step", ["state", "action", "reward"])
     env_master = FXEnvironment()
 
     model = MyModel()
     optim = Adam(learning_rate = 0.005)
 
-    def loss(ret_val):
-        return ret_val
+    def loss(pred, loss_arr, actions):
+        print(pred)
+        print(actions)
+        log_prob = tf.math.log(tf.reduce_sum(input_tensor=pred[0][actions[0]] * tf.cast(actions, np.float64)[0]))
+        return -1 * log_prob * loss_arr[0]
 
     @tf.function
-    def train_on_batch(X, loss_arr):
+    def train_on_batch(X, loss_arr, actions):
         with tf.GradientTape() as tape:
             pred = model(X) # Train mode
-            loss_val = loss(loss_arr)
-        # backward
-        graidents = tape.gradient(loss_val, model.trainable_weights)
-        # step optimizer
-        optim.apply_gradients(zip(graidents, model.trainable_weights))
-        # update accuracy
-        #acc.update_state(y, pred)  # 評価関数に結果を足していく
-        return loss_val
+            loss_val = loss(pred, loss_arr, actions)
+            # backward
+            graidents = tape.gradient(loss_val, model.trainable_weights)
+            # step optimizer
+            optim.apply_gradients(zip(graidents, model.trainable_weights))
+            # update accuracy
+            #acc.update_state(y, pred)  # 評価関数に結果を足していく
+            return loss_val
 
     for i_episode in range(1, num_episodes + 1):
         episode = []
@@ -133,13 +138,18 @@ def train(num_episodes, gamma=1.0):
         state, reward, done = env.step(0)  # first step is HOLD
         while True:
             input_state = np.reshape(np.array(state), [1, 10])
-            action_probs = model(input_state)[0]
-            print(model(input_state))
+            #action_probs = model(input_state)[0]
+            action_probs = model(input_state)[0].numpy()
+            #print(model(input_state))
             print(action_probs)
             # for ii, elem in enumerate(action_probs):
             #     print(elem)
             #     if elem < 0:
             #         action_probs[ii] = 0
+            # sum = 0.0
+            # for ii, elem in enumerate(action_probs):
+            #     sum += elem
+
             action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
             next_state, reward, done = env.step(action)
             rewards.append(reward)
@@ -160,12 +170,14 @@ def train(num_episodes, gamma=1.0):
                 input = np.reshape(np.array(state), [1, 10])
                 partial_return = np.mean(rewards[-1 * MAXIMIZE_PERIOD:])
                 std_on_partial = np.std(rewards[-1 * MAXIMIZE_PERIOD:])
-                target = partial_return / std_on_partial # sharp ration on MAXIMIZE_PERIOD
+                target = partial_return / (std_on_partial + 0.00001) # sharp ration on MAXIMIZE_PERIOD
                 if(math.isnan(target)):
                     target = 1.0
                     print("target is nan...")
                 calculated_loss_arr = np.array([target])
-                loss_val = train_on_batch(input, calculated_loss_arr)
+                print(action)
+                actions = np.array([action])
+                loss_val = train_on_batch(input, calculated_loss_arr, actions)
                 #loss = policy_estimator.update(sess, step.state, step.action, target)
                 loss_list.append(loss)
 
