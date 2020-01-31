@@ -300,7 +300,7 @@ class FXEnvironment:
 
     # type_str: "train", "test"
     def get_env(self, type_str):
-        return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr)
+        return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = self.PREDICT_FUTURE_LEGS, angle_arr=self.tr_angle_arr)
 
     class InnerFXEnvironment:
         def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015):
@@ -374,7 +374,7 @@ class FXEnvironment:
             ###### IMPORTANT: SELLは来ない。従って、self.pos_kind が self.SHORT であることもない。 ######
             if action == "BUY":
                 # 定められた本数の先の足で利益がでるか出ないか
-                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) < (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) else -1
+                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) > 0 else -1
 
                 if self.pos_kind == self.SHORT:
                     # 保持しているショートポジションをクローズする
@@ -406,7 +406,7 @@ class FXEnvironment:
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
             elif action == "SELL":
                 # 定められた本数の先の足で利益がでるか出ないか
-                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) < (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) else -1
+                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) < 0 else -1
 
                 if self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
