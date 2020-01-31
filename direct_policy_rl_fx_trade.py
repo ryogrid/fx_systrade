@@ -37,7 +37,17 @@ class PolicyEstimator():
     def __init__(self):
         l_input = Input(shape=(NUM_STATES,))
         l_dense = Dense(20, activation='relu')(l_input)
+        #l_dense_reshaped = tf.reshape(l_dense, [None, 3])
+        #l_dense.set_shape([None, 3])
+        #print(l_dense_reshaped)
+
+        # Error at compiling
+        #action_probs = Dense(NUM_ACTIONS, activation='softmax')(l_dense_reshaped)
         action_probs = Dense(NUM_ACTIONS, activation='softmax')(l_dense)
+        action_probs.set_shape([3, None])
+        print(action_probs)
+
+        #action_probs = Dense(NUM_ACTIONS, activation='tanh')(l_dense)
         self.model = Model(inputs=[l_input], outputs=[action_probs])
 
         if os.path.exists("./policyEstimator_nw.json"):
@@ -63,6 +73,7 @@ class PolicyEstimator():
         return sess.run(self.action_probs, {self.state: [state]})
 
     def update(self, sess, state, action, target):
+        #feed_dict = {self.state: [state], self.target: target, self.action: to_categorical(action, NUM_ACTIONS)}
         feed_dict = {self.state: [state], self.target: target, self.action: to_categorical(action, NUM_ACTIONS)}
         _, loss = sess.run([self.minimize, self.loss], feed_dict)
         print("loss: " + str(loss))
@@ -96,8 +107,13 @@ def train(sess, policy_estimator, num_episodes, gamma=1.0):
         state, reward, done = env.step(0)  # first step is HOLD
         while True:
             action_probs = policy_estimator.predict(sess, state)[0]
+            print(action_probs)
+            # for ii, elem in enumerate(action_probs):
+            #     print(elem)
+            #     if elem < 0:
+            #         action_probs[ii] = 0
             action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done = env.step(action)
             rewards.append(reward)
 
             episode.append(Step(state=state, action=action, reward=reward))
@@ -118,6 +134,8 @@ def train(sess, policy_estimator, num_episodes, gamma=1.0):
                     partial_return = np.mean(rewards)
                     std_on_partial = np.std(rewards)
                     target = partial_return / std_on_partial # sharp ration on MAXIMIZE_PERIOD
+                    if(math.isnan(target)):
+                        target = 1
                     loss = policy_estimator.update(sess, step.state, step.action, target)
                     loss_list.append(loss)
                 partial_episode = []
@@ -141,7 +159,7 @@ def backtest(sess, policy_estimator, num_episodes, gamma=1.0):
         while True:
             action_probs = policy_estimator.predict(sess, state)[0]
             action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done = env.step(action)
             if done:
                 break
 
