@@ -332,13 +332,11 @@ class FXEnvironment:
             self.log_fd_bt.flush()
 
         def step(self, action_num):
-            data_len = len(self.exchange_rates)
-
-            future_price_diff = self.angle_arr[self.cur_idx]
-
+            #data_len = len(self.exchange_rates)
+            #future_price_diff = self.angle_arr[self.cur_idx]
             reward = 0
-            action = -1
 
+            action = -1
             if action_num == 0:
                 action = "DONOT"
             elif action_num == 1:
@@ -505,7 +503,7 @@ class FXEnvironment:
                 self.logfile_writeln_bt("okawari occurd.")
 
             self.cur_idx += self.idx_step
-            if self.cur_idx >= len(self.input_arr):
+            if (self.idx_geta + self.cur_idx) >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
                 process_time = time.time() - self.start
