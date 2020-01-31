@@ -6,12 +6,14 @@ REINFORCE(Policy Gradient)
 import collections
 import numpy as np
 import tensorflow as tf
+#tf.compat.v1.disable_eager_execution()
 
-from keras.models import Model, Sequential, model_from_json
-from keras.layers import Input, Dense, BatchNormalization, Dropout
-from keras.utils import to_categorical
-from keras.optimizers import Adam
-from keras import backend as K
+from tensorflow.keras.models import Model, model_from_json
+from tensorflow.keras.layers import Input, Dense, BatchNormalization, Dropout
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import Adam
+import tensorflow.keras.layers as layers
+#from keras import backend as K
 import pickle
 
 # import tensorflow.compat.v1 as tf
@@ -24,103 +26,146 @@ import time
 
 from agent_fx_environment import FXEnvironment
 
-#env = gym.make('CartPole-v1')
-#NUM_STATES = env.env.observation_space.shape[0]
-#NUM_ACTIONS = env.env.action_space.n
-
 NUM_STATES = 10
 NUM_ACTIONS = 3
 LEARNING_RATE = 0.0005
 
-class PolicyEstimator():
+class MyModel(tf.keras.layers.Layer):
     def __init__(self):
-        l_input = Input(shape=(NUM_STATES,))
-        l_dense = Dense(20, activation='relu')(l_input)
-        action_probs = Dense(NUM_ACTIONS, activation='softmax')(l_dense)
-        self.model = Model(inputs=[l_input], outputs=[action_probs])
+        super().__init__()
+        self.input_dense = layers.Dense(128, activation="relu")
+        self.hidden1 = layers.Dense(20, activation="relu")
+        self.output_dense = layers.Dense(3, activation="softmax")
 
-        if os.path.exists("./policyEstimator_nw.json"):
-            self.load_model("policyEstimator")
+    def __call__(self, inputs, training=None):
+        x = self.input_dense(inputs)
+        x = self.hidden1(x)
+        x = self.output_dense(x)
+        return x
 
-        self.state, self.action, self.target, self.action_probs, self.minimize, self.loss = self._build_graph(self.model)
-
-    def _build_graph(self, model):
-        state = tf.placeholder(tf.float32)
-        action = tf.placeholder(tf.float32, shape=(None, NUM_ACTIONS))
-        target = tf.placeholder(tf.float32, shape=(None))
-
-        action_probs = model(state)
-        log_prob = tf.log(tf.reduce_sum(action_probs * action))
-        loss = -1 * log_prob * target
-
-        optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
-        minimize = optimizer.minimize(loss)
-
-        return state, action, target, action_probs, minimize, loss
-
-    def predict(self, sess, state):
-        return sess.run(self.action_probs, {self.state: [state]})
-
-    def update(self, sess, state, action, target):
-        feed_dict = {self.state: [state], self.target: target, self.action: to_categorical(action, NUM_ACTIONS)}
-        _, loss = sess.run([self.minimize, self.loss], feed_dict)
-        print("loss: " + str(loss))
-        return loss
-
-    def save_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
-            f.write(self.model.to_json())
-        self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
-
-    def load_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
-            self.model = model_from_json(f.read())
-        #self.model.compile(loss=huberloss, optimizer=self.optimizer)
-        self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
+# class PolicyEstimator():
+#     def __init__(self):
+#         l_input = Input(shape=(NUM_STATES,))
+#         l_dense = Dense(20, activation='relu')(l_input)
+#         action_probs = Dense(NUM_ACTIONS, activation='softmax')(l_dense)
+#         #self.model = Model(inputs=[l_input], outputs=[action_probs])
+#         self.model = Model(inputs=l_input, outputs=action_probs)
+#         if os.path.exists("./policyEstimator_nw.json"):
+#             self.load_model("policyEstimator")
+#         self.state, self.action, self.target, self.action_probs, self.minimize, self.loss = self._build_graph(self.model)
+#
+#     def _build_graph(self, model):
+#
+#         state = tf.keras.backend.placeholder(dtype='float32', shape=(None, NUM_STATES))
+#         action = tf.keras.backend.placeholder(dtype='float32', shape=(None, NUM_ACTIONS))
+#         target = tf.keras.backend.placeholder(dtype='float32', shape=(None))
+#
+#         action_probs = model(state)
+#         log_prob = tf.math.log(tf.reduce_sum(input_tensor=action_probs * action))
+#         loss = lambda: -1 * log_prob * target
+#         print(log_prob)
+#         print(target)
+#
+#         #optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+#         optimizer = Adam(LEARNING_RATE)
+#         minimize = optimizer.minimize(loss, var_list=[log_prob, target])
+#
+#
+#         return state, action, target, action_probs, minimize, loss
+#
+#     def predict(self, sess, state):
+#         return sess.run(self.action_probs, {self.state: [state]})
+#
+#     def update(self, sess, state, action, target):
+#         feed_dict = {self.state: [state], self.target: target, self.action: to_categorical(action, NUM_ACTIONS)}
+#         _, loss = sess.run([self.minimize, self.loss], feed_dict)
+#         print("loss: " + str(loss))
+#         return loss
+#
+#     def save_model(self, file_path_prefix_str):
+#         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
+#             f.write(self.model.to_json())
+#         self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
+#
+#     def load_model(self, file_path_prefix_str):
+#         with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
+#             self.model = model_from_json(f.read())
+#         #self.model.compile(loss=huberloss, optimizer=self.optimizer)
+#         self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
 
 MAXIMIZE_PERIOD = 64
 
-def train(sess, policy_estimator, num_episodes, gamma=1.0):
+#def train(sess, policy_estimator, num_episodes, gamma=1.0):
+def train(num_episodes, gamma=1.0):
     Step = collections.namedtuple("Step", ["state", "action", "reward"])
     env_master = FXEnvironment()
+
+    model = MyModel()
+    optim = Adam(learning_rate = 0.005)
+
+    def loss(ret_val):
+        return ret_val
+
+    @tf.function
+    def train_on_batch(X, loss_arr):
+        nonlocal loss_pass
+        with tf.GradientTape() as tape:
+            pred = model(X, training=True) # Train mode
+            loss_val = loss(loss_arr)
+        # backward
+        graidents = tape.gradient(loss_val, model.trainable_weights)
+        # step optimizer
+        optim.apply_gradients(zip(graidents, model.trainable_weights))
+        # update accuracy
+        #acc.update_state(y, pred)  # 評価関数に結果を足していく
+        return loss_val
 
     for i_episode in range(1, num_episodes + 1):
         episode = []
         loss_list = []
         rewards = []
-        partial_episode = []
+        #partial_episode = []
 
         action_count = 0
         env = env_master.get_env('train')
         state, reward, done = env.step(0)  # first step is HOLD
         while True:
-            action_probs = policy_estimator.predict(sess, state)[0]
+            action_probs = model.predict(state)[0]
+            print(action_probs)
+            # for ii, elem in enumerate(action_probs):
+            #     print(elem)
+            #     if elem < 0:
+            #         action_probs[ii] = 0
             action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
             next_state, reward, done = env.step(action)
             rewards.append(reward)
 
             episode.append(Step(state=state, action=action, reward=reward))
-            partial_episode.append(Step(state=state, action=action, reward=reward))
 
             if done:
                 break
 
-            state = next_state
             action_count += 1
 
-            # make snapshot
-            if(action_count % 10000 == 0):
-                policy_estimator.save_model("policyEstimator")
+            # # make snapshot
+            # if(action_count % 10000 == 0):
+            #     policy_estimator.save_model("policyEstimator")
 
-            if action_count % MAXIMIZE_PERIOD == 0 and action_count != 0:
-                for t, step in enumerate(partial_episode):
-                    partial_return = np.mean(rewards)
-                    std_on_partial = np.std(rewards)
-                    target = partial_return / std_on_partial # sharp ration on MAXIMIZE_PERIOD
-                    loss = policy_estimator.update(sess, step.state, step.action, target)
-                    loss_list.append(loss)
-                partial_episode = []
-                rewards = []
+            if action_count > MAXIMIZE_PERIOD:
+                #for t, step in enumerate(partial_episode[[-1 * MAXIMIZE_PERIOD:]]):
+                input = np.array([state])
+                partial_return = np.mean(rewards[-1 * MAXIMIZE_PERIOD:])
+                std_on_partial = np.std(rewards[-1 * MAXIMIZE_PERIOD:])
+                target = partial_return / std_on_partial # sharp ration on MAXIMIZE_PERIOD
+                if(math.isnan(target)):
+                    target = 1
+                    print("target is nan...")
+                calculated_loss_arr = np.array([target])
+                loss_val = train_on_batch(input, calculated_loss_arr)
+                #loss = policy_estimator.update(sess, step.state, step.action, target)
+                loss_list.append(loss)
+
+            state = next_state
 
         # log
         total_reward = sum(e.reward for e in episode)
@@ -140,7 +185,7 @@ def backtest(sess, policy_estimator, num_episodes, gamma=1.0):
         while True:
             action_probs = policy_estimator.predict(sess, state)[0]
             action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done = env.step(action)
             if done:
                 break
 
@@ -151,18 +196,18 @@ def backtest(sess, policy_estimator, num_episodes, gamma=1.0):
         print('episode %s reward: %f last 100: %f' % (i_episode, total_reward))
 
 def train_agent():
-    policy_estimator = PolicyEstimator()
-
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        train(sess, policy_estimator, 100000, gamma=1)
+    # policy_estimator = PolicyEstimator()
+    # with tf.compat.v1.Session() as sess:
+    #     sess.run(tf.compat.v1.global_variables_initializer())
+    #     train(sess, policy_estimator, 100000, gamma=1)
+    train(10000, gamma=1)
 
 def run_backtest():
-    policy_estimator = PolicyEstimator()
-
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        backtest(sess, policy_estimator, 1, gamma=1)
+    #policy_estimator = PolicyEstimator()
+    #with tf.compat.v1.Session() as sess:
+    #    sess.run(tf.compat.v1.global_variables_initializer())
+    #    backtest(sess, policy_estimator, 1, gamma=1)
+    backtest(1, gamma=1)
 
 if __name__ == '__main__':
     if sys.argv[1] == "train":
