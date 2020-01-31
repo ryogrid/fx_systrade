@@ -565,7 +565,7 @@ class FXEnvironment:
 
 
                 has_position = 1 if pos_cur_val == 0 else 1
-                next_state = self.input_arr[self.cur_idx] + [has_position] + [pos_cur_val] + [action_num]
+                next_state = self.input_arr[self.cur_idx] #+ [has_position] + [pos_cur_val] + [action_num]
                 return next_state, reward, False
 
 if __name__ == '__main__':

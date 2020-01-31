@@ -45,15 +45,15 @@ class PolicyEstimator():
         self.state, self.action, self.target, self.action_probs, self.minimize, self.loss = self._build_graph(self.model)
 
     def _build_graph(self, model):
-        state = tf.placeholder(tf.float32)
-        action = tf.placeholder(tf.float32, shape=(None, NUM_ACTIONS))
-        target = tf.placeholder(tf.float32, shape=(None))
+        state = tf.compat.v1.placeholder(tf.float32)
+        action = tf.compat.v1.placeholder(tf.float32, shape=(None, NUM_ACTIONS))
+        target = tf.compat.v1.placeholder(tf.float32, shape=(None))
 
         action_probs = model(state)
-        log_prob = tf.log(tf.reduce_sum(action_probs * action))
+        log_prob = tf.math.log(tf.reduce_sum(input_tensor=action_probs * action))
         loss = -1 * log_prob * target
 
-        optimizer = tf.train.AdamOptimizer(LEARNING_RATE)
+        optimizer = tf.compat.v1.train.AdamOptimizer(LEARNING_RATE)
         minimize = optimizer.minimize(loss)
 
         return state, action, target, action_probs, minimize, loss
@@ -153,15 +153,15 @@ def backtest(sess, policy_estimator, num_episodes, gamma=1.0):
 def train_agent():
     policy_estimator = PolicyEstimator()
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
         train(sess, policy_estimator, 100000, gamma=1)
 
 def run_backtest():
     policy_estimator = PolicyEstimator()
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
         backtest(sess, policy_estimator, 1, gamma=1)
 
 if __name__ == '__main__':
