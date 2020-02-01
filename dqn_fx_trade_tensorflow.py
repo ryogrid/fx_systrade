@@ -97,6 +97,7 @@ class QNetwork:
             # 以下だとただの教師あり学習! だが、あえてそうしている
             targets[i] = self.model.predict(state_b)      # Qネットワークの出力
             targets[i][action_b] = reward_b               # 教師信号
+            targets[i][0] = 0.0 # DONOTは必ずこの値なので固定してしまう
 
         self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
