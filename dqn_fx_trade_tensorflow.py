@@ -62,14 +62,10 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
-        self.model.add(Dropout(0.5))
-        #self.model.add(BatchNormalization())
         self.model.add(Dense(hidden_size, activation='relu'))
-
-
-
-
-        #self.model.add(Dense(action_size, activation='tanh'))
+        # self.model.add(BatchNormalization())
+        # self.model.add(Dropout(0.5))
+        self.model.add(Dense(hidden_size, activation='relu'))
         self.model.add(Dense(action_size, activation='linear'))
 
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
@@ -165,23 +161,22 @@ class Actor:
 
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
-DQN_MODE = 1    # 1がDQN、0がDDQNです
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
 hidden_size = 50 #100 #50  # 16               # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.005 #0.01 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-memory_size = 7000000 #10000  # バッファーメモリの大きさ
+learning_rate = 0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+memory_size = 1500000 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 25 #160 #25
+iteration_num = 32 # <- batch_sizeと掛け合わせて1000ぐらいになる... #25
 feature_num = 10 # 11
 nn_output_size = 3
 
 def tarin_agent():
-    global reward_arr
-    global dummy_reward_arr
-    global cur_fit_idx
+    #global reward_arr
+    #global dummy_reward_arr
+    #global cur_fit_idx
 
     env_master = FXEnvironment()
 
@@ -281,6 +276,7 @@ def run_backtest(period_kind):
             break
 
 if __name__ == '__main__':
+    np.random.seed(1337)  # for reproducibility
     if sys.argv[1] == "train":
         tarin_agent()
     elif sys.argv[1] == "backtest":

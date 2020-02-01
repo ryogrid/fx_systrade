@@ -7,16 +7,11 @@ from datetime import datetime as dt
 import pytz
 import os
 import sys
-
+import sklearn
 import time
-
+from sklearn.preprocessing import StandardScaler
 
 class FXEnvironment:
-
-
-    # chart_filter_type_long = [2]
-    # chart_filter_type_short = [1]
-
     def __init__(self):
         print("FXEnvironment class constructor called.")
         self.INPUT_LEN = 1
@@ -44,6 +39,13 @@ class FXEnvironment:
         self.reverse_exchange_rates = None
 
         self.setup_serialized_fx_data()
+
+    def preprocess_data(self, X):
+        scaler = StandardScaler()
+        scaler.fit(X)
+
+        X_T = scaler.transform(X)
+        return X_T, scaler
 
     # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
     def judge_chart_type(self, data_arr):
@@ -247,6 +249,8 @@ class FXEnvironment:
                 tmp = self.exchange_rates[i + self.PREDICT_FUTURE_LEGS] - self.exchange_rates[i]
                 angle_mat.append(tmp)
 
+        input_mat = np.array(input_mat, dtype=np.float64)
+        input_mat, _ = self.preprocess_data(input_mat)
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
         with open(y_arr_fpath, 'wb') as f:
@@ -336,6 +340,10 @@ class FXEnvironment:
             #future_price_diff = self.angle_arr[self.cur_idx]
             reward = 0
 
+            # このフラグが立っている回は reward などは返すが、トレードはしない
+            # 未来の価格によって reward を与えているが、その価格が self.idx_step 本足先のものである都合
+            no_trade = False if (self.cur_idx - 1) % self.idx_step == 0 else True
+
             action = -1
             if action_num == 0:
                 action = "DONOT"
@@ -374,7 +382,9 @@ class FXEnvironment:
                 # 定められた本数の先の足で利益がでるか出ないか
                 reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) > 0 else -1
 
-                if self.pos_kind == self.SHORT:
+                if no_trade == True:
+                    a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
+                elif self.pos_kind == self.SHORT:
                     # 保持しているショートポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
                     trade_result = self.positions * self.trade_val - self.positions * cur_price
@@ -406,7 +416,9 @@ class FXEnvironment:
                 # 定められた本数の先の足で利益がでるか出ないか
                 reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) < 0 else -1
 
-                if self.pos_kind == self.LONG:
+                if no_trade == True:
+                    a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
+                elif self.pos_kind == self.LONG:
                     # 保持しているロングポジションをクローズする
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
                     trade_result = self.positions * cur_price - self.positions * self.trade_val
@@ -435,15 +447,17 @@ class FXEnvironment:
                     open_position("SHORT")
                     a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
             elif action == "DONOT":
-                if self.pos_kind == self.LONG:
-                    reward = 0
-                elif self.pos_kind == self.SHORT:
-                    reward = 0
-                elif self.pos_kind == self.NOT_HAVE:
-                    reward = 0
+                # if self.pos_kind == self.LONG:
+                #     reward = 0
+                # elif self.pos_kind == self.SHORT:
+                #     reward = 0
+                # elif self.pos_kind == self.NOT_HAVE:
+                #     reward = 0
+                reward = 0
 
-                # ここでまとめてログ文字列の設定
-                if self.pos_kind == self.NOT_HAVE:
+                if no_trade == True:
+                    a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
+                elif self.pos_kind == self.NOT_HAVE:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
                 elif self.pos_kind == self.LONG:
                     cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
@@ -502,7 +516,7 @@ class FXEnvironment:
                 self.pos_kind = self.NOT_HAVE
                 self.logfile_writeln_bt("okawari occurd.")
 
-            self.cur_idx += self.idx_step
+            self.cur_idx += 1 #self.idx_step
             if (self.idx_geta + self.cur_idx) >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
