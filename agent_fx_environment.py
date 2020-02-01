@@ -304,10 +304,15 @@ class FXEnvironment:
 
     # type_str: "train", "test"
     def get_env(self, type_str):
-        return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = self.PREDICT_FUTURE_LEGS, angle_arr=self.tr_angle_arr)
+        if(type_str == "backtest"):
+            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
+                                           self.DATA_HEAD_ASOBI, idx_step=self.PREDICT_FUTURE_LEGS,
+                                           angle_arr=self.tr_angle_arr, is_backtest=True)
+        else:
+            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = self.PREDICT_FUTURE_LEGS, angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, is_backtest=False):
             self.input_arr = input_arr
             self.angle_arr = angle_arr
             self.exchange_dates = exchange_dates
@@ -318,6 +323,7 @@ class FXEnvironment:
             self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
             self.start = time.time()
             self.idx_step = idx_step
+            self.idx_real_step = 1
 
             self.done = False
 
@@ -330,6 +336,9 @@ class FXEnvironment:
             self.pos_kind = self.NOT_HAVE
             self.trade_val = 0
             self.positions = 0
+
+            if(is_backtest):
+                self.idx_real_step = 5
 
         def logfile_writeln_bt(self, log_str):
             self.log_fd_bt.write(log_str + "\n")
@@ -380,7 +389,7 @@ class FXEnvironment:
             ###### IMPORTANT: SELLは来ない。従って、self.pos_kind が self.SHORT であることもない。 ######
             if action == "BUY":
                 # 定められた本数の先の足で利益がでるか出ないか
-                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] - self.half_spread) > 0 else -1
+                reward = 1 if self.angle_arr[self.idx_geta + self.cur_idx] > 0 else -1
 
                 if no_trade == True:
                     a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
@@ -414,7 +423,8 @@ class FXEnvironment:
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
             elif action == "SELL":
                 # 定められた本数の先の足で利益がでるか出ないか
-                reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) < 0 else -1
+                #reward = 1 if (self.angle_arr[self.idx_geta + self.cur_idx] + self.half_spread) < 0 else -1
+                reward = 1 if self.angle_arr[self.idx_geta + self.cur_idx] < 0 else -1
 
                 if no_trade == True:
                     a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
@@ -516,7 +526,7 @@ class FXEnvironment:
                 self.pos_kind = self.NOT_HAVE
                 self.logfile_writeln_bt("okawari occurd.")
 
-            self.cur_idx += 1 #self.idx_step
+            self.cur_idx += self.idx_real_step #self.idx_step
             if (self.idx_geta + self.cur_idx) >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")

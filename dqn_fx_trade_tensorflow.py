@@ -250,9 +250,9 @@ def tarin_agent():
         # do_fit_count = -1
 
 
-def run_backtest(period_kind):
+def run_backtest():
     env_master = FXEnvironment()
-    env = env_master.get_env(period_kind)
+    env = env_master.get_env("backtest")
     num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
@@ -280,6 +280,6 @@ if __name__ == '__main__':
     if sys.argv[1] == "train":
         tarin_agent()
     elif sys.argv[1] == "backtest":
-        run_backtest('train')
+        run_backtest()
     else:
         print("please pass argument 'train' or 'backtest'")
