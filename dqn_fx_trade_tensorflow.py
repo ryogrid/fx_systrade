@@ -64,7 +64,7 @@ class QNetwork:
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
         #self.model.add(Dropout(0.5))
-        #self.model.add(BatchNormalization())
+        self.model.add(BatchNormalization())
 
 
         #self.model.add(Dense(action_size, activation='tanh'))
