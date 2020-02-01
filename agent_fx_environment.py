@@ -355,11 +355,11 @@ class FXEnvironment:
 
             action = -1
             if action_num == 0:
-                action = "DONOT"
-            elif action_num == 1:
                 action = "BUY"
-            elif action_num == 2:
+            elif action_num == 1:
                 action = "SELL"
+            # elif action_num == 2:
+            #     action = "SELL"
             # elif action_num == 3:
             #     action = "SELL"
             else:
@@ -456,25 +456,25 @@ class FXEnvironment:
                     # ショートポジションを購入する
                     open_position("SHORT")
                     a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(self.trade_val)
-            elif action == "DONOT":
-                # if self.pos_kind == self.LONG:
-                #     reward = 0
-                # elif self.pos_kind == self.SHORT:
-                #     reward = 0
-                # elif self.pos_kind == self.NOT_HAVE:
-                #     reward = 0
-                reward = 0
-
-                if no_trade == True:
-                    a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
-                elif self.pos_kind == self.NOT_HAVE:
-                    a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
-                elif self.pos_kind == self.LONG:
-                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
-                    a_log_str_line += ",POSITION_HOLD_LONG,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
-                elif self.pos_kind == self.SHORT:
-                    cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
-                    a_log_str_line += ",POSITION_HOLD_SHORT,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
+            # elif action == "DONOT":
+            #     # if self.pos_kind == self.LONG:
+            #     #     reward = 0
+            #     # elif self.pos_kind == self.SHORT:
+            #     #     reward = 0
+            #     # elif self.pos_kind == self.NOT_HAVE:
+            #     #     reward = 0
+            #     reward = 0
+            #
+            #     if no_trade == True:
+            #         a_log_str_line += ",NO_TRADE_PERIOD,0,0,0,0"
+            #     elif self.pos_kind == self.NOT_HAVE:
+            #         a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
+            #     elif self.pos_kind == self.LONG:
+            #         cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
+            #         a_log_str_line += ",POSITION_HOLD_LONG,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
+            #     elif self.pos_kind == self.SHORT:
+            #         cur_price = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
+            #         a_log_str_line += ",POSITION_HOLD_SHORT,0,"+ str(cur_price - self.trade_val) + "," + str(cur_price) + "," + str(self.trade_val)
 
             # elif action == "CLOSE":
             #     if self.pos_kind == self.SHORT:

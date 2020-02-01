@@ -77,7 +77,7 @@ class QNetwork:
     # 重みの学習
     def replay(self, memory, batch_size, gamma):
         inputs = np.zeros((batch_size, feature_num))
-        targets = np.zeros((batch_size, 3))
+        targets = np.zeros((batch_size, 2))
         mini_batch = memory.sample(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
@@ -92,12 +92,15 @@ class QNetwork:
             # targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             # targets[i][action_b] = target               # 教師信号
 
-            # 以下だとただの教師あり学習! だが、あえてそうしている
-            targets[i] = self.model.predict(state_b)      # Qネットワークの出力
-            targets[i][action_b] = reward_b               # 教師信号
-            targets[i][0] = 0.0 # DONOTは必ずこの値なので固定してしまう
+            another_action = 1 - action_b # action_bが 0 or 1 だとこの式で他方のインデックスが求まる
+            another_val = -1 * reward_b # BUY or SELL で rewardは 1 or -1 なので他方は必ず符号を逆転した値になる
 
-        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+            # 以下だとただの教師あり学習! だが、あえてそうしている
+            #targets[i] = self.model.predict(state_b)      # Qネットワークの出力
+            targets[i][action_b] = reward_b               # 教師信号
+            targets[i][another_action] = another_val      # もう一方のアクションのreward
+
+        self.model.fit(inputs, targets, epochs=5, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
@@ -155,7 +158,8 @@ class Actor:
             #print(action_val)
             # action = round(action_val) + 1
         else:
-            action = np.random.choice([0, 1, 2])  # ランダムに行動する
+            action = np.random.choice([0, 1])  # ランダムに行動する
+            #action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
         return action
 
@@ -169,9 +173,9 @@ learning_rate = 0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学�
 memory_size = 1500000 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 32 # <- batch_sizeと掛け合わせて1000ぐらいになる... #25
+iteration_num = 7 # <- batch_size * replayでのepoch と掛け合わせて1000ぐらいになる #32 # #25
 feature_num = 10 # 11
-nn_output_size = 3
+nn_output_size = 2 #3
 
 def tarin_agent():
     #global reward_arr
@@ -198,7 +202,7 @@ def tarin_agent():
     targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
-        state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("HOLD")
+        state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("BUY")
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
         for episode in range(num_episodes):  # 試行数分繰り返す
@@ -263,7 +267,7 @@ def run_backtest():
 
     mainQN.load_model("mainQN")
 
-    # HOLD でスタート
+    # BUY でスタート
     state, reward, done = env.step(0)
     state = np.reshape(state, [1, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
