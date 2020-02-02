@@ -324,6 +324,7 @@ class FXEnvironment:
             self.start = time.time()
             self.idx_step = idx_step
             self.idx_real_step = 1
+            self.is_backtest = is_backtest
 
             self.done = False
 
@@ -351,7 +352,7 @@ class FXEnvironment:
 
             # このフラグが立っている回は reward などは返すが、トレードはしない
             # 未来の価格によって reward を与えているが、その価格が self.idx_step 本足先のものである都合
-            no_trade = False if (self.cur_idx - 1) % self.idx_step == 0 else True
+            no_trade = False if (self.cur_idx - self.idx_real_step) % self.idx_step == 0 else True
 
             action = -1
             if action_num == 0:
@@ -399,7 +400,7 @@ class FXEnvironment:
                     trade_result = self.positions * self.trade_val - self.positions * cur_price
                     won_pips_diff = self.trade_val - (
                             self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
-                    if False: #won_pips_diff <= 0:
+                    if won_pips_diff <= 0 and self.is_backtest == True:
                         won_pips_diff = 0
                         trade_result = 0
                         a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
@@ -434,7 +435,7 @@ class FXEnvironment:
                     trade_result = self.positions * cur_price - self.positions * self.trade_val
 
                     won_pips_diff = (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread) - self.trade_val
-                    if False: #won_pips_diff <= 0:
+                    if won_pips_diff <= 0 and self.is_backtest == True:
                         won_pips_diff = 0
                         trade_result = 0
                         a_log_str_line += ",THROUGH_MINUS_GAIN" + "," + str(trade_result) + "," + str(won_pips_diff) + "," + str(
