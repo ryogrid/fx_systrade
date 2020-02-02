@@ -65,7 +65,7 @@ class QNetwork:
         self.model.add(Dense(hidden_size, activation='relu'))
         # self.model.add(BatchNormalization())
         # self.model.add(Dropout(0.5))
-        self.model.add(Dense(hidden_size, activation='relu'))
+        # self.model.add(Dense(hidden_size, activation='relu'))
         self.model.add(Dense(action_size, activation='linear'))
 
         self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
@@ -78,7 +78,8 @@ class QNetwork:
     def replay(self, memory, batch_size, gamma):
         inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 2))
-        mini_batch = memory.sample(batch_size)
+        #mini_batch = memory.sample(batch_size)
+        mini_batch = memory.get_last(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             #inputs[i:i + 1] = state_b
@@ -169,11 +170,11 @@ TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
 hidden_size = 50 #100 #50  # 16               # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.05 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = 1500000 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 7 # <- batch_size * replayでのepoch と掛け合わせて1000ぐらいになる #32 # #25
+iteration_num = 14 #32 # #25
 feature_num = 10 # 11
 nn_output_size = 2 #3
 
