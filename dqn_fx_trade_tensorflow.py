@@ -168,7 +168,8 @@ def tarin_agent():
 
             a_log = [state, action, reward, next_state]
             memory.add(a_log)     # メモリを更新する
-            memory_hash[info[0]] = a_log #後から更新するためのインデックス
+            # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
+            memory_hash[info[0]] = a_log
 
             state = next_state  # 状態更新
 
