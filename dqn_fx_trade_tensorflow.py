@@ -125,14 +125,14 @@ class Actor:
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.3 #0.99  # 割引係数
-hidden_size = 50 #100 #50  # 16               # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.05 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-memory_size = 1500000 #10000  # バッファーメモリの大きさ
+hidden_size = 50 # Q-networkの隠れ層のニューロンの数
+learning_rate = 0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+memory_size = TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 14 #32 # #25
+iteration_num = 20 # <- 1足あたり 32 * 5 * 20 で約3000回のfitが行われる計算
 feature_num = 11
-nn_output_size = 2 #3
+nn_output_size = 3
 
 def tarin_agent():
     env_master = FXEnvironment()
@@ -140,12 +140,12 @@ def tarin_agent():
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     memory = Memory(max_size=memory_size)
+    memory_hash = {}
     actor = Actor()
 
     if os.path.exists("./mainQN_nw.json"):
         # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
         mainQN.load_model("mainQN")
-        # targetQN.load_model("targetQN")
         memory.load_memory("memory")
 
     total_get_acton_cnt = 1
@@ -154,16 +154,22 @@ def tarin_agent():
     targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
-        state, reward, done = env.step(0)  # 1step目は適当な行動をとる ("BUY")
+        state, reward, done, info = env.step(0)  # 1step目は適当な行動をとる ("BUY")
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
             action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
-            next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+            next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
-            memory.add((state, action, reward, next_state))     # メモリを更新する
+            # TODO: infoのlenが1より大きかったら、第一要素より後ろの文字列をキーとして、
+            #       ハッシュ経由で、memory内の過去のエピソードのリワードを上書きする
+
+            a_log = [state, action, reward, next_state]
+            memory.add(a_log)     # メモリを更新する
+            memory_hash[info[0]] = a_log #後から更新するためのインデックス
+
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
@@ -181,6 +187,9 @@ def tarin_agent():
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
 
+        # 一周回したら、次の周でりようされることはないのでクリア
+        memory_hash = {}
+
 def run_backtest():
     env_master = FXEnvironment()
     env = env_master.get_env("backtest")
@@ -193,11 +202,11 @@ def run_backtest():
     mainQN.load_model("mainQN")
 
     # BUY でスタート
-    state, reward, done = env.step(0)
+    state, reward, done, info = env.step(0)
     state = np.reshape(state, [1, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
-        state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+        state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         state = np.reshape(state, [1, feature_num])
         # 環境が提供する期間が最後までいった場合
         if done:
