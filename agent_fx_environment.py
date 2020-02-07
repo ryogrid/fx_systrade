@@ -548,11 +548,7 @@ class FXEnvironment:
                 else: # self.NOT_HAVE
                     pos_cur_val = 0
 
-
                 has_position = 1 if pos_cur_val == 0 else 1
-                next_state = self.input_arr[self.cur_idx] #+ [has_position] + [pos_cur_val] + [action_num]
-                return next_state, reward, False
 
-if __name__ == '__main__':
-    fx_env = FXEnvironment()
-#    fx_env.setup_serialized_fx_data()
+                next_state = self.input_arr[self.cur_idx] + [pos_cur_val] #+ [has_position] + [pos_cur_val] + [action_num]
+                return next_state, reward, False
