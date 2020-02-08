@@ -485,6 +485,8 @@ class PortforioManager:
                 print("do nothing now")
         self.total_won_pips += won_pips_sum
         self.having_money += won_money_sum
+        self.positions = []
+        self.position_num = 0;
 
         return won_pips_sum, won_money_sum, won_pips_arr
 
