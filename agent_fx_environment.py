@@ -398,7 +398,8 @@ class FXEnvironment:
             else:
                 raise Exception(str(action) + " is invalid.")
 
-            a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)) + "," + str(self.portfolio_mngr.total_won_pips) + "," + str(len(self.positions_identifiers))
+            a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)) +\
+                              "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(len(self.positions_identifiers))
             self.logfile_writeln_bt(a_log_str_line)
 
             self.cur_idx += self.idx_real_step #self.idx_step
@@ -448,12 +449,12 @@ class PortforioManager:
     # ロングポジションを最大保持可能数における1単位分購入する（購入通貨数が整数になるような調整は行わない）
     def buy(self, rate_idx):
         pos_kind = self.LONG
-        position_num = (self.having_money / (self.holdable_position_num - self.position_num)) /\
-                             (self.exchange_rates[rate_idx] + self.half_spread)
         trade_val = self.exchange_rates[rate_idx] + self.half_spread
-        self.positions.append([trade_val, pos_kind, position_num])
+        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
+
+        self.positions.append([trade_val, pos_kind, currency_num])
         self.position_num += 1
-        self.having_money -= trade_val * position_num
+        self.having_money -= trade_val * currency_num
         return trade_val
 
     # def sell(self, rate_idx):
@@ -468,25 +469,28 @@ class PortforioManager:
         # 保持しているロングポジションをクローズする
         cur_price = self.exchange_rates[rate_idx] - self.half_spread
         trade_result = position[2] * cur_price - position[2] * position[0]
+        return_money = position[2] * cur_price
         won_pips = cur_price - position[0]
-        return won_pips, trade_result
+        return won_pips, trade_result, return_money
 
     def close_all(self, rate_idx):
         won_pips_sum = 0
         won_money_sum = 0
+        returned_money_sum = 0
         won_pips_arr = []
         for position in self.positions:
             if position[1] == self.LONG:
-                won_pips, won_money = self.close_long(position, rate_idx)
+                won_pips, won_money, return_money = self.close_long(position, rate_idx)
                 won_pips_sum += won_pips
                 won_money_sum += won_money
+                returned_money_sum += return_money
                 won_pips_arr.append(won_pips)
             else:
                 print("do nothing now")
         self.total_won_pips += won_pips_sum
-        self.having_money += won_money_sum
+        self.having_money += returned_money_sum
         self.positions = []
-        self.position_num = 0;
+        self.position_num = 0
 
         return won_pips_sum, won_money_sum, won_pips_arr
 
@@ -509,10 +513,9 @@ class PortforioManager:
 
     def get_current_portfolio(self, rate_idx):
         total_evaluated_money = 0
-        total_currecy_num = 0
         cur_price_no_spread = self.exchange_rates[rate_idx]
         for position in self.positions:
-            if position[2] == self.LONG:
+            if position[1] == self.LONG:
                 # 売った際に得られる現金で評価
                 total_evaluated_money += position[2] * (cur_price_no_spread - self.half_spread)
             else:
