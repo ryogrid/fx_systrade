@@ -372,7 +372,7 @@ class FXEnvironment:
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
                 else: #もうオープンできない
-                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos()) + "," + str(
+                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "CLOSE":
                 if len(self.positions_identifiers) > 0: # ポジションを持っている場合
@@ -390,7 +390,7 @@ class FXEnvironment:
                 reward = 0
 
                 if len(self.positions_identifiers) > 0:
-                    a_log_str_line += ",POSITION_HOLD_LONG,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos()) + "," + str(
+                    a_log_str_line += ",POSITION_HOLD_LONG,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                         self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
                 else:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
