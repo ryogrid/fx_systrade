@@ -408,8 +408,8 @@ class FXEnvironment:
                 print("finished backtest.")
                 process_time = time.time() - self.start
                 self.logfile_writeln_bt("excecution time of backtest: " + str(process_time))
-                self.logfile_writeln_bt("result of portfolio: " + str(self.portfolio))
-                print("result of portfolio: " + str(self.portfolio))
+                self.logfile_writeln_bt("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)))
+                print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
                 return None, reward, True

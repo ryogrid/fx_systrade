@@ -116,7 +116,7 @@ class Actor:
             print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
-            action = np.random.choice([0, 1])  # ランダムに行動する
+            action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
         return action
 
