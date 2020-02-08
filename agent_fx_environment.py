@@ -412,7 +412,7 @@ class FXEnvironment:
                 print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
-                return None, reward, True
+                return None, reward, True, [cur_step_identifier] + additional_infos
             else:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)
                 has_position = 1 if valuated_diff == 0 else 1
