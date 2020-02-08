@@ -9,6 +9,7 @@ import os
 import sys
 import sklearn
 import time
+import random
 from sklearn.preprocessing import StandardScaler
 
 class FXEnvironment:
@@ -333,8 +334,11 @@ class FXEnvironment:
             # if(is_backtest):
             #     self.idx_real_step = 5
 
-        def get_unixtime_str(self):
-            return str(time.time())
+        # def get_unixtime_str(self):
+        #     return str(time.time())
+
+        def get_rand_str(self):
+            return str(random.randint(0, 10000000))
 
         def logfile_writeln_bt(self, log_str):
             self.log_fd_bt.write(log_str + "\n")
@@ -342,8 +346,9 @@ class FXEnvironment:
 
         def step(self, action_num):
             reward = 0
-
             action = -1
+            cur_step_identifier = self.get_rand_str()
+
             if action_num == 0:
                 action = "BUY"
             elif action_num == 1:
@@ -363,7 +368,7 @@ class FXEnvironment:
                 reward = 0
                 if self.portfolio_mngr.additional_pos_openable():
                     buy_val = self.portfolio_mngr.buy(self.idx_geta + self.cur_idx)
-                    self.positions_identifiers.append(self.get_unixtime_str())
+                    self.positions_identifiers.append(cur_step_identifier)
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
                 else: #もうオープンできない
@@ -374,7 +379,8 @@ class FXEnvironment:
                     won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(self.idx_geta + self.cur_idx)
                     a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
                     won_pips) + "," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
-                    additional_infos = self.positions_identifiers
+                    for idx in range(0, len(self.positions_identifiers)):
+                        additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx]])
                     self.positions_identifiers = []
                     reward = won_pips
                 else:
@@ -410,10 +416,10 @@ class FXEnvironment:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)
                 has_position = 1 if valuated_diff == 0 else 1
 
-                next_state = self.input_arr[self.cur_idx] + [valuated_diff] #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
-                return next_state, reward, False, [self.get_unixtime_str()] + additional_infos
+                return next_state, reward, False, [cur_step_identifier] + additional_infos
 
 class PortforioManager:
 
@@ -443,8 +449,8 @@ class PortforioManager:
     def buy(self, rate_idx):
         pos_kind = self.LONG
         position_num = (self.having_money / (self.holdable_position_num - self.position_num)) /\
-                             (self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread)
-        trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] + self.half_spread
+                             (self.exchange_rates[rate_idx] + self.half_spread)
+        trade_val = self.exchange_rates[rate_idx] + self.half_spread
         self.positions.append([trade_val, pos_kind, position_num])
         self.position_num += 1
         self.having_money -= trade_val * position_num

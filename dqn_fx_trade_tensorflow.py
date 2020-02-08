@@ -48,7 +48,7 @@ class QNetwork:
     # 重みの学習
     def replay(self, memory, batch_size, gamma):
         inputs = np.zeros((batch_size, feature_num))
-        targets = np.zeros((batch_size, 2))
+        targets = np.zeros((batch_size, 3))
         mini_batch = memory.sample(batch_size)
         #mini_batch = memory.get_last(batch_size)
 
@@ -154,7 +154,7 @@ def tarin_agent():
     targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
-        state, reward, done, info = env.step(0)  # 1step目は適当な行動をとる ("BUY")
+        state, reward, done, info = env.step(2)  # 1step目は適当な行動をとる ("DONOT")
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
         for episode in range(num_episodes):  # 試行数分繰り返す
