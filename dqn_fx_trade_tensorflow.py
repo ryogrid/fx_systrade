@@ -163,8 +163,11 @@ def tarin_agent():
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
-            # TODO: infoのlenが1より大きかったら、第一要素より後ろの文字列をキーとして、
-            #       ハッシュ経由で、memory内の過去のエピソードのリワードを上書きする
+            # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
+            # info で返されるので、その内容で過去のエピソードのリワードを更新する
+            if len(info) > 1:
+                for keyval in info[1:]:
+                    memory_hash[keyval[0]][2] = keyval[1]
 
             a_log = [state, action, reward, next_state]
             memory.add(a_log)     # メモリを更新する
