@@ -435,7 +435,7 @@ class PortforioManager:
         self.SHORT = 2
 
         self.having_money = 1000000.0
-        self.total_won_pips = 0
+        self.total_won_pips = 0.0
 
         # 各要素は [購入時の価格（スプレッド含む）, self.LONG or self.SHORT, 数量]
         # 数量は通貨の数を表しLONGであれば正、SHORTであれば負の値となる
@@ -496,20 +496,20 @@ class PortforioManager:
 
     # 現在のpipsで見た保有ポジションの評価損益
     def get_evaluated_val_diff_of_all_pos(self, rate_idx):
-        total_evaluated_money = 0
+        total_evaluated_money_diff = 0
         total_currecy_num = 0
         cur_price_no_spread = self.exchange_rates[rate_idx]
         for position in self.positions:
-            if position[2] == self.LONG:
-                total_evaluated_money += position[2] * ((cur_price_no_spread - self.half_spread) - position[0])
+            if position[1] == self.LONG:
+                total_evaluated_money_diff += position[2] * ((cur_price_no_spread - self.half_spread) - position[0])
             else:
-                total_evaluated_money += position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
+                total_evaluated_money_diff += position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
             total_currecy_num +=  abs(position[2])
 
         if total_currecy_num == 0:
             return 0
         else:
-            return total_evaluated_money / total_currecy_num
+            return total_evaluated_money_diff / total_currecy_num
 
     def get_current_portfolio(self, rate_idx):
         total_evaluated_money = 0
