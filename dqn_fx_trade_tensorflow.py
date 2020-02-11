@@ -64,7 +64,7 @@ class QNetwork:
                 targets[i][action_b] = reward_b  # 教師信号
             targets[i][2] = 0.0                  # 教師信号（DONOTで返されるrewardは常に0。従って、将来のエピソードの影響を考慮しても常に0）
 
-        self.model.fit(inputs, targets, epochs=5, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
@@ -131,7 +131,7 @@ learning_rate = 0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-network�
 memory_size = TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 10 # <- 1足あたり 32 * 5 * 20 で約1500回のfitが行われる計算 #20
+iteration_num = 50 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
 feature_num = 10 #11
 nn_output_size = 3
 
