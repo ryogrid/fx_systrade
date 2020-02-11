@@ -56,7 +56,7 @@ class QNetwork:
         #mini_batch = memory.get_last(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            inputs[i] = state_b
+            inputs[i:i+1] = state_b
 
             retmainQs = self.model.predict(next_state_b)[0]
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
@@ -71,6 +71,7 @@ class QNetwork:
             # # predictした結果を採用させる
             # if not ((action_b == 0 or action_b == 1) and reward_b == 0):
 
+            targets[i] = self.model.predict(state_b)
             # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので
             # predictした結果を採用させる（つまり、その場合以外であれば target を教師信号とする）
             if not (action_b == 0 and reward_b == 0):

@@ -4,6 +4,7 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
+import gym  # 倒立振子(cartpole)の実行環境
 import numpy as np
 import time
 from keras.models import Sequential, model_from_json, Model
@@ -18,7 +19,7 @@ import pickle
 import os
 import sys
 import math
-import gym  # 倒立振子(cartpole)の実行環境
+
 
 # [1]損失関数の定義
 # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
@@ -52,16 +53,26 @@ class QNetwork:
         mini_batch = memory.sample(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            inputs[i] = state_b
+            inputs[i:i+1] = state_b
+            target = reward_b
+
+            if not (next_state_b == np.zeros(state_b.shape)).all(axis=1):
+                # 価値計算（DDQNにも対応できるように、行動決定のQネットワークと価値観数のQネットワークは分離）
+                retmainQs = self.model.predict(next_state_b)[0]
+                next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
 
             retmainQs = self.model.predict(next_state_b)[0]
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
             target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
 
-            targets[i] = self.model.predict(state_b)[0]    # Qネットワークの出力
+            print(self.model.predict(state_b))
+            print(self.model.predict(state_b)[0])
+
+            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
 
-        self.model.fit(inputs, targets, epochs=5, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+        self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
@@ -107,7 +118,8 @@ class Memory:
 class Actor:
     def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0+(300.0*(episode/iteration_num)))
+        #epsilon = 0.001 + 0.9 / (1.0+(300.0*(episode/iteration_num)))
+        epsilon = 0.001 + 0.9 / (1.0 + episode)
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -123,16 +135,15 @@ class Actor:
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
-hidden_size = 50 # Q-networkの隠れ層のニューロンの数
+hidden_size = 16 #50 # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-memory_size = TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
+memory_size = 10000 #TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = 300
-iteration_num = 10000
+iteration_num = 1000
 feature_num = 4 #11
 nn_output_size = 2
 #num_consecutive_iterations = 10  # 学習完了評価の平均計算を行う試行回数
-
 
 def tarin_agent():
     env = gym.make('CartPole-v0')
@@ -141,16 +152,16 @@ def tarin_agent():
     targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
                       action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
-#    memory_hash = {}
+    #    memory_hash = {}
     actor = Actor()
 
     total_get_acton_cnt = 0
 
-    inputs = np.zeros((batch_size, feature_num))
-    targets = np.zeros((batch_size, nn_output_size))
+    # inputs = np.zeros((batch_size, feature_num))
+    # targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env.reset()
-        state, reward, done, info = env.step(0)  # 1step目は適当な行動をとる
+        state, reward, done, _ = env.step(env.action_space.sample())  # 1step目は適当な行動をとる
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
         episode_reward = 0
 
@@ -172,7 +183,7 @@ def tarin_agent():
             else:
                 reward = 0  # 各ステップで立ってたら報酬追加（はじめからrewardに1が入っているが、明示的に表す）
 
-            a_log = [state, action, reward, next_state]
+            a_log = (state, action, reward, next_state)
             memory.add(a_log)     # メモリを更新する
             # # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
             # memory_hash[info[0]] = a_log
@@ -188,13 +199,13 @@ def tarin_agent():
             # 1施行終了時の処理
             if done:
                 #total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
-                print('iteration %d: episode_reward %f' % (
+                print('iteration %d: episode_reward %d' % (
                 cur_itr, episode_reward))
                 break
 
 
 if __name__ == '__main__':
-    np.random.seed(1337)  # for reproducibility
+#    np.random.seed(1337)  # for reproducibility
     if sys.argv[1] == "train":
         tarin_agent()
     else:
