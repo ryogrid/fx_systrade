@@ -110,7 +110,7 @@ class Memory:
 class Actor:
     def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0+(episode/(iteration_num * 100)))
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (episode/TOTAL_ACTION_NUM)))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -134,6 +134,7 @@ iteration_num = 50 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行わ�
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.1) #10000  # バッファーメモリの大きさ
 feature_num = 10 #11
 nn_output_size = 3
+TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 
 def tarin_agent():
     env_master = FXEnvironment()

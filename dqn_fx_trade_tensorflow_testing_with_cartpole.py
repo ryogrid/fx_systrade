@@ -107,7 +107,7 @@ class Memory:
 class Actor:
     def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0+(episode/iteration_num))
+        epsilon = 0.001 + 0.9 / (1.0+episode)
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -124,7 +124,7 @@ TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99  # 割引係数
 hidden_size = 50 # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 memory_size = TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = 300
@@ -154,7 +154,7 @@ def tarin_agent():
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
-            action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
+            action = actor.get_action(state, cur_itr, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
