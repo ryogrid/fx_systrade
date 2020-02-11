@@ -64,7 +64,7 @@ class QNetwork:
 
             # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
             # BUYとSELLのrewardが後追いで定まるため、それを反映するために replay を行う
-            targets[i] = self.model.predict(state_b)    # Qネットワークの出力
+            targets[i] = self.model.predict(state_b)[0]    # Qネットワークの出力
             targets[i][action_b] = reward_b             # 教師信号
             targets[i][2] = 0.0                         # 教師信号（DONOTで返されるrewardは常に0。従って、将来のエピソードの影響を考慮しても常に0）
 
