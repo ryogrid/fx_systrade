@@ -61,7 +61,8 @@ class QNetwork:
             retmainQs = self.model.predict(next_state_b)[0]
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
             #target = reward_b + gamma * retmainQs[next_action]
-            target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
+            next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
+            target = reward_b + gamma * next_state_max_reward
 
             # # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
             # # BUYとSELLのrewardが後追いで定まるため、それを反映するために replay を行う
@@ -74,7 +75,7 @@ class QNetwork:
             # predictした結果を採用させる（つまり、その場合以外であれば target を教師信号とする）
             if not (action_b == 0 and reward_b == 0):
                 targets[i][action_b] = target  # 教師信号
-            targets[i][2] = 0.0                # 教師信号（DONOTで返されるrewardは常に0。従って、将来のエピソードの影響を考慮しても常に0）
+            targets[i][2] = 0.0 + gamma * next_state_max_reward  # 教師信号（DONOTで返されるrewardは常に0)
 
         self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
