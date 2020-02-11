@@ -135,7 +135,7 @@ learning_rate = 0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-network�
 memory_size = TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 20 # <- 1足あたり 32 * 5 * 20 で約3000回のfitが行われる計算
+iteration_num = 10 # <- 1足あたり 32 * 5 * 20 で約1500回のfitが行われる計算 #20
 feature_num = 10 #11
 nn_output_size = 3
 
