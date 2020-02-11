@@ -111,7 +111,7 @@ class Actor:
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
-            print(retTargetQs)
+            #print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
             action = np.random.choice([0, 1])  # ランダムに行動する
@@ -128,7 +128,7 @@ learning_rate = 0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-network�
 memory_size = TRAIN_DATA_NUM * 2 #10000  # バッファーメモリの大きさ
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = 300
-iteration_num = 1000
+iteration_num = 10000
 feature_num = 4 #11
 nn_output_size = 2
 #num_consecutive_iterations = 10  # 学習完了評価の平均計算を行う試行回数
@@ -174,8 +174,8 @@ def tarin_agent():
             # 1施行終了時の処理
             if done:
                 #total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
-                print('%d Episode finished after %f time steps / episode_reward %f' % (
-                episode, episode + 1, episode_reward))
+                print('iteration %d: episode_reward %f' % (
+                cur_itr, episode_reward))
                 break
 
 
