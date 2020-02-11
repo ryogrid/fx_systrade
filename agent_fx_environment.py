@@ -396,7 +396,7 @@ class FXEnvironment:
                         self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
                 else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
-                    self.exchange_rates[cur_episode_idx]) + ",0"
+                    self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "SELL":
                 reward = 0
                 is_closed = False
@@ -420,7 +420,12 @@ class FXEnvironment:
                 reward = 0
 
                 if len(self.positions_identifiers) > 0:
-                    a_log_str_line += ",POSITION_HOLD_LONG,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
+                    if self.portfolio_mngr.having_long_or_short == self.LONG:
+                        operation_str = ",POSITION_HOLD_LONG,0,"
+                    else:
+                        operation_str = ",POSITION_HOLD_SHORT,0,"
+
+                    a_log_str_line += operation_str + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
                         self.exchange_rates[cur_episode_rate_idx]) + ",0"
                 else:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
