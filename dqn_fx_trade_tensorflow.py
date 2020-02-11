@@ -76,7 +76,7 @@ class QNetwork:
             # predictした結果を採用させる（つまり、その場合以外であれば target を教師信号とする）
             if not (action_b == 0 and reward_b == 0):
                 targets[i][action_b] = target  # 教師信号
-            targets[i][2] = 0.0 + gamma * next_state_max_reward  # 教師信号（DONOTで返されるrewardは常に0)
+            #targets[i][2] = 0.0 + gamma * next_state_max_reward  # 教師信号（DONOTで返されるrewardは常に0)
 
         self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
@@ -139,9 +139,9 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
-gamma = 0.3 #0.99  # 割引係数
+gamma = 0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.005 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 50 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
