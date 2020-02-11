@@ -45,10 +45,14 @@ class QNetwork:
                            optimizer=self.optimizer)
 
     # 重みの学習
-    def replay(self, memory, batch_size, gamma):
+    def replay(self, memory, batch_size, gamma, targetQNarg = None):
         inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 3))
         mini_batch = memory.sample(batch_size)
+        targetQN = targetQNarg
+        if targetQNarg == None:
+            targetQN = self.model
+
         #mini_batch = memory.get_last(batch_size)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
@@ -56,7 +60,8 @@ class QNetwork:
 
             retmainQs = self.model.predict(next_state_b)[0]
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            target = reward_b + gamma * retmainQs[next_action]
+            #target = reward_b + gamma * retmainQs[next_action]
+            target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
 
             # # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
             # # BUYとSELLのrewardが後追いで定まるため、それを反映するために replay を行う
@@ -148,6 +153,8 @@ def tarin_agent():
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
+    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
+                      action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
     memory_hash = {}
     actor = Actor()
@@ -155,6 +162,7 @@ def tarin_agent():
     if os.path.exists("./mainQN_nw.json"):
         # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
         mainQN.load_model("mainQN")
+        targetQN.load_model("targetQN")
         memory.load_memory("memory")
 
     total_get_acton_cnt = 1
@@ -165,6 +173,9 @@ def tarin_agent():
         env = env_master.get_env('train')
         state, reward, done, info = env.step(2)  # 1step目は適当な行動をとる ("DONOT")
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
+
+        # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
+        targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
@@ -187,7 +198,7 @@ def tarin_agent():
 
             # Qネットワークの重みを学習・更新する replay
             if (memory.len() > batch_size):
-                mainQN.replay(memory, batch_size, gamma)
+                mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
 
             # 環境が提供する期間が最後までいった場合
             if done:

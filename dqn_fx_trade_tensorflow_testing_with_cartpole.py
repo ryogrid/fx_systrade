@@ -46,7 +46,7 @@ class QNetwork:
                            optimizer=self.optimizer)
 
     # 重みの学習
-    def replay(self, memory, batch_size, gamma):
+    def replay(self, memory, batch_size, gamma, targetQN):
         inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 2))
         mini_batch = memory.sample(batch_size)
@@ -56,7 +56,7 @@ class QNetwork:
 
             retmainQs = self.model.predict(next_state_b)[0]
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            target = reward_b + gamma * retmainQs[next_action]
+            target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
 
             targets[i] = self.model.predict(state_b)[0]    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
@@ -138,6 +138,8 @@ def tarin_agent():
     env = gym.make('CartPole-v0')
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
+    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
+                      action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
 #    memory_hash = {}
     actor = Actor()
@@ -151,6 +153,8 @@ def tarin_agent():
         state, reward, done, info = env.step(0)  # 1step目は適当な行動をとる
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
         episode_reward = 0
+
+        targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
@@ -179,7 +183,7 @@ def tarin_agent():
 
             # Qネットワークの重みを学習・更新する replay
             if (memory.len() > batch_size):
-                mainQN.replay(memory, batch_size, gamma)
+                mainQN.replay(memory, batch_size, gamma, targetQN)
 
             # 1施行終了時の処理
             if done:
