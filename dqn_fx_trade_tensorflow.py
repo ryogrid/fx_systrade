@@ -127,7 +127,7 @@ TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.3 #0.99  # 割引係数
 hidden_size = 50 # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 50 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20

@@ -107,7 +107,7 @@ class Memory:
 class Actor:
     def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0+episode)
+        epsilon = 0.001 + 0.9 / (1.0+(300.0*(episode/iteration_num)))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -157,6 +157,16 @@ def tarin_agent():
             action = actor.get_action(state, cur_itr, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
+
+            # 報酬を設定し、与える
+            if done:
+                next_state = np.zeros(state.shape)  # 次の状態s_{t+1}はない
+                if episode < 195:
+                    reward = -1  # 報酬クリッピング、報酬は1, 0, -1に固定
+                else:
+                    reward = 1  # 立ったまま195step超えて終了時は報酬
+            else:
+                reward = 0  # 各ステップで立ってたら報酬追加（はじめからrewardに1が入っているが、明示的に表す）
 
             a_log = [state, action, reward, next_state]
             memory.add(a_log)     # メモリを更新する
