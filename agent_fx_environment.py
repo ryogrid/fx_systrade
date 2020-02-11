@@ -314,6 +314,10 @@ class FXEnvironment:
 
     class InnerFXEnvironment:
         def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, is_backtest=False):
+            self.NOT_HAVE = 0
+            self.LONG = 1
+            self.SHORT = 2
+
             self.input_arr = input_arr
             self.angle_arr = angle_arr
             self.exchange_dates = exchange_dates
@@ -348,11 +352,12 @@ class FXEnvironment:
             reward = 0
             action = -1
             cur_step_identifier = self.get_rand_str()
+            cur_episode_rate_idx = self.idx_geta + self.cur_idx
 
             if action_num == 0:
                 action = "BUY"
             elif action_num == 1:
-                action = "CLOSE"
+                action = "SELL"
             elif action_num == 2:
                  action = "DONOT"
             else:
@@ -361,44 +366,69 @@ class FXEnvironment:
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
             additional_infos = []
 
-            if action == "BUY":
-                # 定められた本数の先の足で利益がでるか出ないか
-                #reward = 1 if self.angle_arr[self.idx_geta + self.cur_idx] > 0 else -1
+            def close_all(): ############################################################################
+                nonlocal self
+                nonlocal additional_infos
+                nonlocal cur_episode_rate_idx
 
+                won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
+                for idx in range(0, len(self.positions_identifiers)):
+                    additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx]])
+                self.positions_identifiers = []
+                return won_pips, won_money, each_pos_won
+            ########################################################################################################
+
+            if action == "BUY":
                 reward = 0
+                is_closed = False
+                if self.portfolio_mngr.having_long_or_short == self.SHORT:
+                    won_pips, won_money, ach_pos_won = close_all()
+                    is_closed = True
+
                 if self.portfolio_mngr.additional_pos_openable():
-                    buy_val = self.portfolio_mngr.buy(self.idx_geta + self.cur_idx)
+                    buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
                     self.positions_identifiers.append(cur_step_identifier)
-                    a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
-                    self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
-                else: #もうオープンできない
+                    if is_closed:
+                        a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(won_money) + "," + str(
+                            won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
+                    else:
+                        a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
+                        self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
+                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
+                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
+                    self.exchange_rates[cur_episode_idx]) + ",0"
+            elif action == "SELL":
+                reward = 0
+                is_closed = False
+                if self.portfolio_mngr.having_long_or_short == self.LONG:
+                    won_pips, won_money, ach_pos_won = close_all()
+                    is_closed = True
+
+                if self.portfolio_mngr.additional_pos_openable():
+                    sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
+                    self.positions_identifiers.append(cur_step_identifier)
+                    if is_closed:
+                        a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(won_money) + "," + str(
+                            won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                    else:
+                        a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
+                        self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
-            elif action == "CLOSE":
-                if len(self.positions_identifiers) > 0: # ポジションを持っている場合
-                    won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(self.idx_geta + self.cur_idx)
-                    a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
-                    won_pips) + "," + str(self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
-                    for idx in range(0, len(self.positions_identifiers)):
-                        additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx]])
-                    self.positions_identifiers = []
-                    reward = won_pips
-                else:
-                    a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
-                    reward = 0
             elif action == "DONOT":
                 reward = 0
 
                 if len(self.positions_identifiers) > 0:
-                    a_log_str_line += ",POSITION_HOLD_LONG,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
-                        self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
+                    a_log_str_line += ",POSITION_HOLD_LONG,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
+                        self.exchange_rates[cur_episode_rate_idx]) + ",0"
                 else:
                     a_log_str_line += ",KEEP_NO_POSITION,0,0,0,0"
 
             else:
                 raise Exception(str(action) + " is invalid.")
 
-            a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)) +\
+            a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)) +\
                               "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(len(self.positions_identifiers))
             self.logfile_writeln_bt(a_log_str_line)
 
@@ -408,16 +438,17 @@ class FXEnvironment:
                 print("finished backtest.")
                 process_time = time.time() - self.start
                 self.logfile_writeln_bt("excecution time of backtest: " + str(process_time))
-                self.logfile_writeln_bt("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)))
-                print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(self.idx_geta + self.cur_idx)))
+                self.logfile_writeln_bt("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
+                print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
                 return None, reward, True, [cur_step_identifier] + additional_infos
             else:
-                valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)
+                valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
 
-                next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
+                #next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = self.input_arr[self.cur_idx]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos
@@ -442,6 +473,10 @@ class PortforioManager:
         self.positions = []
         self.position_num = 0
 
+        # ポジションは複数持つが、一種類のものしか持たないという制約を設けるため
+        # 判別が簡単になるようにこのフィールドを設ける
+        self.having_long_or_short = self.NOT_HAVE
+
     def additional_pos_openable(self):
         return len(self.positions) < self.holdable_position_num
 
@@ -455,14 +490,21 @@ class PortforioManager:
         self.positions.append([trade_val, pos_kind, currency_num])
         self.position_num += 1
         self.having_money -= trade_val * currency_num
+        self.having_long_or_short = self.LONG
         return trade_val
 
-    # def sell(self, rate_idx):
-    #     # ショートポジションを購入する
-    #     self.pos_kind = self.SHORT
-    #     self.positions = self.portfolio / (self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread)
-    #     self.trade_val = self.exchange_rates[self.idx_geta + self.cur_idx] - self.half_spread
-    #     return "bough price includes spread"
+    # 規約: 保持可能なポジション数を超える場合は呼び出されない
+    # ショートポジションを最大保持可能数における1単位分購入する（購入通貨数が整数になるような調整は行わない）
+    def sell(self, rate_idx):
+        pos_kind = self.SHORT
+        trade_val = self.exchange_rates[rate_idx] - self.half_spread
+        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
+
+        self.positions.append([trade_val, pos_kind, currency_num])
+        self.position_num += 1
+        self.having_money -= trade_val * currency_num
+        self.having_long_or_short = self.SHORT
+        return trade_val
 
     # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
     def close_long(self, position, rate_idx):
@@ -473,20 +515,44 @@ class PortforioManager:
         won_pips = cur_price - position[0]
         return won_pips, trade_result, return_money
 
+    # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
+    def close_short(self, position, rate_idx):
+        # 保持しているショートポジションをクローズする
+        cur_price = self.exchange_rates[rate_idx] + self.half_spread
+        trade_result = position[2] * position[0] - position[2] * cur_price
+        won_pips = position[0] - cur_price
+
+        # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
+        # 1)まず損益を求める
+        diff = position[2] * (position[0] - cur_price)
+        # 2)オープン時にとられた証拠金を求める
+        collateral_at_open = position[0] * position[2]
+        # 3)2つを足し合わせた額が決済によって戻ってくるお金
+        return_money = collateral_at_open + diff
+
+        return won_pips, trade_result, return_money
+
+    # 保有しているポジションは2種類のどちらか一方に統一されている前提で
+    # 全てのポジションをcloseしてしまう
+    # どちらに統一されていても、呼び出し方法は変える必要がない
     def close_all(self, rate_idx):
         won_pips_sum = 0
         won_money_sum = 0
         returned_money_sum = 0
         won_pips_arr = []
+        cur_price_no_spread = self.exchange_rates[rate_idx]
         for position in self.positions:
             if position[1] == self.LONG:
                 won_pips, won_money, return_money = self.close_long(position, rate_idx)
-                won_pips_sum += won_pips
-                won_money_sum += won_money
-                returned_money_sum += return_money
-                won_pips_arr.append(won_pips)
-            else:
-                print("do nothing now")
+            else: # self.SHORT
+                won_pips, won_money, return_money = self.close_short(position, rate_idx)
+
+            won_pips_sum += won_pips
+            won_money_sum += won_money
+            returned_money_sum += return_money
+            won_pips_arr.append(won_pips)
+
+        self.having_long_or_short = self.NOT_HAVE
         self.total_won_pips += won_pips_sum
         self.having_money += returned_money_sum
         self.positions = []
@@ -502,9 +568,9 @@ class PortforioManager:
         for position in self.positions:
             if position[1] == self.LONG:
                 total_evaluated_money_diff += position[2] * ((cur_price_no_spread - self.half_spread) - position[0])
-            else:
+            else: # self.SHORT
                 total_evaluated_money_diff += position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
-            total_currecy_num +=  abs(position[2])
+            total_currecy_num +=  position[2]
 
         if total_currecy_num == 0:
             return 0
@@ -518,11 +584,13 @@ class PortforioManager:
             if position[1] == self.LONG:
                 # 売った際に得られる現金で評価
                 total_evaluated_money += position[2] * (cur_price_no_spread - self.half_spread)
-            else:
+            else: # self.SHORT
                 # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
-                diff = abs(position[2]) * (position[0] - (cur_price_no_spread + self.half_spread))
-                # オープン時にとられた証拠金
-                collateral_at_open = position[0] * abs(position[2])
+                # 1)まず損益を求める
+                diff = position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
+                # 2)オープン時にとられた証拠金を求める
+                collateral_at_open = position[0] * position[2]
+                # 3)2つを足し合わせた額が決済によって戻ってくるお金
                 total_evaluated_money += collateral_at_open + diff
 
         return self.having_money + total_evaluated_money
