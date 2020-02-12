@@ -4,22 +4,33 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
+# import gym  # 倒立振子(cartpole)の実行環境
+# import numpy as np
+# import time
+# from keras.models import Sequential, model_from_json, Model
+# from keras.layers import Dense, BatchNormalization, Dropout
+# from keras.optimizers import Adam
+# from keras.utils import plot_model
+# from collections import deque
+# from keras import backend as K
+# import tensorflow as tf
+# import pickle
+# #from agent_fx_environment import FXEnvironment
+# import os
+# import sys
+# import math
+
 import gym  # 倒立振子(cartpole)の実行環境
 import numpy as np
 import time
-from keras.models import Sequential, model_from_json, Model
-from keras.layers import Dense, BatchNormalization, Dropout
+from keras.models import Sequential
+from keras.layers import Dense
 from keras.optimizers import Adam
 from keras.utils import plot_model
 from collections import deque
+from gym import wrappers  # gymの画像保存
 from keras import backend as K
 import tensorflow as tf
-import pickle
-#from agent_fx_environment import FXEnvironment
-import os
-import sys
-import math
-
 
 # [1]損失関数の定義
 # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
@@ -66,24 +77,24 @@ class QNetwork:
             next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
             target = reward_b + gamma * targetQN.model.predict(next_state_b)[0][next_action]
 
-            print(self.model.predict(state_b))
-            print(self.model.predict(state_b)[0])
+            #print(self.model.predict(state_b))
+            #print(self.model.predict(state_b)[0])
 
             targets[i] = self.model.predict(state_b)    # Qネットワークの出力
             targets[i][action_b] = target               # 教師信号
 
         self.model.fit(inputs, targets, epochs=1, verbose=0)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
-    def save_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
-            f.write(self.model.to_json())
-        self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
-
-    def load_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
-            self.model = model_from_json(f.read())
-        self.model.compile(loss=huberloss, optimizer=self.optimizer)
-        self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
+    # def save_model(self, file_path_prefix_str):
+    #     with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
+    #         f.write(self.model.to_json())
+    #     self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
+    #
+    # def load_model(self, file_path_prefix_str):
+    #     with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
+    #         self.model = model_from_json(f.read())
+    #     self.model.compile(loss=huberloss, optimizer=self.optimizer)
+    #     self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
@@ -106,13 +117,13 @@ class Memory:
     def len(self):
         return len(self.buffer)
 
-    def save_memory(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + ".pickle", 'wb') as f:
-            pickle.dump(self.buffer, f)
-
-    def load_memory(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + ".pickle", 'rb') as f:
-            self.buffer = pickle.load(f)
+    # def save_memory(self, file_path_prefix_str):
+    #     with open("./" + file_path_prefix_str + ".pickle", 'wb') as f:
+    #         pickle.dump(self.buffer, f)
+    #
+    # def load_memory(self, file_path_prefix_str):
+    #     with open("./" + file_path_prefix_str + ".pickle", 'rb') as f:
+    #         self.buffer = pickle.load(f)
 
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
@@ -144,69 +155,71 @@ iteration_num = 1000
 feature_num = 4 #11
 nn_output_size = 2
 #num_consecutive_iterations = 10  # 学習完了評価の平均計算を行う試行回数
+env = gym.make('CartPole-v0')
 
-def tarin_agent():
-    env = gym.make('CartPole-v0')
-    # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
-    mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
-                      action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
-    memory = Memory(max_size=memory_size)
-    #    memory_hash = {}
-    actor = Actor()
+#def train_agent():
+# [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
+mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
+targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
+                  action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
+memory = Memory(max_size=memory_size)
+#    memory_hash = {}
+actor = Actor()
 
-    total_get_acton_cnt = 0
+total_get_acton_cnt = 0
 
-    # inputs = np.zeros((batch_size, feature_num))
-    # targets = np.zeros((batch_size, nn_output_size))
-    for cur_itr in range(iteration_num):
-        env.reset()
-        state, reward, done, _ = env.step(env.action_space.sample())  # 1step目は適当な行動をとる
-        state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
-        episode_reward = 0
+# inputs = np.zeros((batch_size, feature_num))
+# targets = np.zeros((batch_size, nn_output_size))
+for cur_itr in range(iteration_num):
+    env.reset()
+    state, reward, done, _ = env.step(env.action_space.sample())  # 1step目は適当な行動をとる
+    state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
+    episode_reward = 0
 
-        targetQN.model.set_weights(mainQN.model.get_weights())
+    targetQN.model.set_weights(mainQN.model.get_weights())
 
-        for episode in range(num_episodes):  # 試行数分繰り返す
-            total_get_acton_cnt += 1
-            action = actor.get_action(state, cur_itr, mainQN)  # 時刻tでの行動を決定する
-            next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-            next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
+    for episode in range(num_episodes):  # 試行数分繰り返す
+        total_get_acton_cnt += 1
+        action = actor.get_action(state, cur_itr, mainQN)  # 時刻tでの行動を決定する
+        next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+        next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
-            # 報酬を設定し、与える
-            if done:
-                next_state = np.zeros(state.shape)  # 次の状態s_{t+1}はない
-                if episode < 195:
-                    reward = -1  # 報酬クリッピング、報酬は1, 0, -1に固定
-                else:
-                    reward = 1  # 立ったまま195step超えて終了時は報酬
+        # 報酬を設定し、与える
+        if done:
+            next_state = np.zeros(state.shape)  # 次の状態s_{t+1}はない
+            if episode < 195:
+                reward = -1  # 報酬クリッピング、報酬は1, 0, -1に固定
             else:
-                reward = 0  # 各ステップで立ってたら報酬追加（はじめからrewardに1が入っているが、明示的に表す）
+                reward = 1  # 立ったまま195step超えて終了時は報酬
+        else:
+            reward = 0  # 各ステップで立ってたら報酬追加（はじめからrewardに1が入っているが、明示的に表す）
 
-            a_log = (state, action, reward, next_state)
-            memory.add(a_log)     # メモリを更新する
-            # # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
-            # memory_hash[info[0]] = a_log
+        a_log = (state, action, reward, next_state)
+        memory.add(a_log)     # メモリを更新する
+        # # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
+        # memory_hash[info[0]] = a_log
 
-            episode_reward += 1
+        episode_reward += 1
 
-            state = next_state  # 状態更新
+        state = next_state  # 状態更新
 
-            # Qネットワークの重みを学習・更新する replay
-            if (memory.len() > batch_size):
-                mainQN.replay(memory, batch_size, gamma, targetQN)
+        # Qネットワークの重みを学習・更新する replay
+        if (memory.len() > batch_size):
+            mainQN.replay(memory, batch_size, gamma, targetQN)
 
-            # 1施行終了時の処理
-            if done:
-                #total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
-                print('iteration %d: episode_reward %d' % (
-                cur_itr, episode_reward))
-                break
+        # 1施行終了時の処理
+        if done:
+            #total_reward_vec = np.hstack((total_reward_vec[1:], episode_reward))  # 報酬を記録
+            print('iteration %d: episode_reward %d' % (
+            cur_itr, episode_reward))
+            break
 
 
-if __name__ == '__main__':
-#    np.random.seed(1337)  # for reproducibility
-    if sys.argv[1] == "train":
-        tarin_agent()
-    else:
-        print("please pass argument 'train' or 'backtest'")
+# if __name__ == '__main__':
+#     train_agent()
+
+# #    np.random.seed(1337)  # for reproducibility
+#     if sys.argv[1] == "train":
+#         tarin_agent()
+#     else:
+#         print("please pass argument 'train' or 'backtest'")
