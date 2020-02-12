@@ -122,9 +122,9 @@ class Memory:
 
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
-    def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (episode/TOTAL_ACTION_NUM)))
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes/TOTAL_ACTION_NUM)))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -173,7 +173,7 @@ def tarin_agent():
     targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
-        state, reward, done, info = env.step(2)  # 1step目は適当な行動をとる ("DONOT")
+        state, reward, done, info = env.step(np.random.choice([0, 1, 2]))  # 1step目は適当な行動をとる
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
         # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
@@ -183,6 +183,10 @@ def tarin_agent():
             total_get_acton_cnt += 1
             action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+            # 環境が提供する期間が最後までいった場合
+            if done:
+                print(str(cur_itr) + ' training period finished.')
+                break
             next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
             # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
@@ -202,14 +206,9 @@ def tarin_agent():
             if (memory.len() > batch_size):
                 mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
 
-            # 環境が提供する期間が最後までいった場合
-            if done:
-                print('all training period learned.')
-                break
-
             # モデルとメモリのスナップショットをとっておく
             if episode % 10000 == 0 and episode != 0:
-                # targetQN.save_model("targetQN")
+                targetQN.save_model("targetQN")
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
 
