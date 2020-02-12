@@ -80,17 +80,6 @@ class QNetwork:
 
         self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
-    def save_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
-            f.write(self.model.to_json())
-        self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
-
-    def load_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
-            self.model = model_from_json(f.read())
-        self.model.compile(loss=huberloss, optimizer=self.optimizer)
-        self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
-
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
     def __init__(self, max_size=1000):
@@ -112,14 +101,6 @@ class Memory:
     def len(self):
         return len(self.buffer)
 
-    def save_memory(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + ".pickle", 'wb') as f:
-            pickle.dump(self.buffer, f)
-
-    def load_memory(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + ".pickle", 'rb') as f:
-            self.buffer = pickle.load(f)
-
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
     def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
@@ -128,7 +109,7 @@ class Actor:
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
-            print(retTargetQs)
+            #print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
@@ -159,10 +140,6 @@ def train_agent():
     memory = Memory(max_size=memory_size)
     actor = Actor()
 
-    total_get_acton_cnt = 1
-
-    inputs = np.zeros((batch_size, feature_num))
-    targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env.reset()
         state, reward, done, info = env.step(env.action_space.sample())  # 1step目は適当な行動をとる ("DONOT")
@@ -172,14 +149,13 @@ def train_agent():
         targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
-            total_get_acton_cnt += 1
             action = actor.get_action(state, cur_itr, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
             reward=0
             if done:
-               reward=state[0]
+                reward=state[0][0]
             a_log = [state, action, reward, next_state]
             memory.add(a_log)     # メモリを更新する
 
