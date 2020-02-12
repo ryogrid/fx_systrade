@@ -183,7 +183,7 @@ def tarin_agent():
             total_get_acton_cnt += 1
             action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-            next_state = np.reshape(state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
+            next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
             # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
             # info で返されるので、その内容で過去のエピソードのリワードを更新する
