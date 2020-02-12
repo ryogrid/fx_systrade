@@ -399,7 +399,7 @@ class FXEnvironment:
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
                     self.positions_identifiers.append(cur_step_identifier)
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
-                    self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
+                    self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
                 else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
@@ -407,7 +407,7 @@ class FXEnvironment:
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 won_pips, won_money = close_all()
                 reward = won_pips
-                a_log_str_line += ",CLOSE_LON" + "," + str(won_money) + "," + str(
+                a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
                     won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
 
                 # is_closed = False

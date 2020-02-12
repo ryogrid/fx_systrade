@@ -53,9 +53,18 @@ class QNetwork:
         if targetQNarg == None:
             targetQN = self.model
 
-        #mini_batch = memory.get_last(batch_size)
-
+        # reduced_num = 0
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+            # if action_b == 0 and reward_b == 0:
+            #     # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので
+            #     # そのエピソードはfit対象に追加しない. したがって、fit時のbatch_sizeは減る
+            #     # 以下は減る分に合わせてndarrayのサイズを変更している
+            #     inputs = np.delete(inputs,slice(-2,-1),0)
+            #     targets = np.delete(targets,slice(-2,-1),0)
+            #     reduced_num += 1
+            #     continue
+
+            # inputs[i - reduced_num : i - reduced_num + 1] = state_b
             inputs[i:i+1] = state_b
 
             retmainQs = self.model.predict(next_state_b)[0]
@@ -72,13 +81,16 @@ class QNetwork:
             # if not ((action_b == 0 or action_b == 1) and reward_b == 0):
 
             targets[i] = self.model.predict(state_b)
-            # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので
-            # predictした結果を採用させる（つまり、その場合以外であれば target を教師信号とする）
+            # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
             if not (action_b == 0 and reward_b == 0):
                 targets[i][action_b] = target  # 教師信号
+
+            # targets[i - reduced_num] = self.model.predict(state_b)
+            # targets[i - reduced_num][action_b] = target  # 教師信号
             #targets[i][2] = 0.0 + gamma * next_state_max_reward  # 教師信号（DONOTで返されるrewardは常に0)
 
-        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+        self.model.fit(inputs, targets, epochs=3, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
     def save_model(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
@@ -140,12 +152,12 @@ class Actor:
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
 gamma = 0.99 #0.3 #0.99  # 割引係数
-hidden_size = 50 # Q-networkの隠れ層のニューロンの数
+hidden_size = 32 #50 <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 50 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
-memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.1) #10000  # バッファーメモリの大きさ
+iteration_num = 15 # <- 1足あたり 32 * 3 * 15 で1440回のfitが行われる計算 #20
+memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
@@ -167,14 +179,24 @@ def tarin_agent():
         targetQN.load_model("targetQN")
         memory.load_memory("memory")
 
+    def store_episode_log_to_memory(state, action, reward, next_state, info):
+        nonlocal memory
+        nonlocal memory_hash
+        a_log = [state, action, reward, next_state]
+        memory.add(a_log)  # メモリを更新する
+        # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
+        memory_hash[info[0]] = a_log
+    #######################################################
+
     total_get_acton_cnt = 1
 
-    inputs = np.zeros((batch_size, feature_num))
-    targets = np.zeros((batch_size, nn_output_size))
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
-        state, reward, done, info = env.step(np.random.choice([0, 1, 2]))  # 1step目は適当な行動をとる
+        action = np.random.choice([0, 1, 2])
+        state, reward, done, info = env.step(action)  # 1step目は適当な行動をとる
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
+        # ここだけ 同じstateから同じstateに遷移したことにする
+        store_episode_log_to_memory(state, action, reward, state, info)
 
         # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
         targetQN.model.set_weights(mainQN.model.get_weights())
@@ -195,11 +217,7 @@ def tarin_agent():
                 for keyval in info[1:]:
                     memory_hash[keyval[0]][2] = keyval[1]
 
-            a_log = [state, action, reward, next_state]
-            memory.add(a_log)     # メモリを更新する
-            # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
-            memory_hash[info[0]] = a_log
-
+            store_episode_log_to_memory(state, action, reward, next_state, info)
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
