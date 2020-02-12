@@ -103,9 +103,9 @@ class Memory:
 
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
-    def get_action(self, state, episode, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (episode/TOTAL_ACTION_NUM)))
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes/TOTAL_EPISODE_NUM)))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -128,7 +128,7 @@ iteration_num = 1000 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行わ
 memory_size = num_episodes * int(iteration_num * 0.1) #10000  # バッファーメモリの大きさ
 feature_num = 2 #10 #11
 nn_output_size = 3
-TOTAL_ACTION_NUM = num_episodes * iteration_num
+TOTAL_EPISODE_NUM = num_episodes * iteration_num
 
 def train_agent():
     env = gym.make('MountainCar-v0')
@@ -139,6 +139,7 @@ def train_agent():
                       action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
     actor = Actor()
+    total_episode_cnt = 0
 
     for cur_itr in range(iteration_num):
         env.reset()
@@ -149,7 +150,8 @@ def train_agent():
         targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
-            action = actor.get_action(state, cur_itr, mainQN)  # 時刻tでの行動を決定する
+            total_episode_cnt += 1
+            action = actor.get_action(state, total_episode_cnt, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
