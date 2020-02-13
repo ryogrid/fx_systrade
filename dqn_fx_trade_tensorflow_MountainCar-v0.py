@@ -83,7 +83,7 @@ class QNetwork:
             targets[i][action_b] = target  # 教師信号
             #targets[i][2] = 0.0 + gamma * next_state_max_reward  # 教師信号（DONOTで返されるrewardは常に0)
 
-        self.model.fit(inputs, targets, epochs=1, verbose=1)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
+        self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
