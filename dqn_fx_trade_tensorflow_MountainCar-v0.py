@@ -53,7 +53,7 @@ class QNetwork:
     # 重みの学習
     def replay(self, memory, batch_size, gamma, targetQNarg = None):
         inputs = np.zeros((batch_size, feature_num))
-        targets = np.zeros((batch_size, 3))
+        targets = np.zeros((batch_size, 2))
         mini_batch = memory.sample(batch_size)
         targetQN = targetQNarg
         if targetQNarg == None:
@@ -110,14 +110,17 @@ class Memory:
 class Actor:
     def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes/TOTAL_EPISODE_NUM)))
+        #epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes/TOTAL_EPISODE_NUM)))
+        epsilon = 0.01 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_EPISODE_NUM)))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
             #print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+            action = action * 2 # 0, 1 を 0, 2 に置き換えるため
         else:
-            action = np.random.choice([0, 1, 2])  # ランダムに行動する
+            #action = np.random.choice([0, 1, 2])  # ランダムに行動する
+            action = np.random.choice([0, 2])  # ランダムに行動する
 
         return action
 
@@ -126,13 +129,13 @@ class Actor:
 # ---
 gamma = 0.99 #0.3 #0.99  # 割引係数
 hidden_size = 20 #20 # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.01 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.0005 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = 201 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 3000 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
 memory_size = num_episodes * int(iteration_num * 0.1) #10000  # バッファーメモリの大きさ
 feature_num = 2 #10 #11
-nn_output_size = 3
+nn_output_size = 2
 TOTAL_EPISODE_NUM = num_episodes * iteration_num
 
 def train_agent():
@@ -163,6 +166,7 @@ def train_agent():
             reward=0
             if done:
                 reward=state[0][0]
+            action = int(0.5 * action) # 0, 2 を 0, 1変換する
             a_log = [state, action, reward, next_state]
             memory.add(a_log)     # メモリを更新する
 
