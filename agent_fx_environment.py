@@ -464,8 +464,8 @@ class FXEnvironment:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
 
-                #next_state = self.input_arr[self.cur_idx]
-                next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = self.input_arr[self.cur_idx]
+                #next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos

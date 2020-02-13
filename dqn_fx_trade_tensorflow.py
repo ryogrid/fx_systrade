@@ -151,14 +151,14 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 TRAIN_DATA_NUM = 223954 # 3years (test is 5 years)
 # ---
-gamma = 0.99 #0.3 #0.99  # 割引係数
+gamma = 0.3 #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 32 #50 <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.005 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 15 # <- 1足あたり 32 * 3 * 15 で1440回のfitが行われる計算 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
-feature_num = 11 #10 #11
+feature_num = 10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 
@@ -167,8 +167,8 @@ def tarin_agent():
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
-                      action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
+    # targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
+    #                   action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
     memory_hash = {}
     actor = Actor()
@@ -176,9 +176,8 @@ def tarin_agent():
     total_get_acton_cnt = 1
 
     if os.path.exists("./mainQN_nw.json"):
-        # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
         mainQN.load_model("mainQN")
-        targetQN.load_model("targetQN")
+        # targetQN.load_model("targetQN")
         memory.load_memory("memory")
         with open("./total_get_action_count.pickle", 'rb') as f:
             total_get_acton_cnt = pickle.load(f)
@@ -202,8 +201,8 @@ def tarin_agent():
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state, info)
 
-        # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
-        targetQN.model.set_weights(mainQN.model.get_weights())
+        # # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
+        # targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
@@ -226,17 +225,18 @@ def tarin_agent():
 
             # Qネットワークの重みを学習・更新する replay
             if (memory.len() > batch_size):
-                mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
+                mainQN.replay(memory, batch_size, gamma)
+                #mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
 
             # モデルとメモリのスナップショットをとっておく
             if episode % 10000 == 0 and episode != 0:
-                targetQN.save_model("targetQN")
+                #targetQN.save_model("targetQN")
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
                 with open("./total_get_action_count.pickle", 'wb') as f:
                     pickle.dump(total_get_acton_cnt, f)
 
-        # 一周回したら、次の周でりようされることはないのでクリア
+        # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
 
 def run_backtest():
@@ -251,7 +251,7 @@ def run_backtest():
     mainQN.load_model("mainQN")
 
     # DONOT でスタート
-    state, reward, done, info = env.step(2)
+    state, reward, done, info = env.step(0)
     state = np.reshape(state, [1, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
