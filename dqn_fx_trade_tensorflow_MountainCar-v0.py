@@ -8,6 +8,7 @@ import numpy as np
 import time
 from keras.models import Sequential, model_from_json, Model
 from keras.layers import Dense, BatchNormalization, Dropout
+from keras.layers.advanced_activations import LeakyReLU
 from keras.optimizers import Adam
 from keras.utils import plot_model
 from collections import deque
@@ -34,9 +35,13 @@ def huberloss(y_true, y_pred):
 class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
+        #leakey_relu1 = LeakyReLU()
+        #self.model.add(Dense(hidden_size, activation=leakey_relu1, input_dim=state_size))
+        #leakey_relu2 = LeakyReLU()
+        #self.model.add(Dense(hidden_size, activation=leakey_relu2))
         self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
         self.model.add(Dense(hidden_size, activation='relu'))
-        # self.model.add(BatchNormalization())
+        #self.model.add(BatchNormalization())
         # self.model.add(Dropout(0.5))
         # self.model.add(Dense(hidden_size, activation='relu'))
         self.model.add(Dense(action_size, activation='linear'))
@@ -120,11 +125,11 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 # ---
 gamma = 0.99 #0.3 #0.99  # 割引係数
-hidden_size = 20 # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+hidden_size = 20 #20 # Q-networkの隠れ層のニューロンの数
+learning_rate = 0.01 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = 201 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 1000 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
+iteration_num = 3000 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
 memory_size = num_episodes * int(iteration_num * 0.1) #10000  # バッファーメモリの大きさ
 feature_num = 2 #10 #11
 nn_output_size = 3
@@ -135,8 +140,8 @@ def train_agent():
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
-                      action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
+    # targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
+    #                   action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
     actor = Actor()
     total_episode_cnt = 0
@@ -146,8 +151,8 @@ def train_agent():
         state, reward, done, info = env.step(env.action_space.sample())  # 1step目は適当な行動をとる ("DONOT")
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
 
-        # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
-        targetQN.model.set_weights(mainQN.model.get_weights())
+        # # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
+        # targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_episode_cnt += 1
@@ -165,7 +170,8 @@ def train_agent():
 
             # Qネットワークの重みを学習・更新する replay
             if (memory.len() > batch_size):
-                mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
+                mainQN.replay(memory, batch_size, gamma)
+                #mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
 
             # 環境が提供する期間が最後までいった場合
             if done:
