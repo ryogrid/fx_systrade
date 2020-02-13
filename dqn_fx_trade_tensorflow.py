@@ -173,11 +173,15 @@ def tarin_agent():
     memory_hash = {}
     actor = Actor()
 
+    total_get_acton_cnt = 1
+
     if os.path.exists("./mainQN_nw.json"):
         # 期間は最初からになってしまうが学習済みのモデルに追加で学習を行う
         mainQN.load_model("mainQN")
         targetQN.load_model("targetQN")
         memory.load_memory("memory")
+        with open("./total_get_action_count.pickle", 'rb') as f:
+            total_get_acton_cnt = pickle.load(f)
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
@@ -188,7 +192,7 @@ def tarin_agent():
         memory_hash[info[0]] = a_log
     #######################################################
 
-    total_get_acton_cnt = 1
+
 
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
@@ -229,6 +233,8 @@ def tarin_agent():
                 targetQN.save_model("targetQN")
                 mainQN.save_model("mainQN")
                 memory.save_memory("memory")
+                with open("./total_get_action_count.pickle", 'wb') as f:
+                    pickle.dump(total_get_acton_cnt, f)
 
         # 一周回したら、次の周でりようされることはないのでクリア
         memory_hash = {}
