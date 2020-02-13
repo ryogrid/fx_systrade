@@ -53,42 +53,30 @@ class QNetwork:
         if targetQNarg == None:
             targetQN = self.model
 
-        # reduced_num = 0
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            # if action_b == 0 and reward_b == 0:
-            #     # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので
-            #     # そのエピソードはfit対象に追加しない. したがって、fit時のbatch_sizeは減る
-            #     # 以下は減る分に合わせてndarrayのサイズを変更している
-            #     inputs = np.delete(inputs,slice(-2,-1),0)
-            #     targets = np.delete(targets,slice(-2,-1),0)
-            #     reduced_num += 1
-            #     continue
-
-            # inputs[i - reduced_num : i - reduced_num + 1] = state_b
             inputs[i:i+1] = state_b
 
-            retmainQs = self.model.predict(next_state_b)[0]
-            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            #target = reward_b + gamma * retmainQs[next_action]
-            next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
-            target = reward_b + gamma * next_state_max_reward
+            # retmainQs = self.model.predict(next_state_b)[0]
+            # next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            # next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
+            # target = reward_b + gamma * next_state_max_reward
+            #
+            # targets[i] = self.model.predict(state_b)
+            # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
+            # if not (action_b == 0 and reward_b == 0):
+            #     targets[i][action_b] = target  # 教師信号
 
-            # # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
-            # # BUYとSELLのrewardが後追いで定まるため、それを反映するために replay を行う
-            # targets[i] = self.model.predict(state_b)[0]    # Qネットワークの出力
-            # # BUY or SELL で暫定の rewardとして 0 を返されている場合は、それで学習するとまずいので
-            # # predictした結果を採用させる
-            # if not ((action_b == 0 or action_b == 1) and reward_b == 0):
-
+            # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
+            # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
+            # それを反映するために replay を行う
+            # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
             targets[i] = self.model.predict(state_b)
             # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
             if not (action_b == 0 and reward_b == 0):
-                targets[i][action_b] = target  # 教師信号
-
-            # targets[i - reduced_num] = self.model.predict(state_b)
-            # targets[i - reduced_num][action_b] = target  # 教師信号
-            #targets[i][2] = 0.0 + gamma * next_state_max_reward  # 教師信号（DONOTで返されるrewardは常に0)
+                # 同じstateで異なるrewardが返されるので平均値をそのstateでの期待報酬とする
+                targets[i][action_b] = (targets[i][action_b] + reward_b) / 2  # 教師信号
 
         self.model.fit(inputs, targets, epochs=3, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
