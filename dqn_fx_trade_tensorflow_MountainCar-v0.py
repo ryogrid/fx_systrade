@@ -111,7 +111,8 @@ class Actor:
     def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
         #epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes/TOTAL_EPISODE_NUM)))
-        epsilon = 0.01 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_EPISODE_NUM)))
+        #epsilon = 0.01 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_EPISODE_NUM)))
+        epsilon = 0.002
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -130,9 +131,9 @@ class Actor:
 gamma = 0.99 #0.3 #0.99  # 割引係数
 hidden_size = 20 #20 # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-batch_size = 32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 8 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = 201 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 3000 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
+iteration_num = 10000 #3000 # <- 1足あたり 32 * 1 * 50 で約1500回のfitが行われる計算 #20
 memory_size = num_episodes * int(iteration_num * 0.1) #10000  # バッファーメモリの大きさ
 feature_num = 2 #10 #11
 nn_output_size = 2
@@ -156,18 +157,20 @@ def train_agent():
 
         # # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
         # targetQN.model.set_weights(mainQN.model.get_weights())
-
+        # iteration_reward_sum = 0;
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_episode_cnt += 1
             action = actor.get_action(state, total_episode_cnt, mainQN)  # 時刻tでの行動を決定する
             next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
-            reward=0
-            if done:
-                reward=state[0][0]
+            # reward=0
+            # iteration_reward_sum += 1
+            # if done:
+            #     reward=state[0][0]
             action = int(0.5 * action) # 0, 2 を 0, 1変換する
             a_log = [state, action, reward, next_state]
+            #a_log = [state, action, iteration_reward_sum, next_state]
             memory.add(a_log)     # メモリを更新する
 
             state = next_state  # 状態更新
@@ -179,7 +182,8 @@ def train_agent():
 
             # 環境が提供する期間が最後までいった場合
             if done:
-                print(str(cur_itr)+":"+str(reward))
+                #print(str(cur_itr)+":"+str(reward))
+                print(str(cur_itr) + ":" + str(state[0][0]))
                 break
 
 if __name__ == '__main__':
