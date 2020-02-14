@@ -9,6 +9,7 @@ from keras.layers import RepeatVector
 from keras.layers import TimeDistributed
 import pandas as pd
 from matplotlib import pylab as plt
+#from matplotlib import pyplot
 import seaborn as sns
 #%matplotlib inline
 sns.set()
@@ -42,7 +43,8 @@ m.add(RepeatVector(12))
 m.add(LSTM(100, activation='relu', return_sequences=True))
 m.add(TimeDistributed(Dense(1)))
 m.compile(optimizer='adam', loss='mse')
-m.fit(x, y, epochs=1000, verbose=1)
+#m.fit(x, y, epochs=1000, verbose=1)
+m.fit(x, y, epochs=50, verbose=1)
 
 # データ60番～83番から、次の一年(84番～95番)を予測
 input = np.array(ts[60:84])
@@ -60,4 +62,5 @@ plt.plot(ts)
 # 予測したデータをプロット
 xdata = np.arange(84, 96, 1)
 plt.plot(xdata, predict, 'r')
+plt.show()
 
