@@ -12,33 +12,51 @@ from matplotlib import pylab as plt
 #from matplotlib import pyplot
 import seaborn as sns
 import pickle
+import os
 #%matplotlib inline
 sns.set()
 
 unit_num = 100
-train_samples = 72
+train_samples = 2100 #  #72
 input_data_len = 24
 output_data_len = 12
 epochs = 50
 
-df = pd.read_csv('AirPassengers.csv', index_col='Month', dtype={1: 'float'})
-ts = df['#Passengers']
+# df = pd.read_csv('AirPassengers.csv', index_col='Month', dtype={1: 'float'})
+# ts = df['#Passengers']
+
+exchange_rates = None
+with open("./exchange_rates.pickle", 'rb') as f:
+    exchange_rates = pickle.load(f)
+# 先頭5000要素のみ使う
+exchange_rates = exchange_rates[:5000]
 
 x = []  # train
 y = []  # test (answer)
-# xは24要素のリストを、1要素ずつスライドさせながら72個とっている
-# yは同様にして、時系列的にx内の24要素のリストに続く12要素のリストを72個とっている
-# 結果的にxとyの同一インデックスのリストは <24の時系列データ(入力データ)> - <入力データに続く12の時系列データ（教師データ）> となっている
-for i in range(0, train_samples):
-    tmpX = []
-    for j in range(0, input_data_len):
-        tmpX.append(ts[i + j])
-    x.append(tmpX)
+if os.path.exists("./x.pickle"):
+    with open("./x.pickle", 'rb') as f:
+        x = pickle.load(f)
+    with open("./y.pickle", 'rb') as f:
+        y = pickle.load(f)
+else:
+    # xは24要素のリストを、1要素ずつスライドさせながら72個とっている
+    # yは同様にして、時系列的にx内の24要素のリストに続く12要素のリストを72個とっている
+    # 結果的にxとyの同一インデックスのリストは <24の時系列データ(入力データ)> - <入力データに続く12の時系列データ（教師データ）> となっている
+    for i in range(0, train_samples):
+        tmpX = []
+        for j in range(0, input_data_len):
+            tmpX.append(exchange_rates[i + j])
+        x.append(tmpX)
 
-    tmpY = []
-    for j in range(0, output_data_len):
-        tmpY.append(ts[input_data_len + i + j])
-    y.append(tmpY)
+        tmpY = []
+        for j in range(0, output_data_len):
+            tmpY.append(exchange_rates[input_data_len + i + j])
+        y.append(tmpY)
+    with open("./x.pickle", 'wb') as f:
+        pickle.dump(x, f)
+    with open("./y.pickle", 'wb') as f:
+        pickle.dump(y, f)
+print("train data preparation finished.")
 
 x = np.array(x)
 y = np.array(y)
@@ -56,9 +74,12 @@ m.compile(optimizer='adam', loss='mse')
 #m.fit(x, y, epochs=1000, verbose=1)
 m.fit(x, y, epochs=epochs, verbose=1)
 
-# データ60番～83番から、次の一年(84番～95番)を予測
-input_start_idx = 60
-input = np.array(ts[input_start_idx:input_start_idx + input_data_len])
+# # データ60番～83番から、次の一年(84番～95番)を予測
+# input_start_idx = 60
+
+# データ2600番～2623番から、2624番～2635番を予測
+input_start_idx = 2600
+input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
 input = input.reshape((1, input_data_len, 1))
 yhat = m.predict(input)
 
@@ -68,7 +89,7 @@ for i in range(0, output_data_len):
     predict.append(yhat[0][i])
 
 # 比較するために実データをプロット
-plt.plot(ts)
+plt.plot(exchange_rates)
 
 # 予測したデータをプロット
 predicted_start_idx = input_start_idx + input_data_len
