@@ -2,7 +2,7 @@
 # http://sweng.web.fc2.com/ja/program/python/time-series-forecast-lstm.html
 
 import numpy as np
-from keras.models import Sequential
+from keras.models import Sequential, model_from_json
 from keras.layers import Dense
 from keras.layers import LSTM
 from keras.layers import RepeatVector
@@ -19,8 +19,12 @@ sns.set()
 unit_num = 100
 train_samples = 2100 #  #72
 input_data_len = 24
-output_data_len = 12
-epochs = 50
+output_data_len = 1 #12
+future_period = 20 #入力する時系列データから何要素離れたデータを予測するか
+epochs = 100 #50
+
+# 学習結果をテストする際のパラメータ
+test_period = 100 # 予測する要素数
 
 # df = pd.read_csv('AirPassengers.csv', index_col='Month', dtype={1: 'float'})
 # ts = df['#Passengers']
@@ -29,7 +33,7 @@ exchange_rates = None
 with open("./exchange_rates.pickle", 'rb') as f:
     exchange_rates = pickle.load(f)
 # 先頭5000要素のみ使う
-exchange_rates = exchange_rates[:5000]
+exchange_rates = exchange_rates[:3000]
 
 x = []  # train
 y = []  # test (answer)
@@ -50,12 +54,13 @@ else:
 
         tmpY = []
         for j in range(0, output_data_len):
-            tmpY.append(exchange_rates[input_data_len + i + j])
+            tmpY.append(exchange_rates[input_data_len + i + j + future_period])
         y.append(tmpY)
     with open("./x.pickle", 'wb') as f:
         pickle.dump(x, f)
     with open("./y.pickle", 'wb') as f:
         pickle.dump(y, f)
+
 print("train data preparation finished.")
 
 x = np.array(x)
@@ -63,37 +68,66 @@ y = np.array(y)
 x = x.reshape((x.shape[0], x.shape[1], 1))
 y = y.reshape((y.shape[0], y.shape[1], 1))
 
-m = Sequential()
-# 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
-m.add(LSTM(unit_num, activation='relu', input_shape=(input_data_len, 1)))
-# 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-m.add(RepeatVector(output_data_len))
-m.add(LSTM(unit_num, activation='relu', return_sequences=True))
-m.add(TimeDistributed(Dense(1)))
-m.compile(optimizer='adam', loss='mse')
-#m.fit(x, y, epochs=1000, verbose=1)
-m.fit(x, y, epochs=epochs, verbose=1)
+m = None
+if os.path.exists("./m_nw.json"):
+    with open("./m_nw.json", "r") as f:
+        m = model_from_json(f.read())
+    m.compile(optimizer='adam', loss='mse')
+    m.load_weights("./m_weights.hd5")
+else:
+    m = Sequential()
+    # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
+    m.add(LSTM(unit_num, activation='relu', input_shape=(input_data_len, 1)))
+    # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
+    m.add(RepeatVector(output_data_len))
+    m.add(LSTM(unit_num, activation='relu', return_sequences=True))
+    m.add(TimeDistributed(Dense(1)))
+    m.compile(optimizer='adam', loss='mse')
+    #m.fit(x, y, epochs=1000, verbose=1)
+    m.fit(x, y, epochs=epochs, verbose=1)
 
-# # データ60番～83番から、次の一年(84番～95番)を予測
-# input_start_idx = 60
+    with open("./m_nw.json", "w") as f:
+        f.write(m.to_json())
+    m.save_weights("./m_weights.hd5")
 
-# データ2600番～2623番から、2624番～2635番を予測
-input_start_idx = 2600
-input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
-input = input.reshape((1, input_data_len, 1))
-yhat = m.predict(input)
+print("learninged model preparation finshed.")
 
-# 可視化用に、予測結果yhatを、配列predictに格納
+# # データ2600番～2623番から、2624番～2635番を予測
+# input_start_idx = 2600
+# input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
+# input = input.reshape((1, input_data_len, 1))
+# yhat = m.predict(input)
+#
+# # 可視化用に、予測結果yhatを、配列predictに格納
+# predict = []
+# for i in range(0, output_data_len):
+#     predict.append(yhat[0][i])
+
 predict = []
-for i in range(0, output_data_len):
-    predict.append(yhat[0][i])
+test_start_indx = 2800
+# データ test_start_index + input_data_lenから、1要素ずつスライドさせて得られるtest_period個のリストから、
+# データ test_start_index + input_data_len + future_period から test_period個のデータを予測する
+for idx in range(test_start_indx, test_start_indx + test_period):
+    input_start_idx = idx
+    input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
+    input = input.reshape((1, input_data_len, 1))
+    yhat = m.predict(input)
+    # 可視化用に、予測結果yhatを、配列predictに格納
+    predict.append(yhat[0][0])
 
 # 比較するために実データをプロット
 plt.plot(exchange_rates)
 
+# # 予測したデータをプロット
+# predicted_start_idx = input_start_idx + input_data_len
+# xdata = np.arange(predicted_start_idx, predicted_start_idx + output_data_len, 1)
+# plt.plot(xdata, predict, 'r')
+# plt.show()
+
 # 予測したデータをプロット
-predicted_start_idx = input_start_idx + input_data_len
-xdata = np.arange(predicted_start_idx, predicted_start_idx + output_data_len, 1)
+# 以下はoutput_data_lenが1である前提での計算式
+predicted_start_idx = test_start_indx + input_data_len + future_period
+xdata = np.arange(predicted_start_idx, predicted_start_idx + test_period, 1)
 plt.plot(xdata, predict, 'r')
 plt.show()
 
