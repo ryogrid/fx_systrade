@@ -18,13 +18,13 @@ sns.set()
 
 unit_num = 100
 train_samples = 2100 #  #72
-input_data_len = 24
-output_data_len = 1 #12
-future_period = 20 #入力する時系列データから何要素離れたデータを予測するか
-epochs = 100 #50
+input_data_len = 48 #24
+output_data_len = 12 #12
+future_period = 15 #20 #入力する時系列データから何要素離れたデータを予測するか
+epochs = 50 #100 #50
 
 # 学習結果をテストする際のパラメータ
-test_period = 100 # 予測する要素数
+# test_period = 100 # 予測する要素数
 
 # df = pd.read_csv('AirPassengers.csv', index_col='Month', dtype={1: 'float'})
 # ts = df['#Passengers']
@@ -32,7 +32,7 @@ test_period = 100 # 予測する要素数
 exchange_rates = None
 with open("./exchange_rates.pickle", 'rb') as f:
     exchange_rates = pickle.load(f)
-# 先頭5000要素のみ使う
+# 先頭3000要素のみ使う
 exchange_rates = exchange_rates[:3000]
 
 x = []  # train
@@ -92,42 +92,42 @@ else:
 
 print("learninged model preparation finshed.")
 
-# # データ2600番～2623番から、2624番～2635番を予測
-# input_start_idx = 2600
-# input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
-# input = input.reshape((1, input_data_len, 1))
-# yhat = m.predict(input)
-#
-# # 可視化用に、予測結果yhatを、配列predictに格納
-# predict = []
-# for i in range(0, output_data_len):
-#     predict.append(yhat[0][i])
-
+# input_start_idx:input_start_idx + input_data_lenのデータから
+# そこからfuture_period足離れたところ output_data_len個の要素を予測する
+input_start_idx = 2800
+input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
+input = input.reshape((1, input_data_len, 1))
+yhat = m.predict(input)
+# 可視化用に、予測結果yhatを、配列predictに格納
 predict = []
-test_start_indx = 2800
-# データ test_start_index + input_data_lenから、1要素ずつスライドさせて得られるtest_period個のリストから、
-# データ test_start_index + input_data_len + future_period から test_period個のデータを予測する
-for idx in range(test_start_indx, test_start_indx + test_period):
-    input_start_idx = idx
-    input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
-    input = input.reshape((1, input_data_len, 1))
-    yhat = m.predict(input)
-    # 可視化用に、予測結果yhatを、配列predictに格納
-    predict.append(yhat[0][0])
+for i in range(0, output_data_len):
+    predict.append(yhat[0][i])
+
+# predict = []
+# test_start_indx = 2800
+# # データ test_start_index + input_data_lenから、1要素ずつスライドさせて得られるtest_period個のリストから、
+# # データ test_start_index + input_data_len + future_period から test_period個のデータを予測する
+# for idx in range(test_start_indx, test_start_indx + test_period):
+#     input_start_idx = idx
+#     input = np.array(exchange_rates[input_start_idx:input_start_idx + input_data_len])
+#     input = input.reshape((1, input_data_len, 1))
+#     yhat = m.predict(input)
+#     # 可視化用に、予測結果yhatを、配列predictに格納
+#     predict.append(yhat[0][0])
 
 # 比較するために実データをプロット
 plt.plot(exchange_rates)
 
-# # 予測したデータをプロット
-# predicted_start_idx = input_start_idx + input_data_len
-# xdata = np.arange(predicted_start_idx, predicted_start_idx + output_data_len, 1)
-# plt.plot(xdata, predict, 'r')
-# plt.show()
-
 # 予測したデータをプロット
-# 以下はoutput_data_lenが1である前提での計算式
-predicted_start_idx = test_start_indx + input_data_len + future_period
-xdata = np.arange(predicted_start_idx, predicted_start_idx + test_period, 1)
+predicted_start_idx = input_start_idx + input_data_len + future_period
+xdata = np.arange(predicted_start_idx, predicted_start_idx + output_data_len, 1)
 plt.plot(xdata, predict, 'r')
 plt.show()
+
+# # 予測したデータをプロット
+# # 以下はoutput_data_lenが1である前提での計算式
+# predicted_start_idx = test_start_indx + input_data_len + future_period
+# xdata = np.arange(predicted_start_idx, predicted_start_idx + test_period, 1)
+# plt.plot(xdata, predict, 'r')
+# plt.show()
 
