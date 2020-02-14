@@ -17,11 +17,11 @@ import os
 sns.set()
 
 unit_num = 100
-train_samples = 2100 #  #72
-input_data_len = 48 #24
+train_samples = 2048 #  #72
+input_data_len = 64 #48 #24
 output_data_len = 12 #12
-future_period = 15 #20 #入力する時系列データから何要素離れたデータを予測するか
-epochs = 50 #100 #50
+future_period = 0 #15 #20 #入力する時系列データから何要素離れたデータを予測するか
+epochs = 300 #50 #100 #50
 
 # 学習結果をテストする際のパラメータ
 # test_period = 100 # 予測する要素数
