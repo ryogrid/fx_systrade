@@ -333,6 +333,8 @@ class FXEnvironment:
 
             self.done = False
             self.positions_identifiers = []
+            self.donot_identifiers = []
+            self.donot_episode_idxes = []
 
             self.portfolio_mngr = PortforioManager(exchange_rates, half_spred, holdable_positions)
 
@@ -391,8 +393,14 @@ class FXEnvironment:
                     # エピソードの識別子、そのエピソード時点における直近のaction系列によって得た獲得pipsのsum（正しいreward）
                     episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
                     additional_infos.append([self.positions_identifiers[idx], self.get_recent_rewards_sum(episode_idx_of_past_open)])
+                # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する
+                for idx in range(0, len(self.donot_identifiers)):
+                    additional_infos.append([self.donot_identifiers[idx], self.get_recent_rewards_sum(self.donot_episode_idxes[idx])])
+                # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
 
                 self.positions_identifiers = []
+                self.donot_identifiers = []
+                self.donot_episode_idxes = []
                 return won_pips, won_money
             ########################################################################################################
 
@@ -445,6 +453,8 @@ class FXEnvironment:
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
                 reward = self.get_recent_rewards_sum(self.cur_idx)
+                self.donot_identifiers.append(cur_step_identifier)
+                self.donot_episodes()
 
                 if len(self.positions_identifiers) > 0:
                     if self.portfolio_mngr.having_long_or_short == self.LONG:
