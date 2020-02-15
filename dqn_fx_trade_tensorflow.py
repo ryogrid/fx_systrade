@@ -217,9 +217,9 @@ def tarin_agent():
                     try:
                         current_episode_reward = all_period_reward_hash[mean_val_stored_key]
                     except:
-                        current_val = 0
-                    current_itr_num = episode + 1
-                    update_val = ((current_val * (current_itr_num - 1) + keyval[1])) / current_itr_num
+                        current_episode_reward = 0
+                    current_itr_num = cur_itr + 1
+                    update_val = ((current_episode_reward * (current_itr_num - 1) + keyval[1])) / current_itr_num
                     memory_hash[keyval[0]][2] = update_val
                     all_period_reward_hash[mean_val_stored_key] = update_val
 
