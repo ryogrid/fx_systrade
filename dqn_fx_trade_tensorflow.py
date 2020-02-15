@@ -71,7 +71,7 @@ class QNetwork:
             # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
             # それを反映するために replay を行う
             # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
-            targets[i] = self.model.predict(state_b)
+            targets[i] = self.model.predict(state_b)[0]
             # 非Q学習なロジックでは、DONOTのアクションをとった場合のrewardは必ず0なので毎回与える
             targets[i][2] = 0.0
             # BUY, SELLで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
@@ -145,7 +145,7 @@ TRAIN_DATA_NUM = 74651 # <- 検証中は期間を1年程度に減らす　223954
 # ---
 gamma = 0.3 # <-Q学習していないので使われていない #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.01 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.005 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 1足あたり 16 * 1 * 720 で11520回のfitが行われる計算 #20
