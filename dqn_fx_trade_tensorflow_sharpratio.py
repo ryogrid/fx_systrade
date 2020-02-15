@@ -56,30 +56,31 @@ class QNetwork:
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             inputs[i:i+1] = state_b
 
-            # retmainQs = self.model.predict(next_state_b)[0]
-            # next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            # next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
-            # target = reward_b + gamma * next_state_max_reward
-            #
-            # targets[i] = self.model.predict(state_b)
-            # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            # if not (action_b == 0 and reward_b == 0):
-            #     targets[i][action_b] = target  # 教師信号
+            retmainQs = self.model.predict(next_state_b)[0]
+            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+            next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
+            target = reward_b + gamma * next_state_max_reward
 
-            # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
-            # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
-            # それを反映するために replay を行う
-            # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
-            targets[i] = self.model.predict(state_b)[0]
-            # 非Q学習なロジックでは、DONOTのアクションをとった場合のrewardは必ず0なので毎回与える
-            targets[i][2] = 0.0
+            targets[i] = self.model.predict(state_b)
             # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            #if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
-            if not action_b == 0 and reward_b == 0:
-                targets[i][action_b] = reward_b  # 教師信号
-                print("reward_b: " + str(reward_b))
+            #if not (action_b == 0 and reward_b == 0):
+            targets[i][action_b] = target  # 教師信号
+            print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b))
+
+            # # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
+            # # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
+            # # それを反映するために replay を行う
+            # # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
+            # targets[i] = self.model.predict(state_b)[0]
+            # # 非Q学習なロジックでは、DONOTのアクションをとった場合のrewardは必ず0なので毎回与える
+            # targets[i][2] = 0.0
+            # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
+            # #if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
+            # if not action_b == 0 and reward_b == 0:
+            #     targets[i][action_b] = reward_b  # 教師信号
+            #     print("reward_b: " + str(reward_b))
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 

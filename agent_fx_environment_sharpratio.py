@@ -352,12 +352,13 @@ class FXEnvironment:
             self.log_fd_bt.write(log_str + "\n")
             self.log_fd_bt.flush()
 
-        def get_sharp_ratio(self, episode_idx, calc_length = 100):
+        def get_recent_rewards_sum(self, episode_idx, calc_length = 100):
             if self.cur_idx < calc_length:
                 return 0
             else:
                 calc_list = self.won_pips_to_calculate_sratio[episode_idx - calc_length + 1:episode_idx + 1]
-                return sum(calc_list) / (np.std(np.array(calc_list)) + 0.00001)
+                return sum(calc_list)
+                #return sum(calc_list) / (np.std(np.array(calc_list)) + 0.00001)
 
         def step(self, action_num):
             reward = 0
@@ -386,17 +387,17 @@ class FXEnvironment:
                 won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
                 for idx in range(0, len(self.positions_identifiers)):
                     # won_pipsを記録しておく（シャープレシオを計算する前に）
-                    self.won_pips_to_calculate_sratio[each_pos_won[1] - self.idx_geta] = each_pos_won[idx][0]
-                    # エピソードの識別子、そのエピソード時点におけるシャープレシオ（正しいreward）
+                    self.won_pips_to_calculate_sratio[each_pos_won[idx][1] - self.idx_geta] = each_pos_won[idx][0]
+                    # エピソードの識別子、そのエピソード時点における直近のaction系列によって得た獲得pipsのsum（正しいreward）
                     episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
-                    additional_infos.append([self.positions_identifiers[idx], self.get_sharp_ratio(episode_idx_of_past_open)])
+                    additional_infos.append([self.positions_identifiers[idx], self.get_recent_rewards_sum(episode_idx_of_past_open)])
 
                 self.positions_identifiers = []
                 return won_pips, won_money
             ########################################################################################################
 
             if action == "BUY":
-                reward = reward = self.get_sharp_ratio(self.cur_idx)
+                reward = reward = self.get_recent_rewards_sum(self.cur_idx)
                 # is_closed = False
                 # if self.portfolio_mngr.having_long_or_short == self.SHORT:
                 #     won_pips, won_money = close_all()
@@ -421,7 +422,7 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "CLOSE":
-                reward = 0
+                reward = self.get_recent_rewards_sum(self.cur_idx)
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
                     won_pips, won_money = close_all()
@@ -443,7 +444,7 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
-                reward = self.get_sharp_ratio(self.cur_idx)
+                reward = self.get_recent_rewards_sum(self.cur_idx)
 
                 if len(self.positions_identifiers) > 0:
                     if self.portfolio_mngr.having_long_or_short == self.LONG:
