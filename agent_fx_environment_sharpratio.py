@@ -352,6 +352,19 @@ class FXEnvironment:
         # def get_unixtime_str(self):
         #     return str(time.time())
 
+        # def save_state(self):
+        #     with open("./actions_log.pickle", 'wb') as f:
+        #         pickle.dump(self.won_pips_to_calculate_sratio, f)
+        #     with open("./won_pips_to_calculate_sratio.pickle", 'wb') as f:
+        #         pickle.dump(self.won_pips_to_calculate_sratio, f)
+        #
+        # def load_state(self):
+        #     if os.path.exists("./actions_log.pickle"):
+        #         with open("./actions_log.pickle", 'rb') as f:
+        #             self.actions_log = pickle.load(f)
+        #         with open("./won_pips_to_calculate_sratio.pickle", 'rb') as f:
+        #             self.won_pips_to_calculate_sratio = pickle.load(f)
+
         def get_last_actoins_number_sum(self):
             if self.cur_idx < self.performance_eval_len:
                 return 0
@@ -504,8 +517,8 @@ class FXEnvironment:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
 
-                #next_state = self.input_arr[self.cur_idx]
-                next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actoins_number_sum()]]) #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = self.input_arr[self.cur_idx]
+                #next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actoins_number_sum()]]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos
