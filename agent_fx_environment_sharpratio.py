@@ -505,7 +505,7 @@ class FXEnvironment:
                 has_position = 1 if valuated_diff == 0 else 1
 
                 #next_state = self.input_arr[self.cur_idx]
-                next_state = np.concatenate([self.input_arr[self.cur_idx], self.get_last_actoins_number_sum()]) #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actoins_number_sum()]]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos
