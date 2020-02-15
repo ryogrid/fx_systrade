@@ -11,6 +11,7 @@ import sklearn
 import time
 import random
 from sklearn.preprocessing import StandardScaler
+from collections import deque
 
 class FXEnvironment:
     def __init__(self):
@@ -313,7 +314,7 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, is_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 100, is_backtest=False):
             self.NOT_HAVE = 0
             self.LONG = 1
             self.SHORT = 2
@@ -335,6 +336,10 @@ class FXEnvironment:
             self.positions_identifiers = []
             self.donot_identifiers = []
             self.donot_episode_idxes = []
+            self.input_arr_len = len(input_arr)
+            self.actions_log = deque(maxlen=self.input_arr_len)
+
+            self.performance_eval_len = performance_eval_len
 
             self.portfolio_mngr = PortforioManager(exchange_rates, half_spred, holdable_positions)
 
@@ -347,6 +352,12 @@ class FXEnvironment:
         # def get_unixtime_str(self):
         #     return str(time.time())
 
+        def get_last_actoins_number_sum(self):
+            actions_length = len(self.actions_log)
+            start = actions_length - self.performance_eval_len
+            end = actions_length
+            return sum([self.buffer[ii] for ii in range(start, end)])
+
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
 
@@ -354,11 +365,11 @@ class FXEnvironment:
             self.log_fd_bt.write(log_str + "\n")
             self.log_fd_bt.flush()
 
-        def get_recent_rewards_sum(self, episode_idx, calc_length = 100):
-            if self.cur_idx < calc_length:
+        def get_recent_rewards_sum(self, episode_idx):
+            if self.cur_idx < self.performance_eval_len:
                 return 0
             else:
-                calc_list = self.won_pips_to_calculate_sratio[episode_idx - calc_length + 1:episode_idx + 1]
+                calc_list = self.won_pips_to_calculate_sratio[episode_idx - self.performance_eval_len + 1:episode_idx + 1]
                 return sum(calc_list)
                 #return sum(calc_list) / (np.std(np.array(calc_list)) + 0.00001)
 
@@ -367,6 +378,7 @@ class FXEnvironment:
             action = -1
             cur_step_identifier = self.get_rand_str()
             cur_episode_rate_idx = self.idx_geta + self.cur_idx
+            self.actions_log.append(action_num)
             is_closed = False
 
             if action_num == 0:
@@ -489,8 +501,8 @@ class FXEnvironment:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
 
-                next_state = self.input_arr[self.cur_idx]
-                #next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
+                #next_state = self.input_arr[self.cur_idx]
+                next_state = np.concatenate([self.input_arr[self.cur_idx], self.get_last_actoins_number_sum()]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos
