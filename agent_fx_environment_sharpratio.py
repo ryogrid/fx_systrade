@@ -369,7 +369,7 @@ class FXEnvironment:
             if action_num == 0:
                 action = "BUY"
             elif action_num == 1:
-                action = "SELL"
+                action = "CLOSE"
             elif action_num == 2:
                  action = "DONOT"
             else:
@@ -388,57 +388,57 @@ class FXEnvironment:
                     # won_pipsを記録しておく（シャープレシオを計算する前に）
                     self.won_pips_to_calculate_sratio[each_pos_won[1] - self.idx_geta] = each_pos_won[idx][0]
                     # エピソードの識別子、そのエピソード時点におけるシャープレシオ（正しいreward）
-                    episode_idx_of_past_open = each_pos_won[idx][0] - self.idx_geta
-                    additional_infos.append([self.positions_identifiers[idx], self.get_sharp_ratio(each_pos_won[idx][1] - self.idx_geta)])
+                    episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
+                    additional_infos.append([self.positions_identifiers[idx], self.get_sharp_ratio(episode_idx_of_past_open)])
 
                 self.positions_identifiers = []
                 return won_pips, won_money
             ########################################################################################################
 
             if action == "BUY":
-                reward = self.get_sharp_ratio(self.cur_idx)
-                is_closed = False
-                if self.portfolio_mngr.having_long_or_short == self.SHORT:
-                    won_pips, won_money = close_all()
-                    is_closed = True
+                reward = reward = self.get_sharp_ratio(self.cur_idx)
+                # is_closed = False
+                # if self.portfolio_mngr.having_long_or_short == self.SHORT:
+                #     won_pips, won_money = close_all()
+                #     is_closed = True
+                #
+                # if self.portfolio_mngr.additional_pos_openable():
+                #     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
+                #     self.positions_identifiers.append(cur_step_identifier)
+                #     if is_closed:
+                #         a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(won_money) + "," + str(
+                #             won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
+                #     else:
+                #         a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
+                #         self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
 
                 if self.portfolio_mngr.additional_pos_openable():
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
                     self.positions_identifiers.append(cur_step_identifier)
-                    if is_closed:
-                        a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(won_money) + "," + str(
-                            won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
-                    else:
-                        a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
-                        self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
-
-                # if self.portfolio_mngr.additional_pos_openable():
-                #     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
-                #     self.positions_identifiers.append(cur_step_identifier)
-                #     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
-                #     self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
-                # else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                #     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
-                #     self.exchange_rates[cur_episode_rate_idx]) + ",0"
-            elif action == "SELL":
-                reward = self.get_sharp_ratio(self.cur_idx)
+                    a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
+                    self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
+                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
+                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
+                    self.exchange_rates[cur_episode_rate_idx]) + ",0"
+            elif action == "CLOSE":
+                reward = 0
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
                     won_pips, won_money = close_all()
                     reward = won_pips
-                    is_closed = True
-                    #a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
-                    #    won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
+                    #is_closed = True
+                    a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
+                       won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
 
-                if self.portfolio_mngr.additional_pos_openable():
-                    sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
-                    self.positions_identifiers.append(cur_step_identifier)
-                    if is_closed:
-                        a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(won_money) + "," + str(
-                            won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
-                    else:
-                        a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
-                        self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                # if self.portfolio_mngr.additional_pos_openable():
+                #     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
+                #     self.positions_identifiers.append(cur_step_identifier)
+                #     if is_closed:
+                #         a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(won_money) + "," + str(
+                #             won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                #     else:
+                #         a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
+                #         self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
                 else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
@@ -581,7 +581,7 @@ class PortforioManager:
             won_pips_sum += won_pips
             won_money_sum += won_money
             returned_money_sum += return_money
-            won_pips_arr.append([won_pips, rate_idx])
+            won_pips_arr.append([won_pips, position[3]])
 
         self.having_long_or_short = self.NOT_HAVE
         self.total_won_pips += won_pips_sum

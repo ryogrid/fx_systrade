@@ -74,13 +74,12 @@ class QNetwork:
             targets[i] = self.model.predict(state_b)[0]
             # 非Q学習なロジックでは、DONOTのアクションをとった場合のrewardは必ず0なので毎回与える
             targets[i][2] = 0.0
-            # BUY, SELLで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
+            #if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
+            if not action_b == 0 and reward_b == 0:
                 targets[i][action_b] = reward_b  # 教師信号
                 print("reward_b: " + str(reward_b))
-                # # 同じstateで異なるrewardが返されるので平均値をそのstateでの期待報酬とする
-                # targets[i][action_b] = (targets[i][action_b] + reward_b) / 2  # 教師信号
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
@@ -207,8 +206,12 @@ def tarin_agent():
                 break
             next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
 
+            store_episode_log_to_memory(state, action, reward, next_state, info)
+
             # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
-            # info で返されるので、その内容で過去のエピソードのリワードを更新する
+            # info で返されるので、過去のイテレーションでの平均値を踏まえて、今回のイテレーションでのBUYのエピソードのリワードを更新し、
+            # 過去のイテレーションでの平均値も更新する
+            # また、close自体のrewardも同様に更新する
             if len(info) > 1:
                 for keyval in info[1:]:
                     # rewardは過去の値の寄与度も考慮した平均値になるように設定する
@@ -217,17 +220,29 @@ def tarin_agent():
                     # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
                     mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
                     try:
-                        current_episode_reward = all_period_reward_hash[mean_val_stored_key]
+                        past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
                     except:
-                        current_episode_reward = 0
+                        past_all_itr_mean_reward = 0
                     current_itr_num = cur_itr + 1
                     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
                     # 時間割引の考え方を導入して平均をとる
-                    update_val = (((current_episode_reward * (current_itr_num - 1) * 0.99) + keyval[1])) / current_itr_num
+                    update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * 0.99) + keyval[1])) / current_itr_num
                     memory_hash[keyval[0]][2] = update_val
                     all_period_reward_hash[mean_val_stored_key] = update_val
 
-            store_episode_log_to_memory(state, action, reward, next_state, info)
+                # close自体のrewardの更新. 今回のイテレーションでの値も、イテレーションを跨いだ全体での値も、イテレーションを跨いだ全体で
+                # 求めた平均値で更新する
+                mean_val_stored_key = str(state) + str(action)
+                try:
+                    past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
+                except:
+                    past_all_itr_mean_reward = 0
+                # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+                # 時間割引の考え方を導入して平均をとる
+                update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * 0.99) + reward)) / current_itr_num
+                memory_hash[info[0]][2] = update_val
+                all_period_reward_hash[mean_val_stored_key] = update_val
+
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
