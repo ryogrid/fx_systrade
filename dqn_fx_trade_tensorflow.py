@@ -77,7 +77,7 @@ class QNetwork:
             # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
             #if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
-            if not action_b == 0 and reward_b == 0:
+            if not (action_b == 0 and reward_b == 0):
                 targets[i][action_b] = reward_b  # 教師信号
                 print("reward_b: " + str(reward_b))
 
