@@ -164,6 +164,7 @@ def tarin_agent():
     actor = Actor()
 
     total_get_acton_cnt = 1
+    all_period_reward_hash = {}
 
     if os.path.exists("./mainQN_nw.json"):
         mainQN.load_model("mainQN")
@@ -171,6 +172,8 @@ def tarin_agent():
         memory.load_memory("memory")
         with open("./total_get_action_count.pickle", 'rb') as f:
             total_get_acton_cnt = pickle.load(f)
+        with open("./all_period_reward_hash.pickle", 'rb') as f:
+            all_period_reward_hash = pickle.load(f)
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
@@ -192,7 +195,6 @@ def tarin_agent():
         # # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
         # targetQN.model.set_weights(mainQN.model.get_weights())
 
-        all_period_reward_hash = {}
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
             action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
@@ -236,6 +238,8 @@ def tarin_agent():
                 memory.save_memory("memory")
                 with open("./total_get_action_count.pickle", 'wb') as f:
                     pickle.dump(total_get_acton_cnt, f)
+                with open("./all_period_reward_hash.pickle", 'wb') as f:
+                    pickle.dump(all_period_reward_hash, f)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
