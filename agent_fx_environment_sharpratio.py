@@ -353,10 +353,13 @@ class FXEnvironment:
         #     return str(time.time())
 
         def get_last_actoins_number_sum(self):
-            actions_length = len(self.actions_log)
-            start = actions_length - self.performance_eval_len
-            end = actions_length
-            return sum([self.actions_log[ii] for ii in range(start, end)])
+            if self.cur_idx < self.performance_eval_len:
+                return 0
+            else:
+                actions_length = len(self.actions_log)
+                start = actions_length - self.performance_eval_len
+                end = actions_length
+                return sum([self.actions_log[ii] for ii in range(start, end)])
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
