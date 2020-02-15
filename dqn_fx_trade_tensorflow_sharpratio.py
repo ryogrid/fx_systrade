@@ -212,7 +212,7 @@ def tarin_agent():
             # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
             # info で返されるので、過去のイテレーションでの平均値を踏まえて、今回のイテレーションでのBUYのエピソードのリワードを更新し、
             # 過去のイテレーションでの平均値も更新する
-            # また、close自体のrewardも同様に更新する
+            # また、DONOTのrewardも同様に更新する
             if len(info) > 1:
                 for keyval in info[1:]:
                     # rewardは過去の値の寄与度も考慮した平均値になるように設定する
@@ -230,7 +230,7 @@ def tarin_agent():
                     update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * 0.99) + keyval[1])) / current_itr_num
                     memory_hash[keyval[0]][2] = update_val
                     all_period_reward_hash[mean_val_stored_key] = update_val
-
+            if action == 1:
                 # close自体のrewardの更新. 今回のイテレーションでの値も、イテレーションを跨いだ全体での値も、イテレーションを跨いだ全体で
                 # 求めた平均値で更新する
                 mean_val_stored_key = str(state) + str(action)
