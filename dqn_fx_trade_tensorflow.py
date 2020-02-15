@@ -146,7 +146,7 @@ hidden_size = 28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピ�
 learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 720 # <- 1足あたり 8 * 1 * 720 で5760回のfitが行われる計算 #20
+iteration_num = 720 # <- 1足あたり 16 * 1 * 720 で11520回のfitが行われる計算 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 10 #11 #10 #11
 nn_output_size = 3
@@ -219,7 +219,9 @@ def tarin_agent():
                     except:
                         current_episode_reward = 0
                     current_itr_num = cur_itr + 1
-                    update_val = ((current_episode_reward * (current_itr_num - 1) + keyval[1])) / current_itr_num
+                    # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+                    # 時間割引の考え方を導入して平均をとる
+                    update_val = (((current_episode_reward * (current_itr_num - 1) * 0.99) + keyval[1])) / current_itr_num
                     memory_hash[keyval[0]][2] = update_val
                     all_period_reward_hash[mean_val_stored_key] = update_val
 
