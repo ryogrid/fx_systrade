@@ -454,7 +454,7 @@ class FXEnvironment:
             elif action == "DONOT":
                 reward = self.get_recent_rewards_sum(self.cur_idx)
                 self.donot_identifiers.append(cur_step_identifier)
-                self.donot_episodes()
+                self.donot_episodes.append(self.cur_idx)
 
                 if len(self.positions_identifiers) > 0:
                     if self.portfolio_mngr.having_long_or_short == self.LONG:
