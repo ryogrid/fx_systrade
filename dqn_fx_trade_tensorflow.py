@@ -72,6 +72,8 @@ class QNetwork:
             # それを反映するために replay を行う
             # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
             targets[i] = self.model.predict(state_b)
+            # 非Q学習なロジックでは、DONOTのアクションをとった場合のrewardは必ず0なので毎回与える
+            targets[i][2] = 0.0
             # BUY, SELLで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
             if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
