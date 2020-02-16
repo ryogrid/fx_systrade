@@ -65,9 +65,12 @@ class QNetwork:
             # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
             #if not (action_b == 0 and reward_b == 0):
+            print(
+                "reward_b" + "(" + str(action_b) + ") :" + str(reward_b) + " target: " + str(target) + " predicted: " + str(targets[i][action_b])
+            )
             targets[i][action_b] = target  # 教師信号
-            targets[i][2] = 0.0 #DONOTは常に0
-            print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b) + " target: " + str(target))
+            #targets[i][2] = 0.0 #DONOTは常に0
+
 
             # # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
             # # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため

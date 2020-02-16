@@ -486,7 +486,7 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
-                reward = 0 #self.get_recent_rewards_sum(self.cur_idx)
+                reward = self.get_recent_rewards_sum(self.cur_idx) # 0
                 # self.donot_identifiers.append(cur_step_identifier)
                 # self.donot_episode_idxes.append(self.cur_idx)
 
