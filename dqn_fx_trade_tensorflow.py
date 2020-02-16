@@ -14,7 +14,7 @@ from collections import deque
 from keras import backend as K
 import tensorflow as tf
 import pickle
-from agent_fx_environment_sharpratio import FXEnvironment
+from agent_fx_environment import FXEnvironment
 import os
 import sys
 import math
