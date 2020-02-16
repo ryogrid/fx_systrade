@@ -348,6 +348,7 @@ class FXEnvironment:
             self.won_pips_to_calculate_sratio = [0.0] * len(input_arr)
             # if(is_backtest):
             #     self.idx_real_step = 5
+            self.base3_max_float = float(int("".join(["2"] * self.performance_eval_len), 3))
 
         # def get_unixtime_str(self):
         #     return str(time.time())
@@ -372,7 +373,11 @@ class FXEnvironment:
                 actions_length = len(self.actions_log)
                 start = actions_length - self.performance_eval_len
                 end = actions_length
-                return sum([self.actions_log[ii] for ii in range(start, end)])
+                action_list = [str(self.actions_log[ii]) for ii in range(start, end)]
+
+
+                # 3進数と見なしてint化し1をMaxに正規化する
+                return int("".join(action_list), 3) / self.base3_max_float
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
@@ -458,12 +463,12 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "CLOSE":
-                # ポジションを保有している場合はwon_pipsに置き換えられる
+                # ポジションを保有している場合はwon_pipsが加算される
                 reward = self.get_recent_rewards_sum(self.cur_idx)
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
                     won_pips, won_money = close_all()
-                    reward = won_pips
+                    reward += won_pips
                     #is_closed = True
                     a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
                        won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
