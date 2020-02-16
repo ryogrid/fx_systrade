@@ -458,6 +458,7 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "CLOSE":
+                # ポジションを保有している場合はwon_pipsに置き換えられる
                 reward = self.get_recent_rewards_sum(self.cur_idx)
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
