@@ -197,6 +197,16 @@ def tarin_agent():
         # # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
         # targetQN.model.set_weights(mainQN.model.get_weights())
 
+        # スナップショットをとっておく
+        if cur_itr % 3 == 0 and cur_itr != 0:
+            # targetQN.save_model("targetQN")
+            mainQN.save_model("mainQN")
+            memory.save_memory("memory")
+            with open("./total_get_action_count.pickle", 'wb') as f:
+                pickle.dump(total_get_acton_cnt, f)
+            with open("./all_period_reward_hash.pickle", 'wb') as f:
+                pickle.dump(all_period_reward_hash, f)
+
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
             action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
@@ -250,16 +260,6 @@ def tarin_agent():
             if (memory.len() > batch_size):
                 mainQN.replay(memory, batch_size, gamma)
                 #mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
-
-            # モデルとメモリのスナップショットをとっておく
-            if episode % 10000 == 0 and episode != 0:
-                #targetQN.save_model("targetQN")
-                mainQN.save_model("mainQN")
-                memory.save_memory("memory")
-                with open("./total_get_action_count.pickle", 'wb') as f:
-                    pickle.dump(total_get_acton_cnt, f)
-                with open("./all_period_reward_hash.pickle", 'wb') as f:
-                    pickle.dump(all_period_reward_hash, f)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
