@@ -61,26 +61,24 @@ class QNetwork:
             next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
             target = reward_b + gamma * next_state_max_reward
 
-            # targets[i] = self.model.predict(state_b)
-            # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            # #if not (action_b == 0 and reward_b == 0):
-            # targets[i][action_b] = target  # 教師信号
-            # print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b))
-
-            # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
-            # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
-            # それを反映するために replay を行う
-            # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
             targets[i] = self.model.predict(state_b)[0]
-            # 非Q学習なロジックでは、DONOTのアクションをとった場合のrewardは必ず0なので毎回与える
-            targets[i][2] = 0.0
-            # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            # #if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
-            # if not action_b == 0 and reward_b == 0:
-            targets[i][action_b] = reward_b  # 教師信号
-            print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b))
+            # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
+            #if not (action_b == 0 and reward_b == 0):
+            targets[i][action_b] = target  # 教師信号
+            print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b) + " target: " + str(target))
+
+            # # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
+            # # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
+            # # それを反映するために replay を行う
+            # # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
+            # targets[i] = self.model.predict(state_b)[0]
+            # # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
+            # # #if not ((action_b == 0 and reward_b == 0) or (action_b == 1 and reward_b == 0)):
+            # # if not action_b == 0 and reward_b == 0:
+            # targets[i][action_b] = reward_b  # 教師信号
+            # print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b))
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
 
@@ -144,13 +142,13 @@ class Actor:
 TRAIN_DATA_NUM = 74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 # ---
 gamma = 0.3 # <-Q学習していないので使われていない #0.99 #0.3 #0.99  # 割引係数
-hidden_size = 28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
+hidden_size = 50 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.005 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-batch_size = 16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 1足あたり 16 * 1 * 720 で11520回のfitが行われる計算 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
-feature_num = 10 #11 #10 #11 #10 #11
+feature_num = 11 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 
