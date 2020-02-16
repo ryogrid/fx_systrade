@@ -1,4 +1,5 @@
 # coding:utf-8
+# coding:utf-8
 import numpy as np
 import scipy.sparse
 import pickle
@@ -11,6 +12,7 @@ import sklearn
 import time
 import random
 from sklearn.preprocessing import StandardScaler
+from collections import deque
 
 class FXEnvironment:
     def __init__(self):
@@ -313,7 +315,7 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, is_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, is_backtest=False):
             self.NOT_HAVE = 0
             self.LONG = 1
             self.SHORT = 2
@@ -333,13 +335,45 @@ class FXEnvironment:
 
             self.done = False
             self.positions_identifiers = []
+            self.donot_identifiers = []
+            self.donot_episode_idxes = []
+            self.input_arr_len = len(input_arr)
+            self.actions_log = deque(maxlen=self.input_arr_len)
+
+            self.performance_eval_len = performance_eval_len
 
             self.portfolio_mngr = PortforioManager(exchange_rates, half_spred, holdable_positions)
+
+            # self.input_arr の要素をstateとして返したあと、次の回でactionがとられた時のwon_pipsを記録しておく
+            # input_arrと同じ要素数のリストとして初期化しておく
+            self.won_pips_to_calculate_sratio = [0.0] * len(input_arr)
             # if(is_backtest):
             #     self.idx_real_step = 5
 
         # def get_unixtime_str(self):
         #     return str(time.time())
+
+        # def save_state(self):
+        #     with open("./actions_log.pickle", 'wb') as f:
+        #         pickle.dump(self.won_pips_to_calculate_sratio, f)
+        #     with open("./won_pips_to_calculate_sratio.pickle", 'wb') as f:
+        #         pickle.dump(self.won_pips_to_calculate_sratio, f)
+        #
+        # def load_state(self):
+        #     if os.path.exists("./actions_log.pickle"):
+        #         with open("./actions_log.pickle", 'rb') as f:
+        #             self.actions_log = pickle.load(f)
+        #         with open("./won_pips_to_calculate_sratio.pickle", 'rb') as f:
+        #             self.won_pips_to_calculate_sratio = pickle.load(f)
+
+        def get_last_actoins_number_sum(self):
+            if self.cur_idx < self.performance_eval_len:
+                return 0
+            else:
+                actions_length = len(self.actions_log)
+                start = actions_length - self.performance_eval_len
+                end = actions_length
+                return sum([self.actions_log[ii] for ii in range(start, end)])
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
@@ -348,11 +382,20 @@ class FXEnvironment:
             self.log_fd_bt.write(log_str + "\n")
             self.log_fd_bt.flush()
 
+        def get_recent_rewards_sum(self, episode_idx):
+            if self.cur_idx < self.performance_eval_len:
+                return 0
+            else:
+                calc_list = self.won_pips_to_calculate_sratio[episode_idx - self.performance_eval_len + 1:episode_idx + 1]
+                return sum(calc_list)
+                #return sum(calc_list) / (np.std(np.array(calc_list)) + 0.00001)
+
         def step(self, action_num):
             reward = 0
             action = -1
             cur_step_identifier = self.get_rand_str()
             cur_episode_rate_idx = self.idx_geta + self.cur_idx
+            self.actions_log.append(action_num)
             is_closed = False
 
             if action_num == 0:
@@ -374,13 +417,24 @@ class FXEnvironment:
 
                 won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
                 for idx in range(0, len(self.positions_identifiers)):
-                    additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx]])
+                    # won_pipsを記録しておく（シャープレシオを計算する前に）
+                    self.won_pips_to_calculate_sratio[each_pos_won[idx][1] - self.idx_geta] = each_pos_won[idx][0]
+                    # エピソードの識別子、そのエピソード時点における直近のaction系列によって得た獲得pipsのsum（正しいreward）
+                    episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
+                    additional_infos.append([self.positions_identifiers[idx], self.get_recent_rewards_sum(episode_idx_of_past_open)])
+                # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する
+                for idx in range(0, len(self.donot_identifiers)):
+                    additional_infos.append([self.donot_identifiers[idx], self.get_recent_rewards_sum(self.donot_episode_idxes[idx])])
+                # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
+
                 self.positions_identifiers = []
+                self.donot_identifiers = []
+                self.donot_episode_idxes = []
                 return won_pips, won_money
             ########################################################################################################
 
             if action == "BUY":
-                reward = 0
+                reward = reward = self.get_recent_rewards_sum(self.cur_idx)
                 # is_closed = False
                 # if self.portfolio_mngr.having_long_or_short == self.SHORT:
                 #     won_pips, won_money = close_all()
@@ -405,7 +459,7 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "CLOSE":
-                reward = 0
+                reward = self.get_recent_rewards_sum(self.cur_idx)
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
                     won_pips, won_money = close_all()
@@ -427,7 +481,9 @@ class FXEnvironment:
                     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
-                reward = 0
+                reward = self.get_recent_rewards_sum(self.cur_idx)
+                self.donot_identifiers.append(cur_step_identifier)
+                self.donot_episode_idxes.append(self.cur_idx)
 
                 if len(self.positions_identifiers) > 0:
                     if self.portfolio_mngr.having_long_or_short == self.LONG:
@@ -462,8 +518,8 @@ class FXEnvironment:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
 
-                next_state = self.input_arr[self.cur_idx]
-                #next_state = np.concatenate([self.input_arr[self.cur_idx], np.array([valuated_diff])]) #+ [has_position] + [pos_cur_val] + [action_num]
+                #next_state = self.input_arr[self.cur_idx]
+                next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actoins_number_sum()]]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos
@@ -502,7 +558,7 @@ class PortforioManager:
         trade_val = self.exchange_rates[rate_idx] + self.half_spread
         currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
 
-        self.positions.append([trade_val, pos_kind, currency_num])
+        self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
         self.having_money -= trade_val * currency_num
         self.having_long_or_short = self.LONG
@@ -515,7 +571,7 @@ class PortforioManager:
         trade_val = self.exchange_rates[rate_idx] - self.half_spread
         currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
 
-        self.positions.append([trade_val, pos_kind, currency_num])
+        self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
         self.having_money -= trade_val * currency_num
         self.having_long_or_short = self.SHORT
@@ -565,7 +621,7 @@ class PortforioManager:
             won_pips_sum += won_pips
             won_money_sum += won_money
             returned_money_sum += return_money
-            won_pips_arr.append(won_pips)
+            won_pips_arr.append([won_pips, position[3]])
 
         self.having_long_or_short = self.NOT_HAVE
         self.total_won_pips += won_pips_sum
