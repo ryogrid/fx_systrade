@@ -130,7 +130,10 @@ class Memory:
 class Actor:
     def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes/TOTAL_ACTION_NUM)))
+        if experienced_episodes > TOTAL_ACTION_NUM * 0.1: # ラスト10%の場合は本来の式で計算する
+            epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        else: #ラスト10%まではランダム性をトータルのイテレーション回数を減らす前と同様に調整する
+            epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / 720 * TRAIN_DATA_NUM)))
 
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
@@ -143,14 +146,14 @@ class Actor:
 
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
-TRAIN_DATA_NUM = 74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
+TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 # ---
 gamma = 0.9 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 16 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 720 # <- 1足あたり 16 * 1 * 720 で11520回のfitが行われる計算 #20
+iteration_num = 50 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 11 #10 #11 #10 #11 #10 #11
 nn_output_size = 3

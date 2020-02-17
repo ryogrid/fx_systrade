@@ -20,7 +20,7 @@ class FXEnvironment:
         self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
         self.PREDICT_FUTURE_LEGS = 5
         self.COMPETITION_DIV = True
-        self.COMPETITION_TRAIN_DATA_NUM = 74651 # <- 検証中は期間を1年程度に減らす # 223954 # 3years (test is 5 years)
+        self.COMPETITION_TRAIN_DATA_NUM = 36000 # テスト期間でうまく動くまでは半年まで減らす #74651 # <- 検証中は期間を1年程度に減らす # 223954 # 3years (test is 5 years)
 
         self.TRAINDATA_DIV = 2
         self.CHART_TYPE_JDG_LEN = 25
