@@ -191,7 +191,7 @@ def tarin_agent():
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
         action = np.random.choice([0, 1, 2])
-        state, reward, done, info = env.step(action)  # 1step目は適当な行動をとる
+        state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
         state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state, info)
@@ -212,7 +212,7 @@ def tarin_agent():
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
             action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
-            next_state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+            next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             # 環境が提供する期間が最後までいった場合
             if done:
                 print(str(cur_itr) + ' training period finished.')
@@ -278,11 +278,15 @@ def run_backtest():
     mainQN.load_model("mainQN")
 
     # DONOT でスタート
-    state, reward, done, info = env.step(0)
+    state, reward, done, info, needclose = env.step(0)
     state = np.reshape(state, [1, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
-        action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
-        state, reward, done, info = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+        if needclose:
+            action = 1
+        else:
+            action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+
+        state, reward, done, info, needclose  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
         if done:
             print('all training period learned.')

@@ -340,7 +340,7 @@ class FXEnvironment:
             self.actions_log = deque(maxlen=self.input_arr_len)
 
             self.performance_eval_len = performance_eval_len
-
+            self.holdable_positions = holdable_positions
             self.portfolio_mngr = PortforioManager(exchange_rates, half_spred, holdable_positions)
 
             # self.input_arr の要素をstateとして返したあと、次の回でactionがとられた時のwon_pipsを記録しておく
@@ -520,16 +520,17 @@ class FXEnvironment:
                 print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
-                return None, reward, True, [cur_step_identifier] + additional_infos
+                return None, reward, True, [cur_step_identifier] + additional_infos, False
             else:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
+                needcose = True if len(self.positions_identifiers) >= self.holdable_positions else False
 
                 #next_state = self.input_arr[self.cur_idx]
                 next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actions_encoded()]]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
-                return next_state, reward, False, [cur_step_identifier] + additional_infos
+                return next_state, reward, False, [cur_step_identifier] + additional_infos, needcose
 
 class PortforioManager:
 
