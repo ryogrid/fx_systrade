@@ -366,7 +366,7 @@ class FXEnvironment:
         #         with open("./won_pips_to_calculate_sratio.pickle", 'rb') as f:
         #             self.won_pips_to_calculate_sratio = pickle.load(f)
 
-        def get_last_actoins_number_sum(self):
+        def get_last_actions_encoded(self):
             if self.cur_idx < self.performance_eval_len:
                 return 0
             else:
@@ -374,10 +374,12 @@ class FXEnvironment:
                 start = actions_length - self.performance_eval_len
                 end = actions_length
                 action_list = [str(self.actions_log[ii]) for ii in range(start, end)]
+                # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
+                reverse_action_list = reversed(action_list)
 
 
                 # 3進数と見なしてint化し1をMaxに正規化する
-                return int("".join(action_list), 3) / self.base3_max_float
+                return int("".join(reverse_action_list), 3) / self.base3_max_float
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
@@ -524,7 +526,7 @@ class FXEnvironment:
                 has_position = 1 if valuated_diff == 0 else 1
 
                 #next_state = self.input_arr[self.cur_idx]
-                next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actoins_number_sum()]]) #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actions_encoded()]]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos
