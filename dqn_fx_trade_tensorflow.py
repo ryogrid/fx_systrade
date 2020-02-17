@@ -248,6 +248,7 @@ def tarin_agent():
             if action == 1:
                 # close自体のrewardの更新. 今回のイテレーションでの値も、イテレーションを跨いだ全体での値も、イテレーションを跨いだ全体で
                 # 求めた平均値で更新する
+                current_itr_num = cur_itr + 1
                 mean_val_stored_key = str(state) + str(action)
                 try:
                     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
