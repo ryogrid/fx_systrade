@@ -130,11 +130,14 @@ class Memory:
 class Actor:
     def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        if float(experienced_episodes) > float(TOTAL_ACTION_NUM) * 0.9: # ラスト10%の場合は本来の式で計算する
-            epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
-        else: #ラスト10%まではランダム性をトータルのイテレーション回数を減らす前と同様に調整する
-            epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / 720 * TRAIN_DATA_NUM)))
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        # if float(experienced_episodes) > float(TOTAL_ACTION_NUM) * 0.9: # ラスト10%の場合は本来の式で計算する
+        #     epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        # else: #ラスト10%まではランダム性をトータルのイテレーション回数を減らす前と同様に調整する
+        #     epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / (720.0 * TRAIN_DATA_NUM))))
 
+
+        # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             retTargetQs = mainQN.model.predict(state)[0]
             print(retTargetQs)
