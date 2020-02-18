@@ -128,17 +128,13 @@ class Memory:
 
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
-    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, experienced_episodes, mainQN, cur_itr, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
-        # if float(experienced_episodes) > float(TOTAL_ACTION_NUM) * 0.9: # ラスト10%の場合は本来の式で計算する
-        #     epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
-        # else: #ラスト10%まではランダム性をトータルのイテレーション回数を減らす前と同様に調整する
-        #     epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / (720.0 * TRAIN_DATA_NUM))))
-
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
-        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
+        # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
+        if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 3 == 0) and cur_itr != 0):
             retTargetQs = mainQN.model.predict(state)[0]
             print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
@@ -217,7 +213,7 @@ def tarin_agent():
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
-            action = actor.get_action(state, total_get_acton_cnt, mainQN)  # 時刻tでの行動を決定する
+            action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
             next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             # 環境が提供する期間が最後までいった場合
             if done:
@@ -291,7 +287,7 @@ def run_backtest():
         if needclose:
             action = 1
         else:
-            action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+            action = actor.get_action(state, episode, mainQN, 0, isBacktest = True)   # 時刻tでの行動を決定する
 
         state, reward, done, info, needclose  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
