@@ -348,7 +348,7 @@ class FXEnvironment:
             self.won_pips_to_calculate_sratio = [0.0] * len(input_arr)
             # if(is_backtest):
             #     self.idx_real_step = 5
-            self.base3_max_float = float(int("".join(["2"] * self.performance_eval_len), 3))
+            self.base3_max_float = float(int("".join(["2"] * (self.performance_eval_len - 1)), 3))
 
         # def get_unixtime_str(self):
         #     return str(time.time())
@@ -371,7 +371,7 @@ class FXEnvironment:
                 return 0
             else:
                 actions_length = len(self.actions_log)
-                start = actions_length - self.performance_eval_len
+                start = actions_length - (self.performance_eval_len - 1)
                 end = actions_length
                 action_list = [str(self.actions_log[ii]) for ii in range(start, end)]
                 # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
