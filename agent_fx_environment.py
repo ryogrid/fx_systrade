@@ -368,18 +368,18 @@ class FXEnvironment:
 
         def get_last_actions_encoded(self):
             if self.cur_idx < self.performance_eval_len:
-                return 0
+                return [0] * self.performance_eval_len
             else:
                 actions_length = len(self.actions_log)
                 start = actions_length - (self.performance_eval_len - 1)
                 end = actions_length
-                action_list = [str(self.actions_log[ii]) for ii in range(start, end)]
-                # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
-                reverse_action_list = reversed(action_list)
+                action_list = [self.actions_log[ii] for ii in range(start, end)]
+                # # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
+                #reverse_action_list = reversed(action_list)
 
-
-                # 3進数と見なしてint化し1をMaxに正規化する
-                return int("".join(reverse_action_list), 3) / self.base3_max_float
+                return action_list
+                # # 3進数と見なしてint化し1をMaxに正規化する
+                #return int("".join(reverse_action_list), 3) / self.base3_max_float
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
@@ -527,7 +527,7 @@ class FXEnvironment:
                 needcose = True if len(self.positions_identifiers) >= self.holdable_positions else False
 
                 #next_state = self.input_arr[self.cur_idx]
-                next_state = np.concatenate([self.input_arr[self.cur_idx], [self.get_last_actions_encoded()]]) #+ [has_position] + [pos_cur_val] + [action_num]
+                next_state = np.concatenate([self.input_arr[self.cur_idx], self.get_last_actions_encoded()]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + additional_infos, needcose
