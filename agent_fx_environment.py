@@ -368,7 +368,7 @@ class FXEnvironment:
 
         def get_last_actions_encoded(self):
             if self.cur_idx < self.performance_eval_len:
-                return [0] * self.performance_eval_len
+                return [0] * (self.performance_eval_len - 1)
             else:
                 actions_length = len(self.actions_log)
                 start = actions_length - (self.performance_eval_len - 1)
