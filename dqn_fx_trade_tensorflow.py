@@ -154,7 +154,7 @@ batch_size = 16 #16 #32 #64 # 32  # Q-networkを更新するバッチの大き�
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
-feature_num = 29 #10 #11 #10 #11 #10 #11
+feature_num = 10 + 19*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 

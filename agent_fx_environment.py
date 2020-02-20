@@ -368,19 +368,47 @@ class FXEnvironment:
         #             self.won_pips_to_calculate_sratio = pickle.load(f)
 
         def get_last_actions_encoded(self):
+            ret_list = []
             if self.cur_idx < self.performance_eval_len:
-                return [0] * (self.performance_eval_len - 1)
+                for idx in range(self.performance_eval_len - 1):
+                    # 全てDONOTにする
+                    ret_list.append(0)
+                    ret_list.append(0)
+                    ret_list.append(1)
             else:
                 actions_length = len(self.actions_log)
                 start = actions_length - (self.performance_eval_len - 1)
                 end = actions_length
-                action_list = [self.actions_log[ii] for ii in range(start, end)]
-                # # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
-                #reverse_action_list = reversed(action_list)
+                for idx in range(start, end):
+                    val = self.actions_log[idx]
+                    if val == 0: #BUY
+                        ret_list.append(1)
+                        ret_list.append(0)
+                        ret_list.append(0)
+                    elif val == 1: #CLOSE
+                        ret_list.append(0)
+                        ret_list.append(1)
+                        ret_list.append(0)
+                    else: # 2 DONOT
+                        ret_list.append(0)
+                        ret_list.append(0)
+                        ret_list.append(1)
 
-                return action_list
-                # # 3進数と見なしてint化し1をMaxに正規化する
-                #return int("".join(reverse_action_list), 3) / self.base3_max_float
+                return ret_list
+
+            # if self.cur_idx < self.performance_eval_len:
+            #     return [0] * (self.performance_eval_len - 1)
+            # else:
+            #     actions_length = len(self.actions_log)
+            #     start = actions_length - (self.performance_eval_len - 1)
+            #     end = actions_length
+            #     action_list = [self.actions_log[ii] for ii in range(start, end)]
+            #     # # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
+            #     #reverse_action_list = reversed(action_list)
+            #
+            #     return action_list
+            #     # # 3進数と見なしてint化し1をMaxに正規化する
+            #     #return int("".join(reverse_action_list), 3) / self.base3_max_float
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
