@@ -314,7 +314,7 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 10, is_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, is_backtest=False):
             self.NOT_HAVE = 0
             self.LONG = 1
             self.SHORT = 2
@@ -347,8 +347,8 @@ class FXEnvironment:
             # self.input_arr の要素をstateとして返したあと、次の回でactionがとられた時のwon_pipsを記録しておく
             # input_arrと同じ要素数のリストとして初期化しておく
             self.won_pips_to_calculate_sratio = [0.0] * len(input_arr)
-            # if(is_backtest):
-            #     self.idx_real_step = 5
+            if(is_backtest == False):
+                self.half_spread = 0.0
             self.base3_max_float = float(int("".join(["2"] * (self.performance_eval_len - 1)), 3))
 
         # def get_unixtime_str(self):
@@ -368,47 +368,48 @@ class FXEnvironment:
         #             self.won_pips_to_calculate_sratio = pickle.load(f)
 
         def get_last_actions_encoded(self):
-            ret_list = []
-            if self.cur_idx < self.performance_eval_len:
-                for idx in range(self.performance_eval_len - 1):
-                    # 全てDONOTにする
-                    ret_list.append(0)
-                    ret_list.append(0)
-                    ret_list.append(1)
-            else:
-                actions_length = len(self.actions_log)
-                start = actions_length - (self.performance_eval_len - 1)
-                end = actions_length
-                for idx in range(start, end):
-                    val = self.actions_log[idx]
-                    if val == 0: #BUY
-                        ret_list.append(1)
-                        ret_list.append(0)
-                        ret_list.append(0)
-                    elif val == 1: #CLOSE
-                        ret_list.append(0)
-                        ret_list.append(1)
-                        ret_list.append(0)
-                    else: # 2 DONOT
-                        ret_list.append(0)
-                        ret_list.append(0)
-                        ret_list.append(1)
-
-            return ret_list
-
+            # # 厳密にエンコードする. その代わりNNの入力がすごく増える
+            # ret_list = []
             # if self.cur_idx < self.performance_eval_len:
-            #     return [0] * (self.performance_eval_len - 1)
+            #     for idx in range(self.performance_eval_len - 1):
+            #         # 全てDONOTにする
+            #         ret_list.append(0)
+            #         ret_list.append(0)
+            #         ret_list.append(1)
             # else:
             #     actions_length = len(self.actions_log)
             #     start = actions_length - (self.performance_eval_len - 1)
             #     end = actions_length
-            #     action_list = [self.actions_log[ii] for ii in range(start, end)]
-            #     # # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
-            #     #reverse_action_list = reversed(action_list)
+            #     for idx in range(start, end):
+            #         val = self.actions_log[idx]
+            #         if val == 0: #BUY
+            #             ret_list.append(1)
+            #             ret_list.append(0)
+            #             ret_list.append(0)
+            #         elif val == 1: #CLOSE
+            #             ret_list.append(0)
+            #             ret_list.append(1)
+            #             ret_list.append(0)
+            #         else: # 2 DONOT
+            #             ret_list.append(0)
+            #             ret_list.append(0)
+            #             ret_list.append(1)
             #
-            #     return action_list
-            #     # # 3進数と見なしてint化し1をMaxに正規化する
-            #     #return int("".join(reverse_action_list), 3) / self.base3_max_float
+            # return ret_list
+
+            # 1つのスカラにエンコードする
+            if self.cur_idx < self.performance_eval_len:
+                #return [0] * (self.performance_eval_len - 1)
+                return [0.0]
+            else:
+                actions_length = len(self.actions_log)
+                start = actions_length - (self.performance_eval_len - 1)
+                end = actions_length
+                action_list = [self.actions_log[ii] for ii in range(start, end)]
+                # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
+                reverse_action_list = reversed(action_list)
+                # 3進数と見なしてint化し1をMaxに正規化する
+                return [int("".join(reverse_action_list), 3) / self.base3_max_float]
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
