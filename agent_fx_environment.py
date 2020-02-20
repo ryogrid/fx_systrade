@@ -405,7 +405,7 @@ class FXEnvironment:
                 actions_length = len(self.actions_log)
                 start = actions_length - (self.performance_eval_len - 1)
                 end = actions_length
-                action_list = [self.actions_log[ii] for ii in range(start, end)]
+                action_list = [str(self.actions_log[ii]) for ii in range(start, end)]
                 # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
                 reverse_action_list = reversed(action_list)
                 # 3進数と見なしてint化し1をMaxに正規化する
