@@ -465,20 +465,6 @@ class FXEnvironment:
 
             if action == "BUY":
                 reward = reward = self.get_recent_rewards_sum(self.cur_idx)
-                # is_closed = False
-                # if self.portfolio_mngr.having_long_or_short == self.SHORT:
-                #     won_pips, won_money = close_all()
-                #     is_closed = True
-                #
-                # if self.portfolio_mngr.additional_pos_openable():
-                #     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
-                #     self.positions_identifiers.append(cur_step_identifier)
-                #     if is_closed:
-                #         a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + "," + str(won_money) + "," + str(
-                #             won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
-                #     else:
-                #         a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
-                #         self.exchange_rates[self.idx_geta + self.cur_idx]) + "," + str(buy_val)
 
                 if self.portfolio_mngr.additional_pos_openable():
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
@@ -490,15 +476,13 @@ class FXEnvironment:
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "CLOSE":
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
+                reward = 0
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
                     won_pips, won_money = self.close_all(cur_episode_rate_idx)
                     #reward += won_pips
-                    #is_closed = True
                     a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
                        won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
-
-                # ポジションを保有している場合はwon_pipsが加算される
-                reward = self.get_recent_rewards_sum(self.cur_idx)
+                    reward = won_pips
 
                 # if self.portfolio_mngr.additional_pos_openable():
                 #     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
