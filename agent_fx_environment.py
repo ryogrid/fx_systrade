@@ -342,6 +342,7 @@ class FXEnvironment:
             self.performance_eval_len = performance_eval_len
             self.holdable_positions = holdable_positions
             self.portfolio_mngr = PortforioManager(exchange_rates, half_spred, holdable_positions)
+            self.additional_infos = []
 
             # self.input_arr の要素をstateとして返したあと、次の回でactionがとられた時のwon_pipsを記録しておく
             # input_arrと同じ要素数のリストとして初期化しておく
@@ -396,6 +397,23 @@ class FXEnvironment:
                 return sum(calc_list)
                 #return sum(calc_list) / (np.std(np.array(calc_list)) + 0.00001)
 
+        def close_all(self, cur_episode_rate_idx):
+            won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
+            for idx in range(0, len(self.positions_identifiers)):
+                # won_pipsを記録しておく（シャープレシオを計算する前に）
+                self.won_pips_to_calculate_sratio[each_pos_won[idx][1] - self.idx_geta] = each_pos_won[idx][0]
+                # エピソードの識別子、そのエピソード時点における直近のaction系列によって得た獲得pipsのsum（正しいreward）
+                episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
+                self.additional_infos.append([self.positions_identifiers[idx], self.get_recent_rewards_sum(episode_idx_of_past_open)])
+            # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する
+            for idx in range(0, len(self.donot_identifiers)):
+                self.additional_infos.append([self.donot_identifiers[idx], self.get_recent_rewards_sum(self.donot_episode_idxes[idx])])
+            # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
+            self.positions_identifiers = []
+            self.donot_identifiers = []
+            self.donot_episode_idxes = []
+            return won_pips, won_money
+
         def step(self, action_num):
             reward = 0
             action = -1
@@ -414,30 +432,7 @@ class FXEnvironment:
                 raise Exception(str(action_num) + " is invalid.")
 
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
-            additional_infos = []
-
-            def close_all(): ############################################################################
-                nonlocal self
-                nonlocal additional_infos
-                nonlocal cur_episode_rate_idx
-
-                won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
-                for idx in range(0, len(self.positions_identifiers)):
-                    # won_pipsを記録しておく（シャープレシオを計算する前に）
-                    self.won_pips_to_calculate_sratio[each_pos_won[idx][1] - self.idx_geta] = each_pos_won[idx][0]
-                    # エピソードの識別子、そのエピソード時点における直近のaction系列によって得た獲得pipsのsum（正しいreward）
-                    episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
-                    additional_infos.append([self.positions_identifiers[idx], self.get_recent_rewards_sum(episode_idx_of_past_open)])
-                # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する
-                for idx in range(0, len(self.donot_identifiers)):
-                    additional_infos.append([self.donot_identifiers[idx], self.get_recent_rewards_sum(self.donot_episode_idxes[idx])])
-                # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
-
-                self.positions_identifiers = []
-                self.donot_identifiers = []
-                self.donot_episode_idxes = []
-                return won_pips, won_money
-            ########################################################################################################
+            self.additional_infos = []
 
             if action == "BUY":
                 reward = reward = self.get_recent_rewards_sum(self.cur_idx)
@@ -462,18 +457,19 @@ class FXEnvironment:
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
                 else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
+                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "CLOSE":
-                # ポジションを保有している場合はwon_pipsが加算される
-                reward = self.get_recent_rewards_sum(self.cur_idx)
                 # クローズしたポジションの情報は close_allの中で addtional_info に設定される
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
-                    won_pips, won_money = close_all()
+                    won_pips, won_money = self.close_all(cur_episode_rate_idx)
                     #reward += won_pips
                     #is_closed = True
                     a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
                        won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
+
+                # ポジションを保有している場合はwon_pipsが加算される
+                reward = self.get_recent_rewards_sum(self.cur_idx)
 
                 # if self.portfolio_mngr.additional_pos_openable():
                 #     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
@@ -484,9 +480,9 @@ class FXEnvironment:
                 #     else:
                 #         a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
                 #         self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
-                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
-                    self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
+                # else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
+                #     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
+                #     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
                 reward = self.get_recent_rewards_sum(self.cur_idx) # 0
                 self.donot_identifiers.append(cur_step_identifier)
@@ -495,7 +491,7 @@ class FXEnvironment:
                 if len(self.positions_identifiers) > 0:
                     if self.portfolio_mngr.having_long_or_short == self.LONG:
                         operation_str = ",POSITION_HOLD_LONG,0,"
-                    else:
+                    elif self.portfolio_mngr.having_long_or_short == self.SHORT:
                         operation_str = ",POSITION_HOLD_SHORT,0,"
 
                     a_log_str_line += operation_str + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
@@ -520,17 +516,17 @@ class FXEnvironment:
                 print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
-                return None, reward, True, [cur_step_identifier] + additional_infos, False
+                return None, reward, True, [cur_step_identifier] + self.additional_infos, False
             else:
                 valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 has_position = 1 if valuated_diff == 0 else 1
-                needcose = True if len(self.positions_identifiers) >= self.holdable_positions else False
+                needclose = True if len(self.positions_identifiers) >= self.holdable_positions else False
 
                 #next_state = self.input_arr[self.cur_idx]
                 next_state = np.concatenate([self.input_arr[self.cur_idx], self.get_last_actions_encoded()]) #+ [has_position] + [pos_cur_val] + [action_num]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
-                return next_state, reward, False, [cur_step_identifier] + additional_infos, needcose
+                return next_state, reward, False, [cur_step_identifier] + self.additional_infos, needclose
 
 class PortforioManager:
 
