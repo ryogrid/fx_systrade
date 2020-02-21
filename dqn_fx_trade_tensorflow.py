@@ -63,15 +63,19 @@ class QNetwork:
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             inputs[i:i+1] = state_b
 
-            retmainQs = self.model.predict(next_state_b)[0]
-            next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
-            target = reward_b + gamma * next_state_max_reward
+            target = reward_b
+
+            if action_b != 1: #CLOSEの場合は直に受けたrewardだけでfitする. また、これによりCLOSE actionを境に波及が止まる効果もあるはず
+                retmainQs = self.model.predict(next_state_b)[0]
+                next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
+                target = reward_b + gamma * next_state_max_reward
 
             targets[i] = self.model.predict(state_b)[0]
-            # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            #if not (action_b == 0 and reward_b == 0):
+            # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
+            # if not (action_b == 0 and reward_b == 0):
+
             print(
                 "reward_b" + "(" + str(action_b) + ") :" + str(reward_b) + " target: " + str(target) + " predicted: " + str(targets[i][action_b])
             )
@@ -158,9 +162,9 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 # ---
-gamma = 0.85 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
+gamma = 0.95 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.002 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 8 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
