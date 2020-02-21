@@ -171,7 +171,7 @@ learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-n
 batch_size = 16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
-memory_size = TRAIN_DATA_NUM + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
+memory_size = TRAIN_DATA_NUM * 3 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
@@ -191,6 +191,10 @@ def tarin_agent():
 
     total_get_acton_cnt = 1
     all_period_reward_hash = {}
+    # イテレーションを跨いで state x action で最新のエピソードのみ記録して、replay可能とするため
+    # のハッシュ. 必要なのはrewardの値だが実装の都合上不要な情報も含む
+    # 値は [state, action, reward, next_state]
+    state_x_action_hash = {}
 
     if os.path.exists("./mainQN_nw.json"):
         mainQN.load_model("mainQN")
@@ -200,14 +204,28 @@ def tarin_agent():
             total_get_acton_cnt = pickle.load(f)
         with open("./all_period_reward_hash.pickle", 'rb') as f:
             all_period_reward_hash = pickle.load(f)
+        with open("./state_x_action_hash.pickle", 'rb') as f:
+            state_x_action_hash = pickle.load(f)
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
         nonlocal memory_hash
+        nonlocal state_x_action_hash
         a_log = [state, action, reward, next_state]
         memory.add(a_log)  # メモリを更新する
         # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
         memory_hash[info[0]] = a_log
+        key_str = str(state) + str(action)
+        # 最新の値で更新する、もしくはエントリが無い場合は追加する
+        # ハッシュが持っている要素はエピソードの記録（リストで実装されている）への参照であるため、
+        # 当該エピソードの記録が更新された場合、state_x_action_hashが保持するデータも更新
+        # されることになる
+
+        # 本来不要な情報だが、memoryの中のオブジェクトが更新された場合に
+        # 情報が更新されるよう、episodeの情報全てへの参照を持つ形にする
+        # 既にエントリがあろうが無かろうか最新のepisodeへの参照を設定してしまう
+        state_x_action_hash[key_str] = a_log
+
     #######################################################
 
     for cur_itr in range(iteration_num):
@@ -222,7 +240,7 @@ def tarin_agent():
         # targetQN.model.set_weights(mainQN.model.get_weights())
 
         # スナップショットをとっておく
-        if cur_itr % 3 == 0 and cur_itr != 0:
+        if cur_itr % 5 == 0 and cur_itr != 0:
             # targetQN.save_model("targetQN")
             mainQN.save_model("mainQN")
             memory.save_memory("memory")
@@ -230,6 +248,8 @@ def tarin_agent():
                 pickle.dump(total_get_acton_cnt, f)
             with open("./all_period_reward_hash.pickle", 'wb') as f:
                 pickle.dump(all_period_reward_hash, f)
+            with open("./state_x_action_hash.pickle", 'wb') as f:
+                pickle.dump(state_x_action_hash, f)
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
@@ -240,6 +260,7 @@ def tarin_agent():
                 print(str(cur_itr) + ' training period finished.')
                 break
             next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
+
 
             store_episode_log_to_memory(state, action, reward, next_state, info)
 
@@ -296,8 +317,11 @@ def tarin_agent():
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
-        # リプレイは現在の周回のイテレーションの中でのエピソードだけから選択されるようにするため、周回終了時にクリアする
+        # ユニークな state x action の episode のみreplayの対象とするため一旦クリア
         memory.clear()
+        # state_x_action_hash の 値を 次の周回のために 全てmemoryに追加しておく
+        for val_episode in state_x_action_hash.values():
+            memory.add(val_episode)
 
 def run_backtest():
     env_master = FXEnvironment()
