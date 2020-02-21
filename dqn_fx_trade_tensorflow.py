@@ -49,12 +49,13 @@ class QNetwork:
     def replay(self, memory, batch_size, gamma, targetQNarg = None):
         inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 3))
-        #mini_batch = memory.sample(batch_size)
+        mini_batch = memory.sample(batch_size)
 
-        # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
-        # ランダム選択せずに末尾から要素を選択する
-        # リバースしているのは直近から過去に波及していくようにするため（ミニバッチでは意味がないかもしれない）
-        mini_batch = reversed(memory.get_last(batch_size))
+        # # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
+        # # ランダム選択せずに末尾から要素を選択する
+        # # リバースしているのは直近から過去に波及していくようにするため（ミニバッチでは意味がないかもしれない）
+        # mini_batch = reversed(memory.get_last(batch_size))
+
         targetQN = targetQNarg
         if targetQNarg == None:
             targetQN = self.model
@@ -106,6 +107,7 @@ class QNetwork:
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
     def __init__(self, max_size=1000):
+        self.max_size = max_size
         self.buffer = deque(maxlen=max_size)
 
     def add(self, experience):
@@ -123,6 +125,9 @@ class Memory:
 
     def len(self):
         return len(self.buffer)
+
+    def clear(self):
+        self.buffer = deque(maxlen=self.max_size)
 
     def save_memory(self, file_path_prefix_str):
         with open("./" + file_path_prefix_str + ".pickle", 'wb') as f:
@@ -159,7 +164,7 @@ learning_rate = 0.002 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-n
 batch_size = 8 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
-memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
+memory_size = TRAIN_DATA_NUM + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
@@ -282,6 +287,8 @@ def tarin_agent():
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
+        # リプレイは現在の周回のイテレーションの中でのエピソードだけから選択されるようにするため、周回終了時にクリアする
+        memory.clear()
 
 def run_backtest():
     env_master = FXEnvironment()
