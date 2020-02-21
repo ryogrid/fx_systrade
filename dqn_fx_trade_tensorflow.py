@@ -49,7 +49,12 @@ class QNetwork:
     def replay(self, memory, batch_size, gamma, targetQNarg = None):
         inputs = np.zeros((batch_size, feature_num))
         targets = np.zeros((batch_size, 3))
-        mini_batch = memory.sample(batch_size)
+        #mini_batch = memory.sample(batch_size)
+
+        # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
+        # ランダム選択せずに末尾から要素を選択する
+        # リバースしているのは直近から過去に波及していくようにするため（ミニバッチでは意味がないかもしれない）
+        mini_batch = reversed(memory.get_last(batch_size))
         targetQN = targetQNarg
         if targetQNarg == None:
             targetQN = self.model
@@ -148,16 +153,17 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 # ---
-gamma = 0.8 #0.9 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
+gamma = 0.9 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 16 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
-feature_num = 10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
+feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
+gamma_at_reward_mean = 0.9
 
 def tarin_agent():
     env_master = FXEnvironment()
@@ -224,48 +230,48 @@ def tarin_agent():
 
             store_episode_log_to_memory(state, action, reward, next_state, info)
 
-            # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
-            # info で返されるので、BUYとDONOTのエピソードのrewaardを更新する
-            # なお CLOSEのrewardは正しく返ってきているので更新の必要は無い
-            if len(info) > 1:
-                for keyval in info[1:]:
-                    memory_hash[keyval[0]][2] = keyval[1]
-
             # # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
-            # # info で返されるので、過去のイテレーションでの平均値を踏まえて、今回のイテレーションでのBUYのエピソードのリワードを更新し、
-            # # 過去のイテレーションでの平均値も更新する
-            # # また、DONOTのrewardも同様に更新する
+            # # info で返されるので、BUYとDONOTのエピソードのrewaardを更新する
+            # # なお CLOSEのrewardは正しく返ってきているので更新の必要は無い
             # if len(info) > 1:
             #     for keyval in info[1:]:
-            #         # rewardは過去の値の寄与度も考慮した平均値になるように設定する
-            #         current_val = -1
-            #         # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
-            #         # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
-            #         mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
-            #         try:
-            #             past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-            #         except:
-            #             past_all_itr_mean_reward = 0
-            #         current_itr_num = cur_itr + 1
-            #         # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
-            #         # 時間割引の考え方を導入して平均をとる
-            #         update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * 0.99) + keyval[1])) / current_itr_num
-            #         memory_hash[keyval[0]][2] = update_val
-            #         all_period_reward_hash[mean_val_stored_key] = update_val
-            # if action == 1:
-            #     # close自体のrewardの更新. 今回のイテレーションでの値も、イテレーションを跨いだ全体での値も、イテレーションを跨いだ全体で
-            #     # 求めた平均値で更新する
-            #     current_itr_num = cur_itr + 1
-            #     mean_val_stored_key = str(state) + str(action)
-            #     try:
-            #         past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-            #     except:
-            #         past_all_itr_mean_reward = 0
-            #     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
-            #     # 時間割引の考え方を導入して平均をとる
-            #     update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * 0.99) + reward)) / current_itr_num
-            #     memory_hash[info[0]][2] = update_val
-            #     all_period_reward_hash[mean_val_stored_key] = update_val
+            #         memory_hash[keyval[0]][2] = keyval[1]
+
+            # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
+            # info で返されるので、過去のイテレーションでの平均値を踏まえて、今回のイテレーションでのBUYのエピソードのリワードを更新し、
+            # 過去のイテレーションでの平均値も更新する
+            # また、DONOTのrewardも同様に更新する
+            if len(info) > 1:
+                for keyval in info[1:]:
+                    # rewardは過去の値の寄与度も考慮した平均値になるように設定する
+                    current_val = -1
+                    # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
+                    # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
+                    mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
+                    try:
+                        past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
+                    except:
+                        past_all_itr_mean_reward = 0
+                    current_itr_num = cur_itr + 1
+                    # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+                    # 時間割引の考え方を導入して平均をとる
+                    update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1])) / current_itr_num
+                    memory_hash[keyval[0]][2] = update_val
+                    all_period_reward_hash[mean_val_stored_key] = update_val
+            if action == 1:
+                # close自体のrewardの更新. 今回のイテレーションでの値も、イテレーションを跨いだ全体での値も、イテレーションを跨いだ全体で
+                # 求めた平均値で更新する
+                current_itr_num = cur_itr + 1
+                mean_val_stored_key = str(state) + str(action)
+                try:
+                    past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
+                except:
+                    past_all_itr_mean_reward = 0
+                # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+                # 時間割引の考え方を導入して平均をとる
+                update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + reward)) / current_itr_num
+                memory_hash[info[0]][2] = update_val
+                all_period_reward_hash[mean_val_stored_key] = update_val
 
             state = next_state  # 状態更新
 
