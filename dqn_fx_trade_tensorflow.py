@@ -140,7 +140,7 @@ class Actor:
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
-        if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 3 == 0) and cur_itr != 0):
+        if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             retTargetQs = mainQN.model.predict(state)[0]
             print(retTargetQs)
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
@@ -153,10 +153,10 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 # ---
-gamma = 0.9 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
-hidden_size = 28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-batch_size = 16 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+gamma = 0.85 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
+hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
+learning_rate = 0.002 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+batch_size = 8 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000

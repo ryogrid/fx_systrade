@@ -314,7 +314,7 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 40, is_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, is_backtest=False):
             self.NOT_HAVE = 0
             self.LONG = 1
             self.SHORT = 2
