@@ -483,6 +483,8 @@ class FXEnvironment:
                     a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
                        won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
                     reward = won_pips
+                else:
+                    a_log_str_line += ",KEEP_NO_POSITION" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
 
                 # if self.portfolio_mngr.additional_pos_openable():
                 #     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
