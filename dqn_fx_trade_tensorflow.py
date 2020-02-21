@@ -94,7 +94,8 @@ class QNetwork:
             if not ((action_b == 0 and reward_b == 0) or (action_b == 2 and reward_b == 0)):
                 targets[i][action_b] = reward_b  # 教師信号
 
-            print("reward_b" + "(" + str(action_b) + ") :" + str(reward_b) + " predicted: " + str(targets[i][action_b]))
+            print("reward_b" + "(" + str(action_b) + "): " + str(reward_b) + " predicted: " +
+                  str(targets[i][action_b]) + " (BUY - DONOT): " + str(targets[i][0] - targets[i][2]))
             targets[i][1] = -100.0  # CLOSEのrewardは必ず-100.0なので与えておく
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
