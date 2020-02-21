@@ -464,7 +464,8 @@ class FXEnvironment:
             self.additional_infos = []
 
             if action == "BUY":
-                reward = reward = self.get_recent_rewards_sum(self.cur_idx)
+                #reward = reward = self.get_recent_rewards_sum(self.cur_idx)
+                reward = 0
 
                 if self.portfolio_mngr.additional_pos_openable():
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
@@ -499,9 +500,10 @@ class FXEnvironment:
                 #     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
                 #     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
-                reward = self.get_recent_rewards_sum(self.cur_idx) # 0
-                self.donot_identifiers.append(cur_step_identifier)
-                self.donot_episode_idxes.append(self.cur_idx)
+                reward = 0
+                # reward = self.get_recent_rewards_sum(self.cur_idx) # 0
+                # self.donot_identifiers.append(cur_step_identifier)
+                # self.donot_episode_idxes.append(self.cur_idx)
 
                 if len(self.positions_identifiers) > 0:
                     if self.portfolio_mngr.having_long_or_short == self.LONG:
