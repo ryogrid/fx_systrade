@@ -253,7 +253,10 @@ def tarin_agent():
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
-            action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
+            if needclose:
+                action = 1
+            else:
+                action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
             next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
             # 環境が提供する期間が最後までいった場合
             if done:

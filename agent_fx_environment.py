@@ -344,15 +344,17 @@ class FXEnvironment:
 
             self.performance_eval_len = performance_eval_len
             self.holdable_positions = holdable_positions
-            self.portfolio_mngr = PortforioManager(exchange_rates, half_spred, holdable_positions)
+            if(is_backtest == False):
+                self.half_spread = 0.0
+
+            self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_positions)
             self.additional_infos = []
             self.reward_gamma = reward_gamma
 
             # self.input_arr の要素をstateとして返したあと、次の回でactionがとられた時のwon_pipsを記録しておく
             # input_arrと同じ要素数のリストとして初期化しておく
             self.won_pips_to_calculate_sratio = [0.0] * len(input_arr)
-            if(is_backtest == False):
-                self.half_spread = 0.0
+
             self.base3_max_float = float(int("".join(["2"] * (self.performance_eval_len - 1)), 3))
 
         # def get_unixtime_str(self):
@@ -499,10 +501,10 @@ class FXEnvironment:
 
                 # 基本的にCLOSEは保有ポジション数が限界まで達した時点で行われるようにする
                 reward = -100.0
-                if self.portfolio_mngr.having_long_or_short == self.LONG:
+                if len(self.positions_identifiers) > 0:
                     won_pips, won_money = self.close_all(cur_episode_rate_idx)
                     #reward += won_pips
-                    a_log_str_line += ",CLOSE_LONG" + "," + str(won_money) + "," + str(
+                    a_log_str_line += ",CLOSE_LONG_AND_DONOT" + "," + str(won_money) + "," + str(
                        won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
                     #reward = won_pips
                 else:
@@ -532,7 +534,7 @@ class FXEnvironment:
                     self.portfolio_mngr.donot(cur_episode_rate_idx)
                     self.positions_identifiers.append(cur_step_identifier)
                 else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    # rewardが更新されないと困るのでDONOT扱いで記録しておく. agentに戻ってからはBUYとして扱われるので問題ない
+                    # rewardが更新されないと困るのでDONOT扱いで記録しておく. agentに戻ってからはポジションの種別は区別されないため問題ない
                     self.donot_identifiers.append(cur_step_identifier)
                     self.donot_episode_idxes.append(self.cur_idx)
 
@@ -560,7 +562,7 @@ class FXEnvironment:
                 raise Exception(str(action) + " is invalid.")
 
             a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)) +\
-                              "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(len(self.positions_identifiers))
+                              "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(self.portfolio_mngr.get_nomal_position_num())
             self.logfile_writeln_bt(a_log_str_line)
 
             self.cur_idx += self.idx_real_step #self.idx_step
@@ -575,8 +577,8 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True, [cur_step_identifier] + self.additional_infos, False
             else:
-                valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
-                has_position = 1 if valuated_diff == 0 else 1
+                # valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
+                # has_position = 1 if valuated_diff == 0 else 1
                 if len(self.positions_identifiers) >= self.holdable_positions * 2 \
                         or self.portfolio_mngr.additional_pos_openable() == False \
                         or self.portfolio_mngr.additonal_donot_dummy_pos_openable() == False:
@@ -620,6 +622,9 @@ class PortforioManager:
     # ダミーポジションも含めた数が返される
     def get_all_position_num(self):
         return len(self.positions)
+
+    def get_nomal_position_num(self):
+        return self.position_num
 
     # ダミーのポジションを含まずにチェックされる
     def additional_pos_openable(self):
@@ -758,7 +763,7 @@ class PortforioManager:
             if position[1] == self.LONG:
                 # 売った際に得られる現金で評価
                 total_evaluated_money += position[2] * (cur_price_no_spread - self.half_spread)
-            else: # self.SHORT
+            elif position[1] == self.SHORT: # DONOT用のダミーポジション
                 # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
                 # 1)まず損益を求める
                 diff = position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
