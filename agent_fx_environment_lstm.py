@@ -13,6 +13,8 @@ import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
 
+batch_size = 32
+
 class FXEnvironment:
     def __init__(self):
         print("FXEnvironment class constructor called.")
@@ -324,7 +326,7 @@ class FXEnvironment:
             self.exchange_dates = exchange_dates
             self.exchange_rates = exchange_rates
             self.half_spread = half_spred
-            self.cur_idx = 64 # 初期値をバッチサイズと合わせる
+            self.cur_idx = batch_size # 初期値をバッチサイズと合わせる
             self.idx_geta = idx_geta
             self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
             self.start = time.time()
@@ -589,7 +591,7 @@ class FXEnvironment:
                 # print(self.input_arr[self.cur_idx])
                 # print(self.get_last_actions_encoded())
                 # next_state = np.concatenate([self.input_arr[self.cur_idx], self.get_last_actions_encoded()]) #+ [has_position] + [pos_cur_val] + [action_num]
-                next_state = self.input_arr[self.cur_idx - 64 + 1:self.cur_idx + 1]
+                next_state = self.input_arr[self.cur_idx - batch_size + 1:self.cur_idx + 1]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + self.additional_infos, needclose

@@ -33,7 +33,8 @@ class QNetwork:
         self.model = Sequential()
 
         # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
-        self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
+        self.model.add(LSTM(32, activation='relu', input_shape=(state_size, 1)))
+        #self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
         self.model.add(RepeatVector(1))
         #self.model.add(RepeatVector(action_size))
@@ -188,8 +189,8 @@ TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減�
 # ---
 gamma = 0.95 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-batch_size = 64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+learning_rate = 0.01 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+batch_size = 32 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * 3 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
