@@ -344,8 +344,8 @@ class FXEnvironment:
 
             self.performance_eval_len = performance_eval_len
             self.holdable_positions = holdable_positions
-            if(is_backtest == False):
-                self.half_spread = 0.0
+            # if(is_backtest == False):
+            #     self.half_spread = 0.0
 
             self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_positions)
             self.additional_infos = []
