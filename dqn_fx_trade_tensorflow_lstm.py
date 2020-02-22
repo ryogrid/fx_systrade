@@ -36,9 +36,9 @@ class QNetwork:
         self.model.add(LSTM(32, activation='relu', input_shape=(state_size, 1)))
         #self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-        #self.model.add(RepeatVector(1))
+        self.model.add(RepeatVector(1))
         #self.model.add(RepeatVector(action_size))
-        self.model.add(RepeatVector(action_size))
+        #self.model.add(RepeatVector(action_size))
         self.model.add(LSTM(32, activation='relu', return_sequences=True))
         #self.model.add(TimeDistributed(Dense(1)))
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
