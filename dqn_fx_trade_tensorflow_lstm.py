@@ -12,7 +12,7 @@ from collections import deque
 from keras import backend as K
 import tensorflow as tf
 import pickle
-from agent_fx_environment import FXEnvironment
+from agent_fx_environment_lstm import FXEnvironment
 import os
 import sys
 import random
@@ -35,9 +35,10 @@ class QNetwork:
         # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
         self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-        self.model.add(RepeatVector(batch_size))
-        self.model.add(LSTM(32, activation='relu', return_sequences=True))
-        # self.model.add(TimeDistributed(Dense(1)))
+        #self.model.add(RepeatVector(batch_size))
+        self.model.add(RepeatVector(1))
+        self.model.add(LSTM(64, activation='relu', return_sequences=True))
+        #self.model.add(TimeDistributed(Dense(1, activation='linear')))
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
         self.optimizer = Adam(lr=learning_rate)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
@@ -57,10 +58,13 @@ class QNetwork:
 
 
     # 重みの学習
-    def replay(self, memory, batch_size, gamma, targetQNarg = None, experienced_episodes = 0):
-        inputs = np.zeros((batch_size, feature_num))
-        targets = np.zeros((batch_size, 3))
-        mini_batch = memory.sample(batch_size, experienced_episodes)
+    def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
+        inputs = np.zeros((batch_size, feature_num, batch_size))
+        targets = np.zeros((batch_size, nn_output_size, 1))
+        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
+        #mini_batch = memory.sample(1)
+        #print(mini_batch[0])
+        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
         #mini_batch = memory.sample(batch_size)
 
         # # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
@@ -68,55 +72,38 @@ class QNetwork:
         # # リバースしているのは直近から過去に波及していくようにするため（ミニバッチでは意味がないかもしれない）
         # mini_batch = reversed(memory.get_last(batch_size))
 
-        targetQN = targetQNarg
-        if targetQNarg == None:
-            targetQN = self.model
+        #inputs = np.reshape(mini_batch[0][0], [batch_size, feature_num, 1])
+        # #print(inputs)
+        # predicted = self.model.predict(inputs)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            inputs[i:i+1] = state_b
-
-            # target = reward_b
-            #
-            # if action_b != 1: #CLOSEの場合は直に受けたrewardだけでfitする. また、これによりCLOSE actionを境に波及が止まる効果もあるはず
-            #     retmainQs = self.model.predict(next_state_b)[0]
-            #     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-            #     next_state_max_reward = targetQN.model.predict(next_state_b)[0][next_action]
-            #     target = reward_b + gamma * next_state_max_reward
-            #
-            # targets[i] = self.model.predict(state_b)[0]
-            # # # BUYで暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            # # if not (action_b == 0 and reward_b == 0):
-            #
-            # print(
-            #     "reward_b" + "(" + str(action_b) + ") :" + str(reward_b) + " target: " + str(target) + " predicted: " + str(targets[i][action_b])
-            # )
-            # targets[i][action_b] = target  # 教師信号
-            #targets[i][2] = 0.0 #DONOTは常に0
-
+            #inputs[i:i+1] = state_b
+            inputs[i] = np.reshape(state_b, [feature_num, batch_size])
 
             # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
             # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
             # それを反映するために replay を行う
             # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
-            targets[i] = self.model.predict(state_b)[0]
+            reshaped_state_b = np.reshape(state_b, [batch_size, feature_num, 1])
+            targets[i] = np.reshape(self.model.predict(reshaped_state_b)[0][-1], [nn_output_size, 1])
+
             # 暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
             # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            # if not action_b == 0 and reward_b == 0:
             if not ((action_b == 0 and reward_b == 0) or (action_b == 2 and reward_b == 0)):
-                targets[i][action_b] = reward_b  # 教師信号
+                targets[i][action_b][0] = reward_b  # 教師信号
 
             print("reward_b" + "(" + str(action_b) + "): " + str(reward_b) + " predicted: " +
-                  str(targets[i][action_b]) + " (BUY - DONOT): " + str(targets[i][0] - targets[i][2]))
-            targets[i][1] = -100.0  # CLOSEのrewardは必ず-100.0なので与えておく
+                  str(targets[i][action_b][0]) + " (BUY - DONOT): " + str(targets[i][0][0] - targets[i][2][0]))
+            targets[i][1][0] = -100.0  # CLOSEのrewardは必ず-100.0なので与えておく
 
         targets = np.array(targets)
         inputs = np.array(inputs)
+        inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], batch_size))
         targets = targets.reshape((targets.shape[0], targets.shape[1], 1))
-        inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], 1))
+
 
         #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
-        self.model.fit(inputs, targets, epochs=1, verbose=1)
+        self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
 
     def save_model(self, file_path_prefix_str):
@@ -183,9 +170,12 @@ class Actor:
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
-            retTargetQs = mainQN.model.predict(state)[0]
+            # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
+            reshaped_state = np.reshape(state, [batch_size, feature_num, 1])
+            retTargetQs = mainQN.model.predict(reshaped_state)[0]
             print(retTargetQs)
-            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+            # 1要素しかないが、複数返ってくるように修正した場合を想定して -1 を指定
+            action = np.argmax(retTargetQs[-1])  # 最大の報酬を返す行動を選択する
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
@@ -262,7 +252,9 @@ def tarin_agent():
         env = env_master.get_env('train', reward_gamma=gamma_at_close_reward_distribute)
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
-        state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
+        #state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
+        #state = np.reshape(state, [batch_size, feature_num, 1])  # list型のstateを、1行15列の行列に変換
+        state = np.reshape(state, [batch_size, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state, info)
 
@@ -292,7 +284,9 @@ def tarin_agent():
             if done:
                 print(str(cur_itr) + ' training period finished.')
                 break
-            next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行11列の行列に変換
+            #next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行feature num列の行列に変換
+            #next_state = np.reshape(next_state, [batch_size, feature_num, 1])  # list型のstateを、1行feature num列の行列に変換
+            next_state = np.reshape(next_state, [batch_size, feature_num])  # list型のstateを、1行feature num列の行列に変換
 
 
             store_episode_log_to_memory(state, action, reward, next_state, info)
