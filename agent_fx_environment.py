@@ -623,7 +623,7 @@ class PortforioManager:
 
     # ダミーのポジションを含まずにチェックされる
     def additional_pos_openable(self):
-        return self.positions_num < self.holdable_position_num
+        return self.position_num < self.holdable_position_num
 
     def additonal_donot_dummy_pos_openable(self):
         return self.donot_num < self.holdable_position_num
@@ -719,7 +719,7 @@ class PortforioManager:
             # DONOT用のダミーポジションについても追加
             won_pips_arr.append([won_pips, position[3], position[1]])
             # DONOTのダミーポジションについては加算しない
-            if position[0] != self.NOT_HAVE:
+            if position[1] != self.NOT_HAVE:
                 won_pips_sum += won_pips
                 won_money_sum += won_money
                 returned_money_sum += return_money
