@@ -35,11 +35,11 @@ class QNetwork:
         # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
         self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-        #self.model.add(RepeatVector(batch_size))
         self.model.add(RepeatVector(1))
-        self.model.add(LSTM(64, activation='relu', return_sequences=True))
-        #self.model.add(TimeDistributed(Dense(1, activation='linear')))
+        #self.model.add(RepeatVector(action_size))
+        self.model.add(LSTM(32, activation='relu', return_sequences=True))
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
+        #self.model.add(TimeDistributed(Dense(1, activation='linear')))
         self.optimizer = Adam(lr=learning_rate)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
@@ -59,7 +59,7 @@ class QNetwork:
 
     # 重みの学習
     def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
-        inputs = np.zeros((batch_size, feature_num, batch_size))
+        inputs = np.zeros((batch_size, feature_num, 1))
         targets = np.zeros((batch_size, nn_output_size, 1))
         #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
         #mini_batch = memory.sample(1)
@@ -78,7 +78,7 @@ class QNetwork:
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             #inputs[i:i+1] = state_b
-            inputs[i] = np.reshape(state_b, [feature_num, batch_size])
+            inputs[i] = np.reshape(state_b[-1], [feature_num, 1])
 
             # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
             # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
@@ -98,7 +98,7 @@ class QNetwork:
 
         targets = np.array(targets)
         inputs = np.array(inputs)
-        inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], batch_size))
+        inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], 1))
         targets = targets.reshape((targets.shape[0], targets.shape[1], 1))
 
 
