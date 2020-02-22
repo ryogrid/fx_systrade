@@ -38,6 +38,7 @@ class QNetwork:
         self.model.add(RepeatVector(1))
         #self.model.add(RepeatVector(action_size))
         self.model.add(LSTM(32, activation='relu', return_sequences=True))
+        #self.model.add(TimeDistributed(Dense(1)))
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
         #self.model.add(TimeDistributed(Dense(1, activation='linear')))
         self.optimizer = Adam(lr=learning_rate)
