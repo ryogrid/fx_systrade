@@ -67,7 +67,7 @@ class QNetwork:
         #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
         #mini_batch = memory.sample(1)
         #print(mini_batch[0])
-        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
+        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - (batch_size -1))
         #mini_batch = memory.sample(batch_size)
 
         # # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
@@ -139,9 +139,12 @@ class Memory:
         end = deque_length
         return [self.buffer[ii] for ii in range(start, end)]
 
+    def get_sequencial_samples(self, batch_size, start_idx):
+        return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size + 1)]
+
     #第2引数で指定した要素数分の末尾の要素の中から、第一引数で指定した数
     # だけの連続したepisodeを返す
-    def get_sequencial_samples(self, batch_size, last_len):
+    def get_random_sequencial_samples(self, batch_size, last_len):
         deque_length = len(self.buffer)
         ok_part_start_idx = deque_length - last_len - 1
         # シーケンスの先頭として指定できるインデックスの最大値
@@ -194,7 +197,7 @@ learning_rate = 0.01 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001       
 batch_size = 32 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
-memory_size = TRAIN_DATA_NUM * 3 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
+memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
@@ -255,6 +258,7 @@ def tarin_agent():
         env = env_master.get_env('train', reward_gamma=gamma_at_close_reward_distribute)
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
+        total_get_acton_cnt += 1
         #state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
         #state = np.reshape(state, [batch_size, feature_num, 1])  # list型のstateを、1行15列の行列に変換
         state = np.reshape(state, [batch_size, feature_num])  # list型のstateを、1行15列の行列に変換
@@ -286,11 +290,13 @@ def tarin_agent():
             # 環境が提供する期間が最後までいった場合
             if done:
                 print(str(cur_itr) + ' training period finished.')
+                # next_stateは今は使っていないのでreshape等は不要
+                # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
+                store_episode_log_to_memory(state, action, reward, next_state, info)
                 break
             #next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行feature num列の行列に変換
             #next_state = np.reshape(next_state, [batch_size, feature_num, 1])  # list型のstateを、1行feature num列の行列に変換
             next_state = np.reshape(next_state, [batch_size, feature_num])  # list型のstateを、1行feature num列の行列に変換
-
 
             store_episode_log_to_memory(state, action, reward, next_state, info)
 
@@ -342,17 +348,19 @@ def tarin_agent():
 
             # Qネットワークの重みを学習・更新する replay
             #if (memory.len() > batch_size):
-            if (episode + 1 > batch_size):
-                mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
+            #if (episode + 1 > batch_size):
+            if episode + 1 > batch_size and cur_itr > 0:
+                mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
+                #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
                 #mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
-        # ユニークな state x action の episode のみreplayの対象とするため一旦クリア
-        memory.clear()
-        # state_x_action_hash の 値を 次の周回のために 全てmemoryに追加しておく
-        for val_episode in state_x_action_hash.values():
-            memory.add(val_episode)
+        # # ユニークな state x action の episode のみreplayの対象とするため一旦クリア
+        # memory.clear()
+        # # state_x_action_hash の 値を 次の周回のために 全てmemoryに追加しておく
+        # for val_episode in state_x_action_hash.values():
+        #     memory.add(val_episode)
 
 def run_backtest():
     env_master = FXEnvironment()
