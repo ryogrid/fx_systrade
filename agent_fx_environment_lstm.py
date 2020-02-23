@@ -13,7 +13,7 @@ import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
 
-batch_size = 32
+batch_size = 64
 
 class FXEnvironment:
     def __init__(self):

@@ -6,7 +6,7 @@
 
 import numpy as np
 from keras.models import Sequential, model_from_json, Model
-from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed
+from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape
 from keras.optimizers import Adam
 from collections import deque
 from keras import backend as K
@@ -33,15 +33,16 @@ class QNetwork:
         self.model = Sequential()
 
         # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
-        self.model.add(LSTM(32, activation='relu', input_shape=(state_size, 1)))
+        self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         #self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-        self.model.add(RepeatVector(1))
+        self.model.add(RepeatVector(batch_size))
         #self.model.add(RepeatVector(action_size))
         #self.model.add(RepeatVector(action_size))
         self.model.add(LSTM(32, activation='relu', return_sequences=True))
         #self.model.add(TimeDistributed(Dense(1)))
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
+        self.model.add(Reshape((32, action_size, 1)))
         #self.model.add(TimeDistributed(Dense(1, activation='linear')))
         self.optimizer = Adam(lr=learning_rate)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
@@ -67,8 +68,9 @@ class QNetwork:
         #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
         #mini_batch = memory.sample(1)
         #print(mini_batch[0])
-        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - (batch_size -1))
-        len(mini_batch)
+        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
+        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
+
         #mini_batch = memory.sample(batch_size)
 
         # # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
@@ -104,7 +106,8 @@ class QNetwork:
         inputs = np.array(inputs)
         inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], 1))
         targets = targets.reshape((targets.shape[0], targets.shape[1], 1))
-
+        print(inputs.shape)
+        print(targets.shape)
 
         #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
@@ -195,7 +198,7 @@ TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減�
 gamma = 0.95 #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.01 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-batch_size = 32 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 64 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
@@ -210,8 +213,6 @@ def tarin_agent():
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    # targetQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num,
-    #                   action_size=nn_output_size)  # 状態の価値を求めるためのネットワーク
     memory = Memory(max_size=memory_size)
     memory_hash = {}
     actor = Actor()
@@ -348,12 +349,10 @@ def tarin_agent():
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            #if (memory.len() > batch_size):
             #if (episode + 1 > batch_size):
             if episode + 1 > batch_size and cur_itr > 0:
                 mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
                 #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
-                #mainQN.replay(memory, batch_size, gamma, targetQNarg=targetQN)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
