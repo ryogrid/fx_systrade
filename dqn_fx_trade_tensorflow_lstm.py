@@ -68,6 +68,7 @@ class QNetwork:
         #mini_batch = memory.sample(1)
         #print(mini_batch[0])
         mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - (batch_size -1))
+        len(mini_batch)
         #mini_batch = memory.sample(batch_size)
 
         # # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
@@ -140,7 +141,7 @@ class Memory:
         return [self.buffer[ii] for ii in range(start, end)]
 
     def get_sequencial_samples(self, batch_size, start_idx):
-        return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size + 1)]
+        return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size)]
 
     #第2引数で指定した要素数分の末尾の要素の中から、第一引数で指定した数
     # だけの連続したepisodeを返す
