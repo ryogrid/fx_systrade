@@ -363,10 +363,11 @@ def tarin_agent():
         # for val_episode in state_x_action_hash.values():
         #     memory.add(val_episode)
 
-def run_backtest():
+def run_backtest(backtest_type):
     env_master = FXEnvironment()
-    env = env_master.get_env("backtest")
-    num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
+    env = env_master.get_env(backtest_type)
+    #num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
+    num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
@@ -395,6 +396,8 @@ if __name__ == '__main__':
     if sys.argv[1] == "train":
         tarin_agent()
     elif sys.argv[1] == "backtest":
-        run_backtest()
+        run_backtest("backtest")
+    elif sys.argv[1] == "backtest_test":
+        run_backtest("backtest_test")
     else:
         print("please pass argument 'train' or 'backtest'")

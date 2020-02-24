@@ -312,6 +312,10 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
                                            angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=True)
+        elif(type_str == "backtest_test"):
+            return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
+                                           0, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
+                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=False)
 
