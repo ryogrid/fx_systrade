@@ -363,22 +363,6 @@ class FXEnvironment:
 
             self.base3_max_float = float(int("".join(["2"] * (self.performance_eval_len - 1)), 3))
 
-        # def get_unixtime_str(self):
-        #     return str(time.time())
-
-        # def save_state(self):
-        #     with open("./actions_log.pickle", 'wb') as f:
-        #         pickle.dump(self.won_pips_to_calculate_sratio, f)
-        #     with open("./won_pips_to_calculate_sratio.pickle", 'wb') as f:
-        #         pickle.dump(self.won_pips_to_calculate_sratio, f)
-        #
-        # def load_state(self):
-        #     if os.path.exists("./actions_log.pickle"):
-        #         with open("./actions_log.pickle", 'rb') as f:
-        #             self.actions_log = pickle.load(f)
-        #         with open("./won_pips_to_calculate_sratio.pickle", 'rb') as f:
-        #             self.won_pips_to_calculate_sratio = pickle.load(f)
-
         def get_last_actions_encoded(self):
             # # 厳密にエンコードする. その代わりNNの入力がすごく増える
             # ret_list = []
@@ -449,16 +433,8 @@ class FXEnvironment:
                 self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])
             # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する（DONOTのダミーポジションとは別）
             for idx in range(0, len(self.donot_identifiers)):
-                self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx]], self.NOT_HAVE)
+                self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx], self.NOT_HAVE])
             # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
-
-            # # BUYとDONOTの情報が入ったリストを第3要素（インデックス2）の数字でソートする
-            # self.additional_infos.sort(key=lambda x: x[2])
-            # infos_len = len(self.additional_infos)
-            # for idx in range(infos_len):
-            #     # 各エピソードのrewardは self.reward_gammaのべき乗を用いて、現在時点から過去の方向に
-            #     # 遠くなるほど与えられる値が小さくなるよう計算し更新する
-            #     self.additional_infos[idx][1] = won_pips * (self.reward_gamma ** (infos_len - idx))
 
             self.positions_identifiers = []
             self.positions_idxes = []
@@ -515,25 +491,8 @@ class FXEnvironment:
                     #reward = won_pips
                 else:
                     a_log_str_line += ",KEEP_NO_POSITION" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
-
-                # if self.portfolio_mngr.additional_pos_openable():
-                #     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
-                #     self.positions_identifiers.append(cur_step_identifier)
-                #     if is_closed:
-                #         a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + "," + str(won_money) + "," + str(
-                #             won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
-                #     else:
-                #         a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
-                #         self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
-                # else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                #     a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(self.idx_geta + self.cur_idx)) + "," + str(
-                #     self.exchange_rates[self.idx_geta + self.cur_idx]) + ",0"
             elif action == "DONOT":
                 reward = 0
-                # reward = self.get_recent_rewards_sum(self.cur_idx) # 0
-                # self.donot_identifiers.append(cur_step_identifier)
-                # self.donot_episode_idxes.append(self.cur_idx)
-
 
                 if self.portfolio_mngr.additonal_donot_dummy_pos_openable():
                     # おおむねSELLと同様にrewardが計算されるDONOT用のダミーポジションをオープンする
@@ -592,9 +551,6 @@ class FXEnvironment:
                 else:
                     needclose = False
 
-                # print(self.input_arr[self.cur_idx])
-                # print(self.get_last_actions_encoded())
-                # next_state = np.concatenate([self.input_arr[self.cur_idx], self.get_last_actions_encoded()]) #+ [has_position] + [pos_cur_val] + [action_num]
                 next_state = self.input_arr[self.cur_idx - batch_size + 1:self.cur_idx + 1]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの

@@ -56,10 +56,7 @@ class QNetwork:
         # self.model.add(Dense(hidden_size, activation='relu'))
         # self.model.add(BatchNormalization())
         # #self.model.add(Dropout(0.5))
-        # # self.model.add(Dropout(0.5))
-        # # self.model.add(Dense(hidden_size, activation='relu'))
         # self.model.add(Dense(action_size, activation='linear'))
-        #
         # self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
         # self.model.compile(loss=huberloss,
         #                    optimizer=self.optimizer)
@@ -69,25 +66,14 @@ class QNetwork:
     def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
         inputs = np.zeros((batch_size, feature_num, 1))
         targets = np.zeros((batch_size, nn_output_size, 1))
-        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes)
-        #mini_batch = memory.sample(1)
-        #print(mini_batch[0])
-        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
-        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
-
-        #mini_batch = memory.sample(batch_size)
-
-        # # 過去のイテレーションでの結果も考慮したrewardが設定されているエピソードは末尾の方にしかないため
-        # # ランダム選択せずに末尾から要素を選択する
-        # # リバースしているのは直近から過去に波及していくようにするため（ミニバッチでは意味がないかもしれない）
-        # mini_batch = reversed(memory.get_last(batch_size))
-
-        #inputs = np.reshape(mini_batch[0][0], [batch_size, feature_num, 1])
-        # #print(inputs)
-        # predicted = self.model.predict(inputs)
+        # 1をTRAIN_DATA_NUMに足しているのは既にepisodeの処理を終えてexperienced_episodesにその回が形状されているつじつま合わせ
+        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
+        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
+        start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - batch_size
+        # rewardだけ別管理の平均値のリストに置き換える
+        mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)
 
         for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            #inputs[i:i+1] = state_b
             inputs[i] = np.reshape(state_b[-1], [feature_num, 1])
 
             # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
@@ -97,14 +83,29 @@ class QNetwork:
             reshaped_state_b = np.reshape(state_b, [batch_size, feature_num, 1])
             targets[i] = np.reshape(self.model.predict(reshaped_state_b)[0][-1], [nn_output_size, 1])
 
-            # 暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            if not ((action_b == 0 and reward_b == 0) or (action_b == 2 and reward_b == 0)):
-                targets[i][action_b][0] = reward_b  # 教師信号
+            # # 暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
+            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
+            # if not ((action_b == 0 and reward_b == 0) or (action_b == 2 and reward_b == 0)):
+            #     targets[i][action_b][0] = reward_b  # 教師信号
+            #
+            # print("reward_b" + "(" + str(action_b) + "): " + str(reward_b) + " predicted: " +
+            #       str(targets[i][action_b][0]) + " (BUY - DONOT): " + str(targets[i][0][0] - targets[i][2][0]))
+            # targets[i][1][0] = -100.0  # CLOSEのrewardは必ず-100.0なので与えておく
 
-            print("reward_b" + "(" + str(action_b) + "): " + str(reward_b) + " predicted: " +
-                  str(targets[i][action_b][0]) + " (BUY - DONOT): " + str(targets[i][0][0] - targets[i][2][0]))
-            targets[i][1][0] = -100.0  # CLOSEのrewardは必ず-100.0なので与えておく
+            print("reward_b: BUY -> " + str(targets[i][0][0]) + "," + str(reward_b[0]) +
+                  "/ CLOSE -> " + str(targets[i][1][0]) +
+                  "/ DONOT -> " + str(targets[i][2][0]) + "," + str(reward_b[2]) +
+                  "/ (BUY - DONOT): " + str(targets[i][0][0] - targets[i][2][0])
+            )
+
+            # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+            # 全て設定する
+            targets[i][0][0] = reward_b[0]  # 教師信号
+            targets[i][1][0] = -100.0       # CLOSEのrewardは必ず-100.0
+            targets[i][2][0] = reward_b[2]  # 教師信号
+
+
+
 
         targets = np.array(targets)
         inputs = np.array(inputs)
@@ -130,9 +131,11 @@ class QNetwork:
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
-    def __init__(self, max_size=1000):
+    def __init__(self, max_size=1000, all_period_reward_arr=None):
         self.max_size = max_size
         self.buffer = deque(maxlen=max_size)
+        if all_period_reward_arr != None:
+            self.all_period_reward_arr = all_period_reward_arr
 
     def add(self, experience):
         self.buffer.append(experience)
@@ -147,8 +150,23 @@ class Memory:
         end = deque_length
         return [self.buffer[ii] for ii in range(start, end)]
 
+    # 呼び出し側がmemory内の適切なstart要素インデックスを計算して呼び出す
     def get_sequencial_samples(self, batch_size, start_idx):
         return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size)]
+
+    # 連続したエピソードのサンプルシストを渡して、イテレーションにおける開始インデックス
+    # を指定すると、reward情報をよろしく入れ替えて返す
+    # 具体的には保持している全イテレーション共通の各episode x action のリストの情報を利用し、
+    # 以下の形状のデータを返す. 置き換えているのはrewardだけだが3要素のリストにする
+    # [state, action, reward(3要素のリスト), next_episode, info]
+    def get_sequencial_converted_samples(self, base_data, start_idx):
+        ret_list = []
+        #print(base_data)
+        for idx, (state, action, reward, next_action) in enumerate(base_data):
+            ret_list.append([state, action, self.all_period_reward_arr[idx], next_action])
+
+        return ret_list
+
 
     #第2引数で指定した要素数分の末尾の要素の中から、第一引数で指定した数
     # だけの連続したepisodeを返す
@@ -212,12 +230,18 @@ TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 gamma_at_reward_mean = 0.9
 gamma_at_close_reward_distribute = 0.95 # <- 今の実装では利用されていない
 
+NOT_HAVE = 0
+LONG = 1
+SHORT = 2
+
 def tarin_agent():
     env_master = FXEnvironment()
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    memory = Memory(max_size=memory_size)
+    #all_period_reward_arr = [0.0, -100.0, 0.0] * TRAIN_DATA_NUM
+    all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
+    memory = Memory(max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
     memory_hash = {}
     actor = Actor()
 
@@ -265,14 +289,9 @@ def tarin_agent():
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
         total_get_acton_cnt += 1
-        #state = np.reshape(state, [1, feature_num])  # list型のstateを、1行15列の行列に変換
-        #state = np.reshape(state, [batch_size, feature_num, 1])  # list型のstateを、1行15列の行列に変換
         state = np.reshape(state, [batch_size, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state, info)
-
-        # # 状態の価値を求めるネットワークに、行動を求めるメインのネットワークの重みをコピーする（同じものにする）
-        # targetQN.model.set_weights(mainQN.model.get_weights())
 
         # スナップショットをとっておく
         if cur_itr % 5 == 0 and cur_itr != 0:
@@ -300,18 +319,9 @@ def tarin_agent():
                 # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
                 store_episode_log_to_memory(state, action, reward, next_state, info)
                 break
-            #next_state = np.reshape(next_state, [1, feature_num])  # list型のstateを、1行feature num列の行列に変換
-            #next_state = np.reshape(next_state, [batch_size, feature_num, 1])  # list型のstateを、1行feature num列の行列に変換
             next_state = np.reshape(next_state, [batch_size, feature_num])  # list型のstateを、1行feature num列の行列に変換
 
             store_episode_log_to_memory(state, action, reward, next_state, info)
-
-            # # closeされた場合過去の各ポジションのopenについての獲得pipsが識別子文字列とともに
-            # # info で返されるので、BUYとDONOTのエピソードのrewaardを更新する
-            # # なお CLOSEのrewardは正しく返ってきているので更新の必要は無い
-            # if len(info) > 1:
-            #     for keyval in info[1:]:
-            #         memory_hash[keyval[0]][2] = keyval[1]
 
             # closeされた場合過去のBUY, DONOTについて獲得pipsに係数をかけた値が与えられる.
             # 各Actionについての獲得pipsが識別子文字列とともにinfo で返されるので、過去のイテレーションでの平均値を踏まえて、
@@ -332,36 +342,23 @@ def tarin_agent():
                     # 時間割引の考え方を導入して平均をとる
                     update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
                     print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
-                    # ASSERT
-                    if update_val > 500:
-                        print("strange value if found " + str(update_val))
-                        #プログラムを終了させる
-                        sys.exit(1)
 
                     memory_hash[keyval[0]][2] = update_val
                     all_period_reward_hash[mean_val_stored_key] = update_val
-            # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
 
-            # if action == 1:
-            #     # close自体のrewardの更新. 今回のイテレーションでの値も、イテレーションを跨いだ全体での値も、イテレーションを跨いだ全体で
-            #     # 求めた平均値で更新する
-            #     current_itr_num = cur_itr + 1
-            #     mean_val_stored_key = str(state) + str(action)
-            #     try:
-            #         past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-            #     except:
-            #         past_all_itr_mean_reward = 0
-            #     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
-            #     # 時間割引の考え方を導入して平均をとる
-            #     update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + reward)) / current_itr_num
-            #     memory_hash[info[0]][2] = update_val
-            #     all_period_reward_hash[mean_val_stored_key] = update_val
+                    # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
+                    # memoryオブジェクト内の値も更新される
+                    if keyval[3] == LONG: #BUY
+                        all_period_reward_arr[keyval[2]][0] = update_val
+                    else: #NOT_HAVE (DONOT)
+                        all_period_reward_arr[keyval[2]][2] = update_val
+            # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
 
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            #if (episode + 1 > batch_size):
-            if episode + 1 > batch_size and cur_itr > 0:
+            if (episode + 1 > batch_size):
+            #if episode + 1 > batch_size and cur_itr > 0:
                 mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
                 #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
 
