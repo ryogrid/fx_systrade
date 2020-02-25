@@ -387,7 +387,8 @@ def run_backtest(backtest_type):
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
-    state = np.reshape(state, [1, feature_num])
+    #state = np.reshape(state, [1, feature_num])
+    state = np.reshape(state, [batch_size, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if needclose:
             action = 1
@@ -399,7 +400,8 @@ def run_backtest(backtest_type):
         if done:
             print('all training period learned.')
             break
-        state = np.reshape(state, [1, feature_num])
+        #state = np.reshape(state, [1, feature_num])
+        state = np.reshape(state, [batch_size, feature_num])
 
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
