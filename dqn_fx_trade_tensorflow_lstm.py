@@ -7,6 +7,7 @@
 import numpy as np
 from keras.models import Sequential, model_from_json, Model
 from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape
+from keras.regularizers import l2
 from keras.optimizers import Adam
 from collections import deque
 from keras import backend as K
@@ -34,13 +35,13 @@ class QNetwork:
         self.model = Sequential()
 
         # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
-        self.model.add(LSTM(batch_size, activation='relu', input_shape=(state_size, 1)))
+        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01), bias_regularizer=l2(0.01), input_shape=(state_size, 1)))
         #self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
         self.model.add(RepeatVector(batch_size))
         #self.model.add(RepeatVector(action_size))
         #self.model.add(RepeatVector(action_size))
-        self.model.add(LSTM(batch_size, activation='relu', return_sequences=True))
+        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01), bias_regularizer=l2(0.01), return_sequences=True))
         #self.model.add(TimeDistributed(Dense(1)))
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
         self.model.add(Reshape((batch_size, action_size, 1)))
