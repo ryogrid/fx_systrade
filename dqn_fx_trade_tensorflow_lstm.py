@@ -67,8 +67,8 @@ class QNetwork:
         inputs = np.zeros((batch_size, feature_num, 1))
         targets = np.zeros((batch_size, nn_output_size, 1))
         # 1をTRAIN_DATA_NUMに足しているのは既にepisodeの処理を終えてexperienced_episodesにその回が形状されているつじつま合わせ
-        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
-        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
+        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
+        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
         start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - batch_size
         # rewardだけ別管理の平均値のリストに置き換える
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)
@@ -103,9 +103,6 @@ class QNetwork:
             targets[i][0][0] = reward_b[0]  # 教師信号
             targets[i][1][0] = -100.0       # CLOSEのrewardは必ず-100.0
             targets[i][2][0] = reward_b[2]  # 教師信号
-
-
-
 
         targets = np.array(targets)
         inputs = np.array(inputs)
@@ -357,8 +354,8 @@ def tarin_agent():
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            if (episode + 1 > batch_size):
-            #if episode + 1 > batch_size and cur_itr > 0:
+            #if (episode + 1 > batch_size):
+            if episode + 1 > batch_size and cur_itr > 0:
                 mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
                 #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
 
