@@ -160,7 +160,7 @@ class Memory:
         ret_list = []
         #print(base_data)
         for idx, (state, action, reward, next_action) in enumerate(base_data):
-            ret_list.append([state, action, self.all_period_reward_arr[idx], next_action])
+            ret_list.append([state, action, self.all_period_reward_arr[start_idx + idx], next_action])
 
         return ret_list
 
