@@ -8,7 +8,7 @@ import numpy as np
 from keras.models import Sequential, model_from_json, Model
 from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape
 from keras.regularizers import l2
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD
 from collections import deque
 from keras import backend as K
 import tensorflow as tf
@@ -46,7 +46,9 @@ class QNetwork:
         self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
         self.model.add(Reshape((batch_size, action_size, 1)))
         #self.model.add(TimeDistributed(Dense(1, activation='linear')))
-        self.optimizer = Adam(lr=learning_rate)
+        #self.optimizer = Adam(lr=learning_rate)
+        self.optimizer = Adam(lr=learning_rate, momentum=0.9, clipvalue=5.0)
+        #self.optimizer = SGD(lr=0.01, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
         # self.model = Sequential()
