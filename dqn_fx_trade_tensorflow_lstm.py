@@ -47,8 +47,8 @@ class QNetwork:
         self.model.add(Reshape((batch_size, action_size, 1)))
         #self.model.add(TimeDistributed(Dense(1, activation='linear')))
         #self.optimizer = Adam(lr=learning_rate)
-        self.optimizer = Adam(lr=learning_rate, momentum=0.9, clipvalue=5.0)
-        #self.optimizer = SGD(lr=0.01, momentum=0.9, clipvalue=5.0)
+        #self.optimizer = Adam(lr=learning_rate, momentum=0.9, clipvalue=5.0)
+        self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
         # self.model = Sequential()
