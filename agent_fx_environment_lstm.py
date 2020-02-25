@@ -447,7 +447,7 @@ class FXEnvironment:
                 episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
                 # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時にイテレーション乗のインデックス,ポジションの種類
                 self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])
-            # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する
+            # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する（DONOTのダミーポジションとは別）
             for idx in range(0, len(self.donot_identifiers)):
                 self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx]], self.NOT_HAVE)
             # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要

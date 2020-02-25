@@ -327,7 +327,14 @@ def tarin_agent():
                     current_itr_num = cur_itr + 1
                     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
                     # 時間割引の考え方を導入して平均をとる
-                    update_val = (((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1])) / current_itr_num
+                    update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
+                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
+                    # ASSERT
+                    if update_val > 500:
+                        print("strange value if found " + str(update_val))
+                        #プログラムを終了させる
+                        sys.exit(1)
+
                     memory_hash[keyval[0]][2] = update_val
                     all_period_reward_hash[mean_val_stored_key] = update_val
             # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
