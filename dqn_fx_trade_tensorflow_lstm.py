@@ -111,8 +111,8 @@ class QNetwork:
         #inputs = inputs.reshape((32, feature_num, 1))
         #targets = targets.reshape((1, nn_output_size, 1))
         targets = targets.reshape((1, nn_output_size))
-        print("inputs:" + str(inputs))
-        print("targets:" + str(targets))
+        #print("inputs:" + str(inputs))
+        #print("targets:" + str(targets))
 
         #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
