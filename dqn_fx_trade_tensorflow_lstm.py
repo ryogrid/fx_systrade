@@ -62,7 +62,7 @@ class QNetwork:
 
     # 重みの学習
     def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
-        inputs = np.zeros((batch_size, feature_num, 1))
+        inputs = np.zeros((1, feature_num, 32))
         #targets = np.zeros((batch_size, nn_output_size, 1))
         targets = np.zeros((1, nn_output_size, 1))
         # 1をTRAIN_DATA_NUMに足しているのは既にepisodeの処理を終えてexperienced_episodesにその回が形状されているつじつま合わせ
@@ -74,7 +74,9 @@ class QNetwork:
         # rewardだけ別管理の平均値のリストに置き換える
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
 
+
         reshaped_state = np.reshape(mini_batch[0], [1, feature_num, batch_size])
+        inputs = reshaped_state
         targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size, 1])
 
         print("reward_b: BUY -> " + str(targets[0][0][0]) + "," + str(mini_batch[2][0]) +
