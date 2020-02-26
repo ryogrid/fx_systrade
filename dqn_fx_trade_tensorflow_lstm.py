@@ -34,58 +34,26 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
 
-        # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
-        # self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-        #                     bias_regularizer=l2(0.01), input_shape=(state_size, 1)))
-        # self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-        #                     bias_regularizer=l2(0.01), input_shape=(batch_size, state_size), return_sequences=True))
         self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
                             bias_regularizer=l2(0.01), input_shape=(state_size, batch_size), return_sequences=True))
-
-        # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-        #self.model.add(RepeatVector(batch_size))
-        #self.model.add(RepeatVector(1))
-        #self.model.add(Reshape((batch_size, state_size, 1)))
         self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
                             bias_regularizer=l2(0.01), return_sequences=False))
-        #self.model.add(TimeDistributed(Dense(1)))
         self.model.add(Dense(action_size, activation='linear'))
-
-        #self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
-        #self.model.add(Reshape((batch_size, action_size, 1)))
-
-        #self.optimizer = Adam(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
-
-        # self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
-        # self.model.add(BatchNormalization())
-        # #self.model.add(Dropout(0.5))
-        # self.model.add(Dense(action_size, activation='linear'))
-
 
     # 重みの学習
     def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
         inputs = np.zeros((1, feature_num, 32))
-        #targets = np.zeros((batch_size, nn_output_size, 1))
         targets = np.zeros((1, 1, nn_output_size))
-        # 1をTRAIN_DATA_NUMに足しているのは既にepisodeの処理を終えてexperienced_episodesにその回が形状されているつじつま合わせ
-        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
-        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
-
-        #mini_batch = memory.get_sequencial_samples(1, experienced_episodes - (TRAIN_DATA_NUM + 1) - 1)
         mini_batch = memory.get_sequencial_samples(1, experienced_episodes - 1 - 1)
-
-        #start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - batch_size
         start_idx_in_itr = (experienced_episodes % (TRAIN_DATA_NUM - batch_size)) - 1 - 1
 
         # rewardだけ別管理の平均値のリストに置き換える
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
 
-        #reshaped_state = np.reshape(mini_batch[0], [1, batch_size, feature_num])
         reshaped_state = np.reshape(mini_batch[0], [1, feature_num, batch_size])
         inputs = reshaped_state
-        #targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
         targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
 
         print("reward_b: BUY -> " + str(targets[0][0][0]) + "," + str(mini_batch[2][0]) +
@@ -102,19 +70,10 @@ class QNetwork:
 
         targets = np.array(targets)
         inputs = np.array(inputs)
-        # inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], 1))
-        # targets = targets.reshape((targets.shape[0], targets.shape[1], 1))
-        #inputs = inputs.reshape((32, feature_num, 1))
 
         inputs = inputs.reshape((1, feature_num, 32))
-
-        #inputs = inputs.reshape((32, feature_num, 1))
-        #targets = targets.reshape((1, nn_output_size, 1))
         targets = targets.reshape((1, nn_output_size))
-        #print("inputs:" + str(inputs))
-        #print("targets:" + str(targets))
 
-        #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
 
@@ -245,7 +204,6 @@ def tarin_agent():
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    #all_period_reward_arr = [0.0, -100.0, 0.0] * TRAIN_DATA_NUM
     all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
     memory = Memory(max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
     memory_hash = {}
@@ -268,6 +226,10 @@ def tarin_agent():
             all_period_reward_hash = pickle.load(f)
         with open("./state_x_action_hash.pickle", 'rb') as f:
             state_x_action_hash = pickle.load(f)
+        with open("./all_period_reward_arr.pickle", 'rb') as f:
+            all_period_reward_arr = pickle.load(f)
+
+
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
@@ -310,6 +272,8 @@ def tarin_agent():
                 pickle.dump(all_period_reward_hash, f)
             with open("./state_x_action_hash.pickle", 'wb') as f:
                 pickle.dump(state_x_action_hash, f)
+            with open("./all_period_reward_arr.pickle", 'wb') as f:
+                pickle.dump(all_period_reward_arr, f)
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_acton_cnt += 1
@@ -364,23 +328,14 @@ def tarin_agent():
 
             # Qネットワークの重みを学習・更新する replay
             if (episode + 1 > batch_size):
-            # if episode + 1 > batch_size and cur_itr > 0:
-            # if cur_itr > 0:
                 mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
-                #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
-        # # ユニークな state x action の episode のみreplayの対象とするため一旦クリア
-        # memory.clear()
-        # # state_x_action_hash の 値を 次の周回のために 全てmemoryに追加しておく
-        # for val_episode in state_x_action_hash.values():
-        #     memory.add(val_episode)
 
 def run_backtest(backtest_type):
     env_master = FXEnvironment()
     env = env_master.get_env(backtest_type)
-    #num_episodes = TRAIN_DATA_NUM + 10 # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
@@ -391,7 +346,6 @@ def run_backtest(backtest_type):
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
-    #state = np.reshape(state, [1, feature_num])
     state = np.reshape(state, [batch_size, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if needclose:
@@ -404,7 +358,6 @@ def run_backtest(backtest_type):
         if done:
             print('all training period learned.')
             break
-        #state = np.reshape(state, [1, feature_num])
         state = np.reshape(state, [batch_size, feature_num])
 
 if __name__ == '__main__':
