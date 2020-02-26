@@ -13,10 +13,8 @@ import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
 
-batch_size = 32
-
 class FXEnvironment:
-    def __init__(self):
+    def __init__(self, time_series=32):
         print("FXEnvironment class constructor called.")
         self.INPUT_LEN = 1
         self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
@@ -41,6 +39,8 @@ class FXEnvironment:
         self.exchange_dates = None
         self.exchange_rates = None
         self.reverse_exchange_rates = None
+
+        self.time_series = time_series
 
         self.setup_serialized_fx_data()
 
@@ -311,16 +311,16 @@ class FXEnvironment:
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=True)
+                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, time_series = self.time_series, is_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            0, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=True)
+                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, time_series = self.time_series, is_backtest=True)
         else:
-            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, idx_step = 1, angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=False)
+            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, time_series = self.time_series, idx_step = 1, angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False):
             self.NOT_HAVE = 0
             self.LONG = 1
             self.SHORT = 2
@@ -330,16 +330,18 @@ class FXEnvironment:
             self.exchange_dates = exchange_dates
             self.exchange_rates = exchange_rates
             self.half_spread = half_spred
-            self.cur_idx = batch_size # 初期値をバッチサイズと合わせる
+            self.time_series = time_series
+            self.cur_idx = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
             self.idx_geta = idx_geta
             self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
             self.start = time.time()
-            self.idx_step = idx_step
+            self.idx_step = 1
             self.idx_real_step = 1
             self.is_backtest = is_backtest
 
             self.done = False
             self.positions_identifiers = []
+
 
             # BUYでもう買えない時の対処としてのみ利用される
             self.donot_identifiers = []
@@ -551,7 +553,7 @@ class FXEnvironment:
                 else:
                     needclose = False
 
-                next_state = self.input_arr[self.cur_idx - batch_size + 1:self.cur_idx + 1]
+                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
                 return next_state, reward, False, [cur_step_identifier] + self.additional_infos, needclose

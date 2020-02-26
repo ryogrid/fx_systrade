@@ -34,25 +34,27 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
         self.model = Sequential()
 
-        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                            bias_regularizer=l2(0.01), input_shape=(state_size, batch_size), return_sequences=True))
-        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+        self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                            bias_regularizer=l2(0.01), input_shape=(state_size, time_series), return_sequences=True))
+        self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
                             bias_regularizer=l2(0.01), return_sequences=False))
         self.model.add(Dense(action_size, activation='linear'))
         self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
-        self.model.compile(optimizer=self.optimizer, loss=huberloss)
+        #self.model.compile(optimizer=self.optimizer, loss=huberloss)
+        self.model.compile(optimizer=self.optimizer, loss="mae")
 
     # 重みの学習
-    def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
+    def replay(self, memory, time_series, gamma, cur_episode_idx = 0):
         inputs = np.zeros((1, feature_num, 32))
         targets = np.zeros((1, 1, nn_output_size))
-        mini_batch = memory.get_sequencial_samples(1, experienced_episodes - 1 - 1)
-        start_idx_in_itr = (experienced_episodes % (TRAIN_DATA_NUM - batch_size)) - 1 - 1
+        mini_batch = memory.get_sequencial_samples(1, cur_episode_idx)
+        #start_idx_in_itr = (cur_episode_idx % (TRAIN_DATA_NUM - time_series)) - 1 - 1
 
         # rewardだけ別管理の平均値のリストに置き換える
-        mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
+        #mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
+        mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)[0]
 
-        reshaped_state = np.reshape(mini_batch[0], [1, feature_num, batch_size])
+        reshaped_state = np.reshape(mini_batch[0], [1, feature_num, time_series])
         inputs = reshaped_state
         targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
 
@@ -90,7 +92,7 @@ class QNetwork:
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
-    def __init__(self, max_size=1000, all_period_reward_arr=None):
+    def __init__(self, initial_elements, max_size=1000, all_period_reward_arr=None):
         self.max_size = max_size
         self.buffer = deque(maxlen=max_size)
         if all_period_reward_arr != None:
@@ -127,7 +129,6 @@ class Memory:
 
         return ret_list
 
-
     #第2引数で指定した要素数分の末尾の要素の中から、第一引数で指定した数
     # だけの連続したepisodeを返す
     def get_random_sequencial_samples(self, batch_size, last_len):
@@ -163,7 +164,7 @@ class Actor:
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-            reshaped_state = np.reshape(state, [1, feature_num, batch_size])
+            reshaped_state = np.reshape(state, [1, feature_num, time_series])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
@@ -183,11 +184,13 @@ class Actor:
 gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-batch_size = 32 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
-TRAIN_DATA_NUM = 36000 - batch_size #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
+time_series = 32
+batch_size = 1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
-memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
+#memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
+memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
@@ -200,12 +203,12 @@ SHORT = 2
 
 
 def tarin_agent():
-    env_master = FXEnvironment()
+    env_master = FXEnvironment(time_series=time_series)
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
-    memory = Memory(max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
+    memory = Memory([], max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
     memory_hash = {}
     actor = Actor()
 
@@ -257,7 +260,7 @@ def tarin_agent():
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
         total_get_acton_cnt += 1
-        state = np.reshape(state, [batch_size, feature_num])  # list型のstateを、1行15列の行列に変換
+        state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state, info)
 
@@ -289,7 +292,7 @@ def tarin_agent():
                 # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
                 store_episode_log_to_memory(state, action, reward, next_state, info)
                 break
-            next_state = np.reshape(next_state, [batch_size, feature_num])  # list型のstateを、1行feature num列の行列に変換
+            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
 
             store_episode_log_to_memory(state, action, reward, next_state, info)
 
@@ -327,11 +330,16 @@ def tarin_agent():
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            if (episode + 1 > batch_size):
-                mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
+            # 一回目のイテレーションなおでゃall_period_reward_arrは歯抜けであるが、CLOSEのrewardは固定かつ
+            # 他のactionのrewardもほぼ 0 の値に収束するはずなので、ほぼ初期状態でもreplayをしてしまう
+            #if (episode + 1 >= time_series):
+            # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない
+            mainQN.replay(memory, time_series, gamma, cur_episode_idx=episode)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
+        # 次周では過去のmemoryは参照しない（rewardは別途保持されている）ので、memoryはクリアしてしまう
+        memory.clear()
 
 def run_backtest(backtest_type):
     env_master = FXEnvironment()
@@ -346,7 +354,7 @@ def run_backtest(backtest_type):
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
-    state = np.reshape(state, [batch_size, feature_num])
+    state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if needclose:
             action = 1
@@ -358,7 +366,7 @@ def run_backtest(backtest_type):
         if done:
             print('all training period learned.')
             break
-        state = np.reshape(state, [batch_size, feature_num])
+        state = np.reshape(state, [time_series, feature_num])
 
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
