@@ -70,7 +70,7 @@ class QNetwork:
         #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
         mini_batch = memory.get_sequencial_samples(1, experienced_episodes - 1 - 1)
         #start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - batch_size
-        start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - 1
+        start_idx_in_itr = (experienced_episodes % (TRAIN_DATA_NUM - batch_size)) - 1 - 1
         # rewardだけ別管理の平均値のリストに置き換える
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
 
@@ -348,8 +348,9 @@ def tarin_agent():
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            if (episode + 1 > batch_size):
-            #if episode + 1 > batch_size and cur_itr > 0:
+            # if (episode + 1 > batch_size):
+            # if episode + 1 > batch_size and cur_itr > 0:
+            if cur_itr > 0:
                 mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
                 #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
 
