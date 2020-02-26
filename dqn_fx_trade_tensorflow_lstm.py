@@ -35,81 +35,68 @@ class QNetwork:
         self.model = Sequential()
 
         # 入力データ数が input_data_len なので、input_shapeの値は(input_data_len,1)
-        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01), bias_regularizer=l2(0.01), input_shape=(state_size, 1)))
-        #self.model.add(LSTM(64, activation='relu', input_shape=(state_size, 1)))
+        # self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+        #                     bias_regularizer=l2(0.01), input_shape=(state_size, 1)))
+        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                            bias_regularizer=l2(0.01), input_shape=(state_size, batch_size)))
         # 予測範囲は output_data_lenステップなので、RepeatVectoorにoutput_data_lenを指定
-        self.model.add(RepeatVector(batch_size))
-        #self.model.add(RepeatVector(action_size))
-        #self.model.add(RepeatVector(action_size))
-        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01), bias_regularizer=l2(0.01), return_sequences=True))
+        #self.model.add(RepeatVector(batch_size))
+        self.model.add(RepeatVector(1))
+        self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                            bias_regularizer=l2(0.01), return_sequences=True))
         #self.model.add(TimeDistributed(Dense(1)))
-        self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
-        self.model.add(Reshape((batch_size, action_size, 1)))
-        #self.model.add(TimeDistributed(Dense(1, activation='linear')))
-        #self.optimizer = Adam(lr=learning_rate)
+        self.model.add(Dense(action_size, activation='linear'))
+
+        #self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
+        #self.model.add(Reshape((batch_size, action_size, 1)))
+
         #self.optimizer = Adam(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
-        # self.model = Sequential()
         # self.model.add(Dense(hidden_size, activation='relu', input_dim=state_size))
-        # self.model.add(Dense(hidden_size, activation='relu'))
         # self.model.add(BatchNormalization())
         # #self.model.add(Dropout(0.5))
         # self.model.add(Dense(action_size, activation='linear'))
-        # self.optimizer = Adam(lr=learning_rate)  # 誤差を減らす学習方法はAdam
-        # self.model.compile(loss=huberloss,
-        #                    optimizer=self.optimizer)
 
 
     # 重みの学習
     def replay(self, memory, batch_size, gamma, experienced_episodes = 0):
         inputs = np.zeros((batch_size, feature_num, 1))
-        targets = np.zeros((batch_size, nn_output_size, 1))
+        #targets = np.zeros((batch_size, nn_output_size, 1))
+        targets = np.zeros((1, nn_output_size, 1))
         # 1をTRAIN_DATA_NUMに足しているのは既にepisodeの処理を終えてexperienced_episodesにその回が形状されているつじつま合わせ
-        mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
+        #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - (TRAIN_DATA_NUM + 1) - batch_size)
         #mini_batch = memory.get_sequencial_samples(batch_size, experienced_episodes - 1 - batch_size)
-        start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - batch_size
+        mini_batch = memory.get_sequencial_samples(1, experienced_episodes - 1 - 1)
+        #start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - batch_size
+        start_idx_in_itr = (experienced_episodes % TRAIN_DATA_NUM) - 1 - 1
         # rewardだけ別管理の平均値のリストに置き換える
-        mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)
+        mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
 
-        for i, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            inputs[i] = np.reshape(state_b[-1], [feature_num, 1])
+        reshaped_state = np.reshape(mini_batch[0], [1, feature_num, batch_size])
+        targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size, 1])
 
-            # 以下はQ関数のマルコフ連鎖を考慮した更新式を無視した実装
-            # BUYとCLOSEのrewardが同じsutateでも異なるrewardが返り、さらにBUYのrewardが後追いで定まるため
-            # それを反映するために replay を行う
-            # 期待報酬は与えられたrewardの平均値（厳密には異なるが）とする
-            reshaped_state_b = np.reshape(state_b, [batch_size, feature_num, 1])
-            targets[i] = np.reshape(self.model.predict(reshaped_state_b)[0][-1], [nn_output_size, 1])
+        print("reward_b: BUY -> " + str(targets[0][0][0]) + "," + str(mini_batch[2][0]) +
+              "/ CLOSE -> " + str(targets[0][1][0]) +
+              "/ DONOT -> " + str(targets[0][2][0]) + "," + str(mini_batch[2][2]) +
+              "/ (BUY - DONOT): " + str(targets[0][0][0] - targets[0][2][0])
+              )
 
-            # # 暫定の rewardとして 0 を返されている場合は、それを用いて学習するとまずいので、
-            # # その場合はpredictした結果をそのまま使う. 以下はその条件でない場合のみ教師信号を与えるという論理
-            # if not ((action_b == 0 and reward_b == 0) or (action_b == 2 and reward_b == 0)):
-            #     targets[i][action_b][0] = reward_b  # 教師信号
-            #
-            # print("reward_b" + "(" + str(action_b) + "): " + str(reward_b) + " predicted: " +
-            #       str(targets[i][action_b][0]) + " (BUY - DONOT): " + str(targets[i][0][0] - targets[i][2][0]))
-            # targets[i][1][0] = -100.0  # CLOSEのrewardは必ず-100.0なので与えておく
-
-            print("reward_b: BUY -> " + str(targets[i][0][0]) + "," + str(reward_b[0]) +
-                  "/ CLOSE -> " + str(targets[i][1][0]) +
-                  "/ DONOT -> " + str(targets[i][2][0]) + "," + str(reward_b[2]) +
-                  "/ (BUY - DONOT): " + str(targets[i][0][0] - targets[i][2][0])
-            )
-
-            # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
-            # 全て設定する
-            targets[i][0][0] = reward_b[0]  # 教師信号
-            targets[i][1][0] = -100.0       # CLOSEのrewardは必ず-100.0
-            targets[i][2][0] = reward_b[2]  # 教師信号
+        # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+        # 全て設定する
+        targets[0][0][0] = mini_batch[2][0]  # 教師信号
+        targets[0][1][0] = -100.0  # CLOSEのrewardは必ず-100.0
+        targets[0][2][0] = mini_batch[2][2]  # 教師信号
 
         targets = np.array(targets)
         inputs = np.array(inputs)
-        inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], 1))
-        targets = targets.reshape((targets.shape[0], targets.shape[1], 1))
-        print(inputs.shape)
-        print(targets.shape)
+        # inputs = inputs.reshape((inputs.shape[0], inputs.shape[1], 1))
+        # targets = targets.reshape((targets.shape[0], targets.shape[1], 1))
+        #inputs = inputs.reshape((32, feature_num, 1))
+        inputs = inputs.reshape((1, feature_num, 32))
+        #inputs = inputs.reshape((32, feature_num, 1))
+        targets = targets.reshape((1, nn_output_size, 1))
 
         #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)  # epochsは訓練データの反復回数、verbose=0は表示なしの設定
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
@@ -149,6 +136,7 @@ class Memory:
 
     # 呼び出し側がmemory内の適切なstart要素インデックスを計算して呼び出す
     def get_sequencial_samples(self, batch_size, start_idx):
+        print(start_idx)
         return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size)]
 
     # 連続したエピソードのサンプルシストを渡して、イテレーションにおける開始インデックス
@@ -158,7 +146,7 @@ class Memory:
     # [state, action, reward(3要素のリスト), next_episode, info]
     def get_sequencial_converted_samples(self, base_data, start_idx):
         ret_list = []
-        #print(base_data)
+        print(start_idx)
         for idx, (state, action, reward, next_action) in enumerate(base_data):
             ret_list.append([state, action, self.all_period_reward_arr[start_idx + idx], next_action])
 
@@ -200,11 +188,13 @@ class Actor:
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-            reshaped_state = np.reshape(state, [batch_size, feature_num, 1])
+            reshaped_state = np.reshape(state, [1, feature_num, batch_size])
             retTargetQs = mainQN.model.predict(reshaped_state)[0]
-            print(list(itertools.chain.from_iterable(retTargetQs[-1])))
+            print("NN output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
+            #print(list(itertools.chain.from_iterable(retTargetQs[-1])))
             # 1要素しかないが、複数返ってくるように修正した場合を想定して -1 を指定
-            action = np.argmax(retTargetQs[-1])  # 最大の報酬を返す行動を選択する
+            #action = np.argmax(retTargetQs[-1])  # 最大の報酬を返す行動を選択する
+            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
 
@@ -212,12 +202,13 @@ class Actor:
 
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
-TRAIN_DATA_NUM = 36000 #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
+
 # ---
 gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 batch_size = 32 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+TRAIN_DATA_NUM = 36000 - batch_size #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
@@ -230,6 +221,7 @@ gamma_at_close_reward_distribute = 0.95 # <- 今の実装では利用されて�
 NOT_HAVE = 0
 LONG = 1
 SHORT = 2
+
 
 def tarin_agent():
     env_master = FXEnvironment()
@@ -354,8 +346,8 @@ def tarin_agent():
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            #if (episode + 1 > batch_size):
-            if episode + 1 > batch_size and cur_itr > 0:
+            if (episode + 1 > batch_size):
+            #if episode + 1 > batch_size and cur_itr > 0:
                 mainQN.replay(memory, batch_size, gamma, experienced_episodes=total_get_acton_cnt)
                 #mainQN.replay(memory, batch_size, gamma, experienced_episodes = (episode + 1))
 
