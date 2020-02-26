@@ -45,9 +45,9 @@ class QNetwork:
         self.model.add(LSTM(batch_size, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
                             bias_regularizer=l2(0.01), return_sequences=True))
         #self.model.add(TimeDistributed(Dense(1)))
-        self.model.add(Dense(action_size, activation='linear'))
+        #self.model.add(Dense(action_size, activation='linear'))
 
-        #self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
+        self.model.add(TimeDistributed(Dense(action_size, activation='linear')))
         #self.model.add(Reshape((batch_size, action_size, 1)))
 
         #self.optimizer = Adam(lr=learning_rate, momentum=0.9, clipvalue=5.0)
