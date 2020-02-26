@@ -206,7 +206,6 @@ class Actor:
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
             reshaped_state = np.reshape(state, [1, feature_num, batch_size])
             retTargetQs = mainQN.model.predict(reshaped_state)
-            print("NN all output at get_action: " + str(retTargetQs))
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
             #print(list(itertools.chain.from_iterable(retTargetQs[-1])))
