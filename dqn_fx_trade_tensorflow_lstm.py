@@ -44,37 +44,56 @@ class QNetwork:
         #self.model.compile(optimizer=self.optimizer, loss="mae")
 
     # 重みの学習
-    def replay(self, memory, time_series, gamma, cur_episode_idx = 0):
-        inputs = np.zeros((1, feature_num, time_series))
-        targets = np.zeros((1, 1, nn_output_size))
-        mini_batch = memory.get_sequencial_samples(1, cur_episode_idx)
-        #start_idx_in_itr = (cur_episode_idx % (TRAIN_DATA_NUM - time_series)) - 1 - 1
+    def replay(self, memory, time_series, cur_episode_idx = 0):
+        inputs = np.zeros((batch_size, feature_num, time_series))
+        #targets = np.zeros((1, 1, nn_output_size))
+        targets = np.zeros((batch_size, 1, nn_output_size))
+        mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx)
+
+        # # rewardだけ別管理の平均値のリストに置き換える
+        # mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)[0]
+        #
+        # reshaped_state = np.reshape(mini_batch[0], [1, feature_num, time_series])
+        # inputs = reshaped_state
+        # targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
+        #
+        # print("reward_b: BUY -> " + str(targets[0][0][0]) + "," + str(mini_batch[2][0]) +
+        #       "/ CLOSE -> " + str(targets[0][0][1]) +
+        #       "/ DONOT -> " + str(targets[0][0][2]) + "," + str(mini_batch[2][2]) +
+        #       "/ (BUY - DONOT): " + str(targets[0][0][0] - targets[0][0][2])
+        #       )
+        #
+        # # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+        # # 全て設定する
+        # targets[0][0][0] = mini_batch[2][0]  # 教師信号
+        # targets[0][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
+        # targets[0][0][2] = mini_batch[2][2]  # 教師信号
 
         # rewardだけ別管理の平均値のリストに置き換える
-        #mini_batch = memory.get_sequencial_converted_samples(mini_batch, start_idx_in_itr)[0]
-        mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)[0]
+        mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)
 
-        reshaped_state = np.reshape(mini_batch[0], [1, feature_num, time_series])
-        inputs = reshaped_state
-        targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
+        for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+            reshaped_state = np.reshape(state_b, [1, feature_num, time_series])
+            inputs[idx] = reshaped_state
+            targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
 
-        print("reward_b: BUY -> " + str(targets[0][0][0]) + "," + str(mini_batch[2][0]) +
-              "/ CLOSE -> " + str(targets[0][0][1]) +
-              "/ DONOT -> " + str(targets[0][0][2]) + "," + str(mini_batch[2][2]) +
-              "/ (BUY - DONOT): " + str(targets[0][0][0] - targets[0][0][2])
-              )
+            print("reward_b: BUY -> " + str(targets[0][idx][0]) + "," + str(mini_batch[2][0]) +
+                  "/ CLOSE -> " + str(targets[0][idx][1]) +
+                  "/ DONOT -> " + str(targets[0][idx][2]) + "," + str(mini_batch[2][2]) +
+                  "/ (BUY - DONOT): " + str(targets[0][idx][0] - targets[0][idx][2])
+                  )
 
-        # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
-        # 全て設定する
-        targets[0][0][0] = mini_batch[2][0]  # 教師信号
-        targets[0][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
-        targets[0][0][2] = mini_batch[2][2]  # 教師信号
+            # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+            # 全て設定する
+            # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
+            targets[0][idx][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+            targets[0][idx][1] = -100.0  # CLOSEのrewardは必ず-100.0
+            targets[0][idx][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
 
         targets = np.array(targets)
         inputs = np.array(inputs)
-
-        inputs = inputs.reshape((1, feature_num, time_series))
-        targets = targets.reshape((1, nn_output_size))
+        inputs = inputs.reshape((batch_size, feature_num, time_series))
+        targets = targets.reshape((batch_size, nn_output_size))
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
@@ -181,11 +200,11 @@ class Actor:
 # [5.1] 初期設定--------------------------------------------------------
 
 # ---
-gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
+#gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 32
-batch_size = 1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 8 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
@@ -330,11 +349,10 @@ def tarin_agent():
             state = next_state  # 状態更新
 
             # Qネットワークの重みを学習・更新する replay
-            # 一回目のイテレーションなおでゃall_period_reward_arrは歯抜けであるが、CLOSEのrewardは固定かつ
-            # 他のactionのrewardもほぼ 0 の値に収束するはずなので、ほぼ初期状態でもreplayをしてしまう
-            #if (episode + 1 >= time_series):
-            # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない
-            mainQN.replay(memory, time_series, gamma, cur_episode_idx=episode)
+            # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
+            # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
+            if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
+                mainQN.replay(memory, time_series, cur_episode_idx=episode)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
