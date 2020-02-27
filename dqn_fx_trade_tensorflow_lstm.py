@@ -40,12 +40,12 @@ class QNetwork:
                             bias_regularizer=l2(0.01), return_sequences=False))
         self.model.add(Dense(action_size, activation='linear'))
         self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
-        #self.model.compile(optimizer=self.optimizer, loss=huberloss)
-        self.model.compile(optimizer=self.optimizer, loss="mae")
+        self.model.compile(optimizer=self.optimizer, loss=huberloss)
+        #self.model.compile(optimizer=self.optimizer, loss="mae")
 
     # 重みの学習
     def replay(self, memory, time_series, gamma, cur_episode_idx = 0):
-        inputs = np.zeros((1, feature_num, 32))
+        inputs = np.zeros((1, feature_num, time_series))
         targets = np.zeros((1, 1, nn_output_size))
         mini_batch = memory.get_sequencial_samples(1, cur_episode_idx)
         #start_idx_in_itr = (cur_episode_idx % (TRAIN_DATA_NUM - time_series)) - 1 - 1
@@ -73,7 +73,7 @@ class QNetwork:
         targets = np.array(targets)
         inputs = np.array(inputs)
 
-        inputs = inputs.reshape((1, feature_num, 32))
+        inputs = inputs.reshape((1, feature_num, time_series))
         targets = targets.reshape((1, nn_output_size))
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
@@ -183,7 +183,7 @@ class Actor:
 # ---
 gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 32
 batch_size = 1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
