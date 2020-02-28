@@ -68,27 +68,29 @@ class QNetwork:
         # targets[0][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
         # targets[0][0][2] = mini_batch[2][2]  # 教師信号
 
-        mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx - batch_size)
+        mini_batch = memory.get_sequencial_samples(batch_size, (cur_episode_idx + 1) - batch_size)
         # rewardだけ別管理の平均値のリストに置き換える
-        mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx - batch_size)
+        mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
 
         for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             reshaped_state = np.reshape(state_b, [1, feature_num, time_series])
             inputs[idx] = reshaped_state
-            targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
+            targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
 
-            print("reward_b: BUY -> " + str(targets[0][idx][0]) + "," + str(mini_batch[2][0]) +
-                  "/ CLOSE -> " + str(targets[0][idx][1]) +
-                  "/ DONOT -> " + str(targets[0][idx][2]) + "," + str(mini_batch[2][2]) +
-                  "/ (BUY - DONOT): " + str(targets[0][idx][0] - targets[0][idx][2])
+            # print(targets.shape)
+            # sys.exit(1)
+            print("reward_b: BUY -> " + str(targets[idx][0][0]) + "," + str(reward_b[0]) +
+                  "/ CLOSE -> " + str(targets[idx][0][1]) +
+                  "/ DONOT -> " + str(targets[idx][0][2]) + "," + str(reward_b[2]) +
+                  "/ (BUY - DONOT): " + str(targets[idx][0][0] - targets[idx][0][2])
                   )
 
             # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
             # 全て設定する
             # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
-            targets[0][idx][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
-            targets[0][idx][1] = -100.0  # CLOSEのrewardは必ず-100.0
-            targets[0][idx][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+            targets[idx][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+            targets[idx][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
+            targets[idx][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
 
         targets = np.array(targets)
         inputs = np.array(inputs)
