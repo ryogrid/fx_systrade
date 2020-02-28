@@ -31,7 +31,7 @@ def huberloss(y_true, y_pred):
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
-    def __init__(self, learning_rate=0.001, state_size=15, action_size=3, hidden_size=10):
+    def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
         self.model = Sequential()
 
         self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
@@ -219,10 +219,10 @@ class Actor:
 
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
-hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
+#hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 32
-batch_size = 8 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
@@ -243,7 +243,7 @@ def tarin_agent():
     env_master = FXEnvironment(time_series=time_series)
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
-    mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
+    mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
     memory = Memory([], max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
     memory_hash = {}
@@ -378,12 +378,12 @@ def tarin_agent():
         memory.clear()
 
 def run_backtest(backtest_type):
-    env_master = FXEnvironment()
+    env_master = FXEnvironment(time_series=time_series)
     env = env_master.get_env(backtest_type)
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
-    mainQN = QNetwork(hidden_size=hidden_size, learning_rate=learning_rate)     # メインのQネットワーク
+    mainQN = QNetwork(learning_rate=learning_rate, time_series=time_series)     # メインのQネットワーク
     actor = Actor()
 
     mainQN.load_model("mainQN")
