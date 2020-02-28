@@ -293,7 +293,7 @@ def tarin_agent():
     #######################################################
 
     for cur_itr in range(iteration_num):
-        env = env_master.get_env('train', reward_gamma=gamma_at_close_reward_distribute)
+        env = env_master.get_env('train', time_series=time_series)
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
         total_get_acton_cnt += 1

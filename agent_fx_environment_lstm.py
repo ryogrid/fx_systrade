@@ -311,13 +311,13 @@ class FXEnvironment:
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, time_series = self.time_series, is_backtest=True)
+                                           angle_arr=self.tr_angle_arr, time_series = self.time_series, is_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            0, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, time_series = self.time_series, is_backtest=True)
+                                           angle_arr=self.tr_angle_arr, time_series = self.time_series, is_backtest=True)
         else:
-            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, time_series = self.time_series, idx_step = 1, angle_arr=self.tr_angle_arr, reward_gamma = reward_gamma, is_backtest=False)
+            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates, self.DATA_HEAD_ASOBI, time_series = self.time_series, idx_step = 1, angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
         def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False):
