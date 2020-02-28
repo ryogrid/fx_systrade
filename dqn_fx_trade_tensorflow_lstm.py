@@ -42,6 +42,7 @@ class QNetwork:
         self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
         #self.model.compile(optimizer=self.optimizer, loss="mae")
+        self.buy_donot_diff_memory = Memory([], max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
 
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0):
@@ -77,13 +78,22 @@ class QNetwork:
             inputs[idx] = reshaped_state
             targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
 
+            # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
+            # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
+            # residual は 残差 の意
+            # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
+            # 1万にデータが満たない場合は、その範囲での平均を出力する
+            self.buy_donot_diff_memory.add(abs(abs(targets[idx][0][0]) - abs(targets[idx][0][2])))
+            agent_learn_residual = self.buy_donot_diff_memory.get_mean_value()
+
             # print(targets.shape)
             # sys.exit(1)
             print("reward_b: BUY -> " + str(targets[idx][0][0]) + "," + str(reward_b[0]) +
-                  "/ CLOSE -> " + str(targets[idx][0][1]) +
-                  "/ DONOT -> " + str(targets[idx][0][2]) + "," + str(reward_b[2]) +
-                  "/ (BUY - DONOT): " + str(targets[idx][0][0] - targets[idx][0][2])
-                  )
+                  " CLOSE -> " + str(targets[idx][0][1]) +
+                  " DONOT -> " + str(targets[idx][0][2]) + "," + str(reward_b[2]) +
+                  " (BUY - DONOT) -> " + str(targets[idx][0][0] - targets[idx][0][2]) +
+                  " residual -> " + str(agent_learn_residual)
+            )
 
             # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
             # 全て設定する
@@ -160,6 +170,12 @@ class Memory:
         seq_start = random.randint(ok_part_start_idx, ok_part_end_idx)
         seq_end = seq_start + batch_size
         return [self.buffer[ii] for ii in range(seq_start, seq_end)]
+
+    def sum(self):
+        return sum(list(self.buffer))
+
+    def get_mean_value(self):
+        return self.sum() / self.len()
 
     def len(self):
         return len(self.buffer)
