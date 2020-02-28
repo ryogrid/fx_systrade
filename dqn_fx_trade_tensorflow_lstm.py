@@ -48,8 +48,7 @@ class QNetwork:
         inputs = np.zeros((batch_size, feature_num, time_series))
         #targets = np.zeros((1, 1, nn_output_size))
         targets = np.zeros((batch_size, 1, nn_output_size))
-        mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx)
-
+        # mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx)
         # # rewardだけ別管理の平均値のリストに置き換える
         # mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)[0]
         #
@@ -69,8 +68,9 @@ class QNetwork:
         # targets[0][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
         # targets[0][0][2] = mini_batch[2][2]  # 教師信号
 
+        mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx - batch_size)
         # rewardだけ別管理の平均値のリストに置き換える
-        mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)
+        mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx - batch_size)
 
         for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             reshaped_state = np.reshape(state_b, [1, feature_num, time_series])
