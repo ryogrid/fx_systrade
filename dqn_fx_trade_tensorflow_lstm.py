@@ -34,12 +34,19 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
         self.model = Sequential()
 
-        self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                            bias_regularizer=l2(0.01), input_shape=(state_size, time_series), return_sequences=True))
-        self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                            bias_regularizer=l2(0.01), return_sequences=False))
+        # self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.001), recurrent_regularizer=l2(0.001),
+        #                     bias_regularizer=l2(0.001), input_shape=(state_size, time_series), return_sequences=True))
+        # self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.001), recurrent_regularizer=l2(0.001),
+        #                     bias_regularizer=l2(0.001), return_sequences=False))
+        # self.model.add(Dense(time_series, activation='linear', kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
+        # self.model.add(Dense(action_size, activation='linear',kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
+        self.model.add(LSTM(time_series, activation='relu', input_shape=(state_size, time_series), return_sequences=True))
+        self.model.add(LSTM(time_series, activation='relu', return_sequences=False))
+        self.model.add(Dense(time_series, activation='linear'))
         self.model.add(Dense(action_size, activation='linear'))
-        self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
+
+        self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
+        #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
         #self.model.compile(optimizer=self.optimizer, loss="mae")
         self.buy_donot_diff_memory = Memory([], max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
@@ -221,7 +228,7 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 #hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 32
+time_series = 64 #32
 batch_size = 1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
@@ -232,7 +239,6 @@ feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 gamma_at_reward_mean = 0.9
-gamma_at_close_reward_distribute = 0.95 # <- 今の実装では利用されていない
 
 NOT_HAVE = 0
 LONG = 1
@@ -293,7 +299,7 @@ def tarin_agent():
     #######################################################
 
     for cur_itr in range(iteration_num):
-        env = env_master.get_env('train', reward_gamma=gamma_at_close_reward_distribute)
+        env = env_master.get_env('train')
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
         total_get_acton_cnt += 1
