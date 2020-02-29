@@ -54,7 +54,9 @@ class QNetwork:
         self.model.add(LSTM(hidden_size, return_sequences=False))
         self.model.add(LeakyReLU(0.2))
 
-        #self.model.add(Dense(hidden_size, activation='linear'))
+        # self.model.add(Dense(hidden_size, activation='linear'))
+        self.model.add(Dense(hidden_size))
+        self.model.add(LeakyReLU(0.2))
 
         self.model.add(Dense(action_size, activation='linear'))
 
@@ -116,10 +118,15 @@ class QNetwork:
 
             # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
             # 全て設定する
-            # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
-            targets[idx][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
-            targets[idx][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
-            targets[idx][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+            
+            targets[idx][0][0] = reward_b[0] # 教師信号
+            targets[idx][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
+            targets[idx][0][2] = reward_b[2] # 教師信号
+
+            # # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
+            # targets[idx][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+            # targets[idx][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
+            # targets[idx][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
 
         targets = np.array(targets)
         inputs = np.array(inputs)
@@ -247,10 +254,10 @@ class Actor:
 
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
-hidden_size = 64 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
+hidden_size = 32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 64 #32
-batch_size = 64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+time_series = 32 #64 #32
+batch_size = 8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
