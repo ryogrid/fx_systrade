@@ -42,7 +42,11 @@ class QNetwork:
         #                     bias_regularizer=l2(0.001), return_sequences=False))
         # self.model.add(Dense(time_series, activation='linear', kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
         # self.model.add(Dense(action_size, activation='linear',kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
-        self.model.add(LSTM(time_series, activation='relu', input_shape=(state_size, time_series), return_sequences=True))
+
+        #self.model.add(LSTM(time_series, activation='relu', input_shape=(state_size, time_series), return_sequences=True))
+        self.model.add(
+            LSTM(time_series, activation='relu', input_shape=(time_series, state_size), return_sequences=True))
+
         self.model.add(LSTM(time_series, activation='relu', return_sequences=False))
         self.model.add(Dense(time_series, activation='linear'))
         self.model.add(Dense(action_size, activation='linear'))
@@ -50,13 +54,14 @@ class QNetwork:
         self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
+        self.model.summary()
         #self.model.compile(optimizer=self.optimizer, loss="mae")
         self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
         self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
 
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0):
-        inputs = np.zeros((batch_size, feature_num, time_series))
+        inputs = np.zeros((batch_size, time_series, feature_num))
         #targets = np.zeros((1, 1, nn_output_size))
         targets = np.zeros((batch_size, 1, nn_output_size))
         # mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx)
@@ -85,7 +90,7 @@ class QNetwork:
 
         for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
             state_b_T = state_b.T #.copy()
-            reshaped_state = np.reshape(state_b_T, [1, feature_num, time_series])
+            reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
             inputs[idx] = reshaped_state
             targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
 
@@ -128,7 +133,7 @@ class QNetwork:
         targets = np.array(targets)
         inputs = np.array(inputs)
 
-        inputs = inputs.reshape((batch_size, feature_num, time_series))
+        inputs = inputs.reshape((batch_size, time_series, feature_num))
         targets = targets.reshape((batch_size, nn_output_size))
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
@@ -231,7 +236,7 @@ class Actor:
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
             state_T = state.T#.copy()
-            reshaped_state = np.reshape(state_T, [1, feature_num, time_series])
+            reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
@@ -251,7 +256,7 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 #hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 32 #32
+time_series = 64 #32
 batch_size = 8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
@@ -422,7 +427,8 @@ def run_backtest(backtest_type):
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
-    state = np.reshape(state, [time_series, feature_num])
+    state = state.T
+    state = np.reshape(state, [feature_num, time_series])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if needclose:
             action = 1
@@ -434,7 +440,8 @@ def run_backtest(backtest_type):
         if done:
             print('all training period learned.')
             break
-        state = np.reshape(state, [time_series, feature_num])
+        state = state.T
+        state = np.reshape(state, [feature_num, time_series])
 
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
