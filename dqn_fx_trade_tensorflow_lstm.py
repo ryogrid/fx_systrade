@@ -266,6 +266,7 @@ memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2)
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
+holdable_positions = 30 # 100
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
 # 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
@@ -281,7 +282,7 @@ all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
 def tarin_agent():
     global all_period_reward_arr
 
-    env_master = FXEnvironment(time_series=time_series)
+    env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
@@ -417,7 +418,7 @@ def tarin_agent():
         memory.clear()
 
 def run_backtest(backtest_type):
-    env_master = FXEnvironment(time_series=time_series)
+    env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
     env = env_master.get_env(backtest_type)
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
 
