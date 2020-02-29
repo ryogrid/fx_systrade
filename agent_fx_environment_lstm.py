@@ -307,7 +307,7 @@ class FXEnvironment:
         print("finished setup environment data.")
 
     # type_str: "train", "test"
-    def get_env(self, type_str, reward_gamma = 0.95):
+    def get_env(self, type_str):
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,

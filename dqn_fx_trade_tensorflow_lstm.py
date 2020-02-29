@@ -32,6 +32,8 @@ def huberloss(y_true, y_pred):
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
+        global all_period_reward_arr
+
         self.model = Sequential()
 
         # self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.001), recurrent_regularizer=l2(0.001),
@@ -49,8 +51,8 @@ class QNetwork:
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
         #self.model.compile(optimizer=self.optimizer, loss="mae")
-        self.buy_donot_diff_memory_predicted = Memory([], max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
-        self.buy_donot_diff_memory_collect = Memory([], max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
+        self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
+        self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
 
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0):
@@ -147,7 +149,7 @@ class QNetwork:
 class Memory:
     def __init__(self, initial_elements, max_size=1000, all_period_reward_arr=None):
         self.max_size = max_size
-        self.buffer = deque(maxlen=max_size)
+        self.buffer = deque(initial_elements, maxlen=max_size)
         if all_period_reward_arr != None:
             self.all_period_reward_arr = all_period_reward_arr
 
@@ -246,8 +248,8 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 #hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 64 #64 #32
-batch_size = 8 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+time_series = 64 #32
+batch_size = 8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
@@ -262,13 +264,16 @@ NOT_HAVE = 0
 LONG = 1
 SHORT = 2
 
+all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
 
 def tarin_agent():
+    global all_period_reward_arr
+
     env_master = FXEnvironment(time_series=time_series)
 
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
-    all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
+
     memory = Memory([], max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
     memory_hash = {}
     actor = Actor()
@@ -317,7 +322,7 @@ def tarin_agent():
     #######################################################
 
     for cur_itr in range(iteration_num):
-        env = env_master.get_env('train', time_series=time_series)
+        env = env_master.get_env('train')
         action = np.random.choice([0, 1, 2])
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
         total_get_acton_cnt += 1
