@@ -6,7 +6,7 @@
 
 import numpy as np
 from keras.models import Sequential, model_from_json, Model
-from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape
+from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
 from keras.regularizers import l2
 from keras.optimizers import Adam, SGD
 from collections import deque
@@ -44,53 +44,44 @@ class QNetwork:
         # self.model.add(Dense(action_size, activation='linear',kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
 
         #self.model.add(LSTM(time_series, activation='relu', input_shape=(state_size, time_series), return_sequences=True))
-        self.model.add(
-            LSTM(hidden_size, activation='relu', input_shape=(time_series, state_size), return_sequences=True))
 
-        self.model.add(LSTM(hidden_size, activation='relu', return_sequences=False))
-        self.model.add(Dense(hidden_size, activation='linear'))
+        # self.model.add(
+        #     LSTM(hidden_size, activation='relu', input_shape=(time_series, state_size), return_sequences=True))
+        # self.model.add(LSTM(hidden_size, activation='relu', return_sequences=False))
+        self.model.add(
+            LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
+        self.model.add(LeakyReLU(0.2))
+        self.model.add(LSTM(hidden_size, return_sequences=False))
+        self.model.add(LeakyReLU(0.2))
+
+        #self.model.add(Dense(hidden_size, activation='linear'))
+
         self.model.add(Dense(action_size, activation='linear'))
 
         self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
+
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
-        self.model.summary()
         #self.model.compile(optimizer=self.optimizer, loss="mae")
+
+        self.model.summary()
+
         self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
         self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
 
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0):
         inputs = np.zeros((batch_size, time_series, feature_num))
-        #targets = np.zeros((1, 1, nn_output_size))
         targets = np.zeros((batch_size, 1, nn_output_size))
-        # mini_batch = memory.get_sequencial_samples(batch_size, cur_episode_idx)
-        # # rewardだけ別管理の平均値のリストに置き換える
-        # mini_batch = memory.get_sequencial_converted_samples(mini_batch, cur_episode_idx)[0]
-        #
-        # reshaped_state = np.reshape(mini_batch[0], [1, feature_num, time_series])
-        # inputs = reshaped_state
-        # targets[0] = np.reshape(self.model.predict(reshaped_state)[0], [nn_output_size])
-        #
-        # print("reward_b: BUY -> " + str(targets[0][0][0]) + "," + str(mini_batch[2][0]) +
-        #       "/ CLOSE -> " + str(targets[0][0][1]) +
-        #       "/ DONOT -> " + str(targets[0][0][2]) + "," + str(mini_batch[2][2]) +
-        #       "/ (BUY - DONOT): " + str(targets[0][0][0] - targets[0][0][2])
-        #       )
-        #
-        # # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
-        # # 全て設定する
-        # targets[0][0][0] = mini_batch[2][0]  # 教師信号
-        # targets[0][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
-        # targets[0][0][2] = mini_batch[2][2]  # 教師信号
 
         mini_batch = memory.get_sequencial_samples(batch_size, (cur_episode_idx + 1) - batch_size)
         # rewardだけ別管理の平均値のリストに置き換える
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
 
         for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            state_b_T = state_b #.T #.copy()
-            reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
+            # state_b_T = state_b.T #.copy()
+            # reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
+            reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
             inputs[idx] = reshaped_state
             targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
 
@@ -236,8 +227,9 @@ class Actor:
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-            state_T = state #.T#.copy()
-            reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
+            # state_T = state.T #.copy()
+            # reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
+            reshaped_state = np.reshape(state, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
@@ -255,10 +247,10 @@ class Actor:
 
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
-hidden_size = 24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+hidden_size = 64 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
+learning_rate = 0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 64 #32
-batch_size = 8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
@@ -267,7 +259,11 @@ memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2)
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-gamma_at_reward_mean = 0.9
+
+# イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
+# 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
+# 現在の実装では 1.0 とする
+gamma_at_reward_mean = 1.0 #0.9
 
 NOT_HAVE = 0
 LONG = 1
@@ -294,9 +290,9 @@ def tarin_agent():
     # 値は [state, action, reward, next_state]
     state_x_action_hash = {}
 
+    # if os.path.exists("./mainQN_nw.json"):
     if os.path.exists("./mainQN.hd5"):
         mainQN.load_model("mainQN")
-        # targetQN.load_model("targetQN")
         memory.load_memory("memory")
         with open("./total_get_action_count.pickle", 'rb') as f:
             total_get_acton_cnt = pickle.load(f)
@@ -306,8 +302,6 @@ def tarin_agent():
             state_x_action_hash = pickle.load(f)
         with open("./all_period_reward_arr.pickle", 'rb') as f:
             all_period_reward_arr = pickle.load(f)
-
-
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
