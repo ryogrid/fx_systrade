@@ -45,10 +45,10 @@ class QNetwork:
 
         #self.model.add(LSTM(time_series, activation='relu', input_shape=(state_size, time_series), return_sequences=True))
         self.model.add(
-            LSTM(time_series, activation='relu', input_shape=(time_series, state_size), return_sequences=True))
+            LSTM(hidden_size, activation='relu', input_shape=(time_series, state_size), return_sequences=True))
 
-        self.model.add(LSTM(time_series, activation='relu', return_sequences=False))
-        self.model.add(Dense(time_series, activation='linear'))
+        self.model.add(LSTM(hidden_size, activation='relu', return_sequences=False))
+        self.model.add(Dense(hidden_size, activation='linear'))
         self.model.add(Dense(action_size, activation='linear'))
 
         self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
@@ -89,7 +89,7 @@ class QNetwork:
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
 
         for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            state_b_T = state_b.T #.copy()
+            state_b_T = state_b #.T #.copy()
             reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
             inputs[idx] = reshaped_state
             targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
@@ -136,6 +136,7 @@ class QNetwork:
         inputs = inputs.reshape((batch_size, time_series, feature_num))
         targets = targets.reshape((batch_size, nn_output_size))
 
+        #print(inputs)
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
 
@@ -235,7 +236,7 @@ class Actor:
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-            state_T = state.T#.copy()
+            state_T = state #.T#.copy()
             reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
@@ -254,7 +255,7 @@ class Actor:
 
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
-#hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
+hidden_size = 24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 64 #32
 batch_size = 8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
@@ -427,8 +428,8 @@ def run_backtest(backtest_type):
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
-    state = state.T
-    state = np.reshape(state, [feature_num, time_series])
+    #state = state.T
+    state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if needclose:
             action = 1
@@ -440,8 +441,8 @@ def run_backtest(backtest_type):
         if done:
             print('all training period learned.')
             break
-        state = state.T
-        state = np.reshape(state, [feature_num, time_series])
+        #state = state.T
+        state = np.reshape(state, [time_series, feature_num])
 
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
