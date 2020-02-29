@@ -49,7 +49,8 @@ class QNetwork:
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.model.compile(optimizer=self.optimizer, loss=huberloss)
         #self.model.compile(optimizer=self.optimizer, loss="mae")
-        self.buy_donot_diff_memory = Memory([], max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
+        self.buy_donot_diff_memory_predicted = Memory([], max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
+        self.buy_donot_diff_memory_collect = Memory([], max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
 
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0):
@@ -90,16 +91,28 @@ class QNetwork:
             # residual は 残差 の意
             # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
             # 1万にデータが満たない場合は、その範囲での平均を出力する
-            self.buy_donot_diff_memory.add(abs(abs(targets[idx][0][0]) - abs(targets[idx][0][2])))
-            agent_learn_residual = self.buy_donot_diff_memory.get_mean_value()
+            self.buy_donot_diff_memory_predicted.add(abs(abs(targets[idx][0][0]) - abs(targets[idx][0][2])))
+            agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
+            # 正解の方も求めて出力
+            self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(cur_episode_idx + idx)
+            base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
 
             # print(targets.shape)
             # sys.exit(1)
-            print("reward_b: BUY -> " + str(targets[idx][0][0]) + "," + str(reward_b[0]) +
+            predicted_buy = targets[idx][0][0]
+            predicted_donot = targets[idx][0][2]
+            
+            buy_donot_diff = predicted_buy - predicted_donot
+            # 符号が同じかどうか判定するための下処理
+            buy_donot_diff_abs = abs(buy_donot_diff)
+            buy_donot_diff_abs_abs = abs(abs(predicted_buy) - abs(predicted_donot))
+            
+            print("reward_b: BUY -> " + str(predicted_buy) + "," + str(reward_b[0]) +
                   " CLOSE -> " + str(targets[idx][0][1]) +
-                  " DONOT -> " + str(targets[idx][0][2]) + "," + str(reward_b[2]) +
-                  " (BUY - DONOT) -> " + str(targets[idx][0][0] - targets[idx][0][2]) +
-                  " residual -> " + str(agent_learn_residual)
+                  " DONOT -> " + str(predicted_donot) + "," + str(reward_b[2]) +
+                  " (BUY - DONOT) -> " + str(buy_donot_diff) + "," + str(True if buy_donot_diff_abs > buy_donot_diff_abs_abs else False) +
+                  " predicted residual -> " + str(agent_learn_residual) +
+                  " collect residual -> " + str(base_data_residual)
             )
 
             # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
@@ -118,15 +131,17 @@ class QNetwork:
 
 
     def save_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
-            f.write(self.model.to_json())
-        self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
+        self.model.save("./" + file_path_prefix_str + ".hd5")
+        # with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
+        #     f.write(self.model.to_json())
+        # self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
 
     def load_model(self, file_path_prefix_str):
-        with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
-            self.model = model_from_json(f.read())
-        self.model.compile(loss=huberloss, optimizer=self.optimizer)
-        self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
+        self.model.save("./" + file_path_prefix_str + ".hd5")
+        # with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
+        #     self.model = model_from_json(f.read())
+        # self.model.compile(loss=huberloss, optimizer=self.optimizer)
+        # self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
 
 # [3]Experience ReplayとFixed Target Q-Networkを実現するメモリクラス
 class Memory:
@@ -178,6 +193,9 @@ class Memory:
         seq_end = seq_start + batch_size
         return [self.buffer[ii] for ii in range(seq_start, seq_end)]
 
+    def add_buy_donot_abs_diff(self, episode_idx):
+        self.add(abs(abs(self.all_period_reward_arr[episode_idx][0]) - abs(self.all_period_reward_arr[episode_idx][2])))
+
     def sum(self):
         return sum(list(self.buffer))
 
@@ -228,8 +246,8 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 #hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 64 #32
-batch_size = 1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+time_series = 64 #64 #32
+batch_size = 8 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
@@ -262,7 +280,7 @@ def tarin_agent():
     # 値は [state, action, reward, next_state]
     state_x_action_hash = {}
 
-    if os.path.exists("./mainQN_nw.json"):
+    if os.path.exists("./mainQN.hd5"):
         mainQN.load_model("mainQN")
         # targetQN.load_model("targetQN")
         memory.load_memory("memory")
