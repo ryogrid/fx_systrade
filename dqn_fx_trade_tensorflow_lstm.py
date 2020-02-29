@@ -84,7 +84,8 @@ class QNetwork:
         mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
 
         for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            reshaped_state = np.reshape(state_b, [1, feature_num, time_series])
+            state_b_T = state_b.T #.copy()
+            reshaped_state = np.reshape(state_b_T, [1, feature_num, time_series])
             inputs[idx] = reshaped_state
             targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
 
@@ -126,6 +127,7 @@ class QNetwork:
 
         targets = np.array(targets)
         inputs = np.array(inputs)
+
         inputs = inputs.reshape((batch_size, feature_num, time_series))
         targets = targets.reshape((batch_size, nn_output_size))
 
@@ -228,7 +230,8 @@ class Actor:
         # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
             # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-            reshaped_state = np.reshape(state, [1, feature_num, time_series])
+            state_T = state.T#.copy()
+            reshaped_state = np.reshape(state_T, [1, feature_num, time_series])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
@@ -248,7 +251,7 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 #hidden_size = 50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0005 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 64 #32
+time_series = 32 #32
 batch_size = 8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
