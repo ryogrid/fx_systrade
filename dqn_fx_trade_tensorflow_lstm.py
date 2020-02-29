@@ -71,6 +71,9 @@ class QNetwork:
         self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
         self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
 
+        self.batch_num_to_call_fit = 80
+        self.batch_datas_for_generator = []
+
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0):
         inputs = np.zeros((batch_size, time_series, feature_num))
@@ -134,9 +137,18 @@ class QNetwork:
         inputs = inputs.reshape((batch_size, time_series, feature_num))
         targets = targets.reshape((batch_size, nn_output_size))
 
-        #print(inputs)
-        self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+        # self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
+        # 複数コアで並列に処理するため、複数バッチが貯まったら git_generatorで fit を行う
+        def batch_generator():
+            nonlocal self
+            for idx, (x, y) in enumerate(self.batch_datas_for_generator):
+                yield (x, y)
+
+        self.batch_datas_for_generator.append([inputs, targets])
+        if len(self.batch_datas_for_generator) >= self.batch_num_to_call_fit:
+            self.model.fit_generator(batch_generator(), epochs=1, shuffle=False, workers=8, use_multiprocessing=True, verbose=1) #, steps_per_epoch=self.batch_num_to_call_fit)
+            self.batch_datas_for_generator = []
 
     def save_model(self, file_path_prefix_str):
         self.model.save("./" + file_path_prefix_str + ".hd5")
