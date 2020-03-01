@@ -5,7 +5,7 @@
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
 import numpy as np
-from keras.models import Sequential, model_from_json, Model
+from keras.models import Sequential, model_from_json, Model, load_model
 from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
 from keras.regularizers import l2
 from keras.optimizers import Adam, SGD
@@ -158,7 +158,7 @@ class QNetwork:
         # self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
 
     def load_model(self, file_path_prefix_str):
-        self.model.save("./" + file_path_prefix_str + ".hd5")
+        self.model = load_model("./" + file_path_prefix_str + ".hd5", compile=False)
         # with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
         #     self.model = model_from_json(f.read())
         # self.model.compile(loss=huberloss, optimizer=self.optimizer)
