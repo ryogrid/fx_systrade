@@ -325,8 +325,8 @@ class FXEnvironment:
 
     class InnerFXEnvironment:
         def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False):
-            self.NOT_HAVE = 0
-            self.LONG = 1
+            self.NOT_HAVE = 1
+            self.LONG = 0
             self.SHORT = 2
 
             self.input_arr = input_arr
@@ -435,11 +435,12 @@ class FXEnvironment:
                 # won_pipsを記録しておく（過去のepisodeも含めた獲得pips総計等を計算する前に）
                 self.won_pips_to_calculate_sratio[each_pos_won[idx][1] - self.idx_geta] = each_pos_won[idx][0]
                 episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
-                # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時にイテレーション乗のインデックス,ポジションの種類
+                # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時のイテレーション上のインデックス,ポジションの種類
                 self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])
-            # buyのrewardが更新された場合、DONOTのrewardも更新されないといけないため、更新情報に追加する（DONOTのダミーポジションとは別）
-            for idx in range(0, len(self.donot_identifiers)):
-                self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx], self.NOT_HAVE])
+            # # buyのrewardが更新された場合、緊急回避措置でポジションを作ったアクションのrewardも平均に反映されないといけないため
+            # # 更新情報に追加する（DONOTのダミーポジションとは別）
+            # for idx in range(0, len(self.donot_identifiers)):
+            #     self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx], self.NOT_HAVE])
             # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
 
             self.positions_identifiers = []
@@ -570,8 +571,8 @@ class PortforioManager:
         self.half_spread = half_spred
         self.is_backtest = is_backtest
 
-        self.NOT_HAVE = 0
-        self.LONG = 1
+        self.NOT_HAVE = 1
+        self.LONG = 0
         self.SHORT = 2
 
         self.having_money = 1000000.0

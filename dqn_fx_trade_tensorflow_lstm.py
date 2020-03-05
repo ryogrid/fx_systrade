@@ -373,8 +373,8 @@ holdable_positions = 100 #30 # 100
 # 現在の実装では 1.0 とする
 gamma_at_reward_mean = 1.0 #0.9
 
-NOT_HAVE = 0
-LONG = 1
+NOT_HAVE = 1
+LONG = 0
 SHORT = 2
 
 all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
@@ -471,7 +471,7 @@ def tarin_agent():
 
                 # イテレーションの最後にまとめて複数ミニバッチでfitする
                 # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
-                mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1+ episode + 1) // batch_size))
+                mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1 + episode + 1) // batch_size))
                 break
 
             next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
@@ -482,15 +482,16 @@ def tarin_agent():
             # 今回のイテレーションでのリワードを更新し、過去のイテレーションでの平均値も更新する
             if len(info) > 1:
                 for keyval in info[1:]:
-                    # rewardは過去の値の寄与度も考慮した平均値になるように設定する
-                    current_val = -1
-                    # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
-                    # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
-                    mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
-                    try:
-                        past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-                    except:
-                        past_all_itr_mean_reward = 0
+                    # # rewardは過去の値の寄与度も考慮した平均値になるように設定する
+                    # current_val = -1
+                    # # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
+                    # # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
+                    # mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
+                    # try:
+                    #     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
+                    # except:
+                    #     past_all_itr_mean_reward = 0
+                    past_all_itr_mean_reward = all_period_reward_arr[keyval[2]][keyval[3]]
                     current_itr_num = cur_itr + 1
                     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
                     # 時間割引の考え方を導入して平均をとる
@@ -498,7 +499,7 @@ def tarin_agent():
                     print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
 
                     memory_hash[keyval[0]][2] = update_val
-                    all_period_reward_hash[mean_val_stored_key] = update_val
+                    #all_period_reward_hash[mean_val_stored_key] = update_val
 
                     # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
                     # memoryオブジェクト内の値も更新される
