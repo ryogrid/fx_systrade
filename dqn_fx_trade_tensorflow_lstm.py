@@ -76,81 +76,157 @@ class QNetwork:
         self.batch_datas_for_generator = []
 
     # 重みの学習
-    def replay(self, memory, time_series, cur_episode_idx = 0):
-        inputs = np.zeros((batch_size, time_series, feature_num))
-        targets = np.zeros((batch_size, 1, nn_output_size))
+    def replay(self, memory, time_series, cur_episode_idx = 0, batch_num = 1):
+        inputs = np.zeros((batch_size * batch_num, time_series, feature_num))
+        targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
-        mini_batch = memory.get_sequencial_samples(batch_size, (cur_episode_idx + 1) - batch_size)
-        # rewardだけ別管理の平均値のリストに置き換える
-        mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
+        all_sample_cnt = 0
+        episode_idx = batch_size - 1 # 1引いているのは後続のコードがゼロオリジンを想定しているため
+        if batch_num == 1:
+            episode_idx = cur_episode_idx
 
-        for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-            # state_b_T = state_b.T #.copy()
-            # reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
-            reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
-            inputs[idx] = reshaped_state
-            targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
+        for ii in range(batch_num):
+            mini_batch = memory.get_sequencial_samples(batch_size, (episode_idx + 1) - batch_size)
+            # rewardだけ別管理の平均値のリストに置き換える
+            mini_batch = memory.get_sequencial_converted_samples(mini_batch, (episode_idx + 1) - batch_size)
 
-            # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
-            # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
-            # residual は 残差 の意
-            # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
-            # 1万にデータが満たない場合は、その範囲での平均を出力する
-            self.buy_donot_diff_memory_predicted.add(abs(abs(targets[idx][0][0]) - abs(targets[idx][0][2])))
-            agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
-            # 正解の方も求めて出力
-            self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(cur_episode_idx + idx)
-            base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
+            for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+                reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
+                inputs[all_sample_cnt] = reshaped_state
+                # targets[all_sample_cnt] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
+                #
+                # # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
+                # # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
+                # # residual は 残差 の意
+                # # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
+                # # 1万にデータが満たない場合は、その範囲での平均を出力する
+                # self.buy_donot_diff_memory_predicted.add(abs(abs(targets[all_sample_cnt][0][0]) - abs(targets[all_sample_cnt][0][2])))
+                # agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
 
-            # print(targets.shape)
-            # sys.exit(1)
-            predicted_buy = targets[idx][0][0]
-            predicted_donot = targets[idx][0][2]
-            
-            buy_donot_diff = predicted_buy - predicted_donot
-            # 符号が同じかどうか判定するための下処理
-            buy_donot_diff_abs = abs(buy_donot_diff)
-            buy_donot_diff_abs_abs = abs(abs(predicted_buy) - abs(predicted_donot))
-            
-            print("reward_b: BUY -> " + str(predicted_buy) + "," + str(reward_b[0]) +
-                  " CLOSE -> " + str(targets[idx][0][1]) +
-                  " DONOT -> " + str(predicted_donot) + "," + str(reward_b[2]) +
-                  " (BUY - DONOT) -> " + str(buy_donot_diff) + "," + str(True if buy_donot_diff_abs > buy_donot_diff_abs_abs else False) +
-                  " predicted residual -> " + str(agent_learn_residual) +
-                  " collect residual -> " + str(base_data_residual)
-            )
+                # 正解の方も求めて出力
+                self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(episode_idx + idx)
+                base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
 
-            # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
-            # 全て設定する
+                # predicted_buy = targets[all_sample_cnt][0][0]
+                # predicted_donot = targets[all_sample_cnt][0][2]
+                #
+                # buy_donot_diff = predicted_buy - predicted_donot
+                # # 符号が同じかどうか判定するための下処理
+                # buy_donot_diff_abs = abs(buy_donot_diff)
+                # buy_donot_diff_abs_abs = abs(abs(predicted_buy) - abs(predicted_donot))
+                #
+                # print("reward_b: BUY -> " + str(predicted_buy) + "," + str(reward_b[0]) +
+                #       " CLOSE -> " + str(targets[all_sample_cnt][0][1]) +
+                #       " DONOT -> " + str(predicted_donot) + "," + str(reward_b[2]) +
+                #       " (BUY - DONOT) -> " + str(buy_donot_diff) + "," + str(True if buy_donot_diff_abs > buy_donot_diff_abs_abs else False) +
+                #       " predicted residual -> " + str(agent_learn_residual) +
+                #       " collect residual -> " + str(base_data_residual)
+                # )
 
-            # targets[idx][0][0] = reward_b[0] # 教師信号
-            # targets[idx][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
-            # targets[idx][0][2] = reward_b[2] # 教師信号
+                print("reward_b: collect residual -> " + str(base_data_residual))
 
-            # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
-            targets[idx][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
-            targets[idx][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
-            targets[idx][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+                # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+                # 全て設定する
+
+                # targets[all_sample_cnt][0][0] = reward_b[0] # 教師信号
+                # targets[all_sample_cnt][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
+                # targets[all_sample_cnt][0][2] = reward_b[2] # 教師信号
+
+                # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
+                targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+                targets[all_sample_cnt][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
+                targets[all_sample_cnt][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+
+                all_sample_cnt += 1
+
+            episode_idx += batch_size
 
         targets = np.array(targets)
         inputs = np.array(inputs)
 
-        inputs = inputs.reshape((batch_size, time_series, feature_num))
-        targets = targets.reshape((batch_size, nn_output_size))
+        inputs = inputs.reshape((batch_size * batch_num, time_series, feature_num))
+        targets = targets.reshape((batch_size * batch_num, nn_output_size))
 
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
-        # # 複数コアで並列に処理するため、複数バッチが貯まったら git_generatorで fit を行う
-        # # Windows環境では動作しない
-        # def batch_generator():
-        #     nonlocal self
-        #     for idx, (x, y) in enumerate(self.batch_datas_for_generator):
-        #         yield (x, y)
-        #
-        # self.batch_datas_for_generator.append([inputs, targets])
-        # if len(self.batch_datas_for_generator) >= self.batch_num_to_call_fit:
-        #     self.model.fit_generator(batch_generator(), epochs=1, shuffle=False, workers=8, use_multiprocessing=True, verbose=1, steps_per_epoch=self.batch_num_to_call_fit)
-        #     self.batch_datas_for_generator = []
+    # # 重みの学習
+    # def replay(self, memory, time_series, cur_episode_idx=0):
+    #     inputs = np.zeros((batch_size, time_series, feature_num))
+    #     targets = np.zeros((batch_size, 1, nn_output_size))
+    #
+    #     mini_batch = memory.get_sequencial_samples(batch_size, (cur_episode_idx + 1) - batch_size)
+    #     # rewardだけ別管理の平均値のリストに置き換える
+    #     mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
+    #
+    #     for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+    #         # state_b_T = state_b.T #.copy()
+    #         # reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
+    #         reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
+    #         inputs[idx] = reshaped_state
+    #         targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
+    #
+    #         # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
+    #         # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
+    #         # residual は 残差 の意
+    #         # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
+    #         # 1万にデータが満たない場合は、その範囲での平均を出力する
+    #         self.buy_donot_diff_memory_predicted.add(abs(abs(targets[idx][0][0]) - abs(targets[idx][0][2])))
+    #         agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
+    #         # 正解の方も求めて出力
+    #         self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(cur_episode_idx + idx)
+    #         base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
+    #
+    #         # print(targets.shape)
+    #         # sys.exit(1)
+    #         predicted_buy = targets[idx][0][0]
+    #         predicted_donot = targets[idx][0][2]
+    #
+    #         buy_donot_diff = predicted_buy - predicted_donot
+    #         # 符号が同じかどうか判定するための下処理
+    #         buy_donot_diff_abs = abs(buy_donot_diff)
+    #         buy_donot_diff_abs_abs = abs(abs(predicted_buy) - abs(predicted_donot))
+    #
+    #         print("reward_b: BUY -> " + str(predicted_buy) + "," + str(reward_b[0]) +
+    #               " CLOSE -> " + str(targets[idx][0][1]) +
+    #               " DONOT -> " + str(predicted_donot) + "," + str(reward_b[2]) +
+    #               " (BUY - DONOT) -> " + str(buy_donot_diff) + "," + str(
+    #             True if buy_donot_diff_abs > buy_donot_diff_abs_abs else False) +
+    #               " predicted residual -> " + str(agent_learn_residual) +
+    #               " collect residual -> " + str(base_data_residual)
+    #               )
+    #
+    #         # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+    #         # 全て設定する
+    #
+    #         # targets[idx][0][0] = reward_b[0] # 教師信号
+    #         # targets[idx][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
+    #         # targets[idx][0][2] = reward_b[2] # 教師信号
+    #
+    #         # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
+    #         targets[idx][0][0] = 1.0 if reward_b[0] > 0 else -1.0  # 教師信号
+    #         targets[idx][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
+    #         targets[idx][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+    #
+    #     targets = np.array(targets)
+    #     inputs = np.array(inputs)
+    #
+    #     inputs = inputs.reshape((batch_size, time_series, feature_num))
+    #     targets = targets.reshape((batch_size, nn_output_size))
+    #
+    #     self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+    #
+    #
+    #     #     # 複数コアで並列に処理するため、複数バッチが貯まったら git_generatorで fit を行う
+    #     #     # Windows環境では動作しない
+    #     #     def batch_generator():
+    #     #         nonlocal self
+    #     #         for idx, (x, y) in enumerate(self.batch_datas_for_generator):
+    #     #             yield (x, y)
+    #     #
+    #     #     self.batch_datas_for_generator.append([inputs, targets])
+    #     #     if len(self.batch_datas_for_generator) >= self.batch_num_to_call_fit:
+    #     #         self.model.fit_generator(batch_generator(), epochs=1, shuffle=False, workers=8, use_multiprocessing=True, verbose=1, steps_per_epoch=self.batch_num_to_call_fit)
+    #     #         self.batch_datas_for_generator = []
 
     def save_model(self, file_path_prefix_str):
         self.model.save("./" + file_path_prefix_str + ".hd5")
@@ -244,19 +320,29 @@ class Actor:
         # 徐々に最適行動のみをとる、ε-greedy法
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
 
+        # # epsilonが小さい値の場合の方が最大報酬の行動が起こる
+        # # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
+        # if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
+        #     # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
+        #     # state_T = state.T #.copy()
+        #     # reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
+        #     reshaped_state = np.reshape(state, [1, time_series, feature_num])
+        #     retTargetQs = mainQN.model.predict(reshaped_state)
+        #     print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
+        #     #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
+        #     #print(list(itertools.chain.from_iterable(retTargetQs[-1])))
+        #     # 1要素しかないが、複数返ってくるように修正した場合を想定して -1 を指定
+        #     #action = np.argmax(retTargetQs[-1])  # 最大の報酬を返す行動を選択する
+        #     action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+        # else:
+        #     action = np.random.choice([0, 1, 2])  # ランダムに行動する
+
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
-        # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
-        if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
-            # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-            # state_T = state.T #.copy()
-            # reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
+        # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
+        if isBacktest == True or ((cur_itr % 10 == 0) and cur_itr != 0):
             reshaped_state = np.reshape(state, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
-            #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
-            #print(list(itertools.chain.from_iterable(retTargetQs[-1])))
-            # 1要素しかないが、複数返ってくるように修正した場合を想定して -1 を指定
-            #action = np.argmax(retTargetQs[-1])  # 最大の報酬を返す行動を選択する
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
             action = np.random.choice([0, 1, 2])  # ランダムに行動する
@@ -307,10 +393,10 @@ def tarin_agent():
 
     total_get_acton_cnt = 1
     all_period_reward_hash = {}
-    # イテレーションを跨いで state x action で最新のエピソードのみ記録して、replay可能とするため
-    # のハッシュ. 必要なのはrewardの値だが実装の都合上不要な情報も含む
-    # 値は [state, action, reward, next_state]
-    state_x_action_hash = {}
+    # # イテレーションを跨いで state x action で最新のエピソードのみ記録して、replay可能とするため
+    # # のハッシュ. 必要なのはrewardの値だが実装の都合上不要な情報も含む
+    # # 値は [state, action, reward, next_state]
+    # state_x_action_hash = {}
 
     # if os.path.exists("./mainQN_nw.json"):
     if os.path.exists("./mainQN.hd5"):
@@ -320,29 +406,29 @@ def tarin_agent():
             total_get_acton_cnt = pickle.load(f)
         with open("./all_period_reward_hash.pickle", 'rb') as f:
             all_period_reward_hash = pickle.load(f)
-        with open("./state_x_action_hash.pickle", 'rb') as f:
-            state_x_action_hash = pickle.load(f)
+        # with open("./state_x_action_hash.pickle", 'rb') as f:
+        #     state_x_action_hash = pickle.load(f)
         with open("./all_period_reward_arr.pickle", 'rb') as f:
             all_period_reward_arr = pickle.load(f)
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
         nonlocal memory_hash
-        nonlocal state_x_action_hash
+        # nonlocal state_x_action_hash
         a_log = [state, action, reward, next_state]
         memory.add(a_log)  # メモリを更新する
         # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
         memory_hash[info[0]] = a_log
-        key_str = str(state) + str(action)
-        # 最新の値で更新する、もしくはエントリが無い場合は追加する
-        # ハッシュが持っている要素はエピソードの記録（リストで実装されている）への参照であるため、
-        # 当該エピソードの記録が更新された場合、state_x_action_hashが保持するデータも更新
-        # されることになる
-
-        # 本来不要な情報だが、memoryの中のオブジェクトが更新された場合に
-        # 情報が更新されるよう、episodeの情報全てへの参照を持つ形にする
-        # 既にエントリがあろうが無かろうか最新のepisodeへの参照を設定してしまう
-        state_x_action_hash[key_str] = a_log
+        # key_str = str(state) + str(action)
+        # # 最新の値で更新する、もしくはエントリが無い場合は追加する
+        # # ハッシュが持っている要素はエピソードの記録（リストで実装されている）への参照であるため、
+        # # 当該エピソードの記録が更新された場合、state_x_action_hashが保持するデータも更新
+        # # されることになる
+        #
+        # # 本来不要な情報だが、memoryの中のオブジェクトが更新された場合に
+        # # 情報が更新されるよう、episodeの情報全てへの参照を持つ形にする
+        # # 既にエントリがあろうが無かろうか最新のepisodeへの参照を設定してしまう
+        # state_x_action_hash[key_str] = a_log
 
     #######################################################
 
@@ -364,8 +450,8 @@ def tarin_agent():
                 pickle.dump(total_get_acton_cnt, f)
             with open("./all_period_reward_hash.pickle", 'wb') as f:
                 pickle.dump(all_period_reward_hash, f)
-            with open("./state_x_action_hash.pickle", 'wb') as f:
-                pickle.dump(state_x_action_hash, f)
+            # with open("./state_x_action_hash.pickle", 'wb') as f:
+            #     pickle.dump(state_x_action_hash, f)
             with open("./all_period_reward_arr.pickle", 'wb') as f:
                 pickle.dump(all_period_reward_arr, f)
 
@@ -382,9 +468,13 @@ def tarin_agent():
                 # next_stateは今は使っていないのでreshape等は不要
                 # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
                 store_episode_log_to_memory(state, action, reward, next_state, info)
-                break
-            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
 
+                # イテレーションの最後にまとめて複数ミニバッチでfitする
+                # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
+                mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1+ episode + 1) // batch_size))
+                break
+
+            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
             store_episode_log_to_memory(state, action, reward, next_state, info)
 
             # closeされた場合過去のBUY, DONOTについて獲得pipsに係数をかけた値が与えられる.
@@ -420,11 +510,11 @@ def tarin_agent():
 
             state = next_state  # 状態更新
 
-            # Qネットワークの重みを学習・更新する replay
-            # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
-            # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
-            if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
-                mainQN.replay(memory, time_series, cur_episode_idx=episode)
+            # # Qネットワークの重みを学習・更新する replay
+            # # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
+            # # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
+            # if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
+            #     mainQN.replay(memory, time_series, cur_episode_idx=episode)
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}

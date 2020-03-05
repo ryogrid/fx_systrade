@@ -221,7 +221,7 @@ class FXEnvironment:
 
     def logfile_writeln_with_fd(self, out_fd, log_str):
         out_fd.write(log_str + "\n")
-        out_fd.flush()
+        #out_fd.flush()
 
     def make_serialized_data(self, start_idx, end_idx, step, x_arr_fpath, y_arr_fpath):
         input_mat = []
