@@ -299,7 +299,8 @@ class FXEnvironment:
 
         self.tr_input_arr = all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
         self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
-        self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:]
+        #self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:]
+        self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 3]
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
         print("num of rate datas for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))

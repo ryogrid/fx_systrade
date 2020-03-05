@@ -122,7 +122,7 @@ class QNetwork:
 
             # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
             # 全て設定する
-            
+
             # targets[idx][0][0] = reward_b[0] # 教師信号
             # targets[idx][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
             # targets[idx][0][2] = reward_b[2] # 教師信号
