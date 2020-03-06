@@ -298,7 +298,7 @@ hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=
 learning_rate = 0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 64 #32 #64 #32
 batch_size = 1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
-TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
+TRAIN_DATA_NUM = 36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 5000 #720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 #memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
@@ -459,8 +459,8 @@ def tarin_agent():
 
         # イテレーションの最後にまとめて複数ミニバッチでfitする
         # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
-        with tf.device(tf.DeviceSpec(device_type="GPU", device_index=0)):
-            mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
+        #with tf.device(tf.DeviceSpec(device_type="GPU", device_index=0)):
+        mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
         # mainQN_GPU.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
         # # GPU用モデルで学習したパラメータをメインのモデルにコピーする
         # mainQN.model.set_weights(mainQN_GPU.model.get_weights())
@@ -501,6 +501,9 @@ def run_backtest(backtest_type):
 
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
+    tf.config.set_visible_devices([], 'GPU')
+    logical_devices = tf.config.list_logical_devices('GPU')
+    print(logical_devices)
     if sys.argv[1] == "train":
         tarin_agent()
     elif sys.argv[1] == "backtest":
