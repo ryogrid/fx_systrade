@@ -5,13 +5,14 @@
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
 import numpy as np
+import tensorflow as tf
 from keras.models import Sequential, model_from_json, Model, load_model
 from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
-from keras.regularizers import l2
+#from keras.regularizers import l2
 from keras.optimizers import Adam, SGD
 from collections import deque
-from keras import backend as K
-import tensorflow as tf
+#from keras import backend as K
+
 import pickle
 from agent_fx_environment_lstm import FXEnvironment
 import os
@@ -19,35 +20,24 @@ import sys
 import random
 import itertools
 
-# [1]損失関数の定義
-# 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
-def huberloss(y_true, y_pred):
-   err = y_true - y_pred
-   cond = K.abs(err) < 1.0
-   L2 = 0.5 * K.square(err)
-   L1 = (K.abs(err) - 0.5)
-   loss = tf.where(cond, L2, L1)  # Keras does not cover where function in tensorflow :-(
-   return K.mean(loss)
+# # [1]損失関数の定義
+# # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
+# def huberloss(y_true, y_pred):
+#    err = y_true - y_pred
+#    cond = K.abs(err) < 1.0
+#    L2 = 0.5 * K.square(err)
+#    L1 = (K.abs(err) - 0.5)
+#    loss = tf.where(cond, L2, L1)  # Keras does not cover where function in tensorflow :-(
+#    return K.mean(loss)
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
         global all_period_reward_arr
 
+        #with use_device:
         self.model = Sequential()
 
-        # self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.001), recurrent_regularizer=l2(0.001),
-        #                     bias_regularizer=l2(0.001), input_shape=(state_size, time_series), return_sequences=True))
-        # self.model.add(LSTM(time_series, activation='relu', kernel_regularizer=l2(0.001), recurrent_regularizer=l2(0.001),
-        #                     bias_regularizer=l2(0.001), return_sequences=False))
-        # self.model.add(Dense(time_series, activation='linear', kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
-        # self.model.add(Dense(action_size, activation='linear',kernel_regularizer=l2(0.001), bias_regularizer=l2(0.001)))
-
-        #self.model.add(LSTM(time_series, activation='relu', input_shape=(state_size, time_series), return_sequences=True))
-
-        # self.model.add(
-        #     LSTM(hidden_size, activation='relu', input_shape=(time_series, state_size), return_sequences=True))
-        # self.model.add(LSTM(hidden_size, activation='relu', return_sequences=False))
         self.model.add(
             LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
         self.model.add(BatchNormalization())
@@ -64,8 +54,8 @@ class QNetwork:
         self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
 
-        self.model.compile(optimizer=self.optimizer, loss=huberloss)
-        #self.model.compile(optimizer=self.optimizer, loss="mae")
+        self.model.compile(optimizer=self.optimizer, loss=tf.keras.losses.Huber(delta=1.0))
+        #self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
         self.model.summary()
 
@@ -320,26 +310,10 @@ class Actor:
         # 徐々に最適行動のみをとる、ε-greedy法
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
 
-        # # epsilonが小さい値の場合の方が最大報酬の行動が起こる
-        # # 周回数が3の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
-        # if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
-        #     # バッチサイズ個の予測結果が返ってくるので最後の1アウトプットのみ見る
-        #     # state_T = state.T #.copy()
-        #     # reshaped_state = np.reshape(state_T, [1, time_series, feature_num])
-        #     reshaped_state = np.reshape(state, [1, time_series, feature_num])
-        #     retTargetQs = mainQN.model.predict(reshaped_state)
-        #     print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
-        #     #print("NN output [0] at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs[0]))))
-        #     #print(list(itertools.chain.from_iterable(retTargetQs[-1])))
-        #     # 1要素しかないが、複数返ってくるように修正した場合を想定して -1 を指定
-        #     #action = np.argmax(retTargetQs[-1])  # 最大の報酬を返す行動を選択する
-        #     action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
-        # else:
-        #     action = np.random.choice([0, 1, 2])  # ランダムに行動する
-
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
-        if isBacktest == True or ((cur_itr % 10 == 0) and cur_itr != 0):
+        # if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
+        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
             reshaped_state = np.reshape(state, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
@@ -357,10 +331,10 @@ class Actor:
 hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 64 #32 #64 #32
-batch_size = 64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+batch_size = 1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
-iteration_num = 720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
+iteration_num = 5000 #720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 #memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
@@ -383,9 +357,10 @@ def tarin_agent():
     global all_period_reward_arr
 
     env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
-
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
+    # mainQN_GPU = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num,
+    #                   action_size=nn_output_size)  # メインのQネットワーク
 
     memory = Memory([], max_size=memory_size, all_period_reward_arr=all_period_reward_arr)
     memory_hash = {}
@@ -401,15 +376,11 @@ def tarin_agent():
     # if os.path.exists("./mainQN_nw.json"):
     if os.path.exists("./mainQN.hd5"):
         mainQN.load_model("mainQN")
-        memory.load_memory("memory")
-        with open("./total_get_action_count.pickle", 'rb') as f:
-            total_get_acton_cnt = pickle.load(f)
-        with open("./all_period_reward_hash.pickle", 'rb') as f:
-            all_period_reward_hash = pickle.load(f)
-        # with open("./state_x_action_hash.pickle", 'rb') as f:
-        #     state_x_action_hash = pickle.load(f)
-        with open("./all_period_reward_arr.pickle", 'rb') as f:
-            all_period_reward_arr = pickle.load(f)
+        # memory.load_memory("memory")
+        # with open("./total_get_action_count.pickle", 'rb') as f:
+        #     total_get_acton_cnt = pickle.load(f)
+        # with open("./all_period_reward_arr.pickle", 'rb') as f:
+        #     all_period_reward_arr = pickle.load(f)
 
     def store_episode_log_to_memory(state, action, reward, next_state, info):
         nonlocal memory
@@ -442,80 +413,91 @@ def tarin_agent():
         store_episode_log_to_memory(state, action, reward, state, info)
 
         # スナップショットをとっておく
-        if cur_itr % 5 == 0 and cur_itr != 0:
-            # targetQN.save_model("targetQN")
+        if cur_itr % 20 == 0 and cur_itr != 0:
             mainQN.save_model("mainQN")
-            memory.save_memory("memory")
-            with open("./total_get_action_count.pickle", 'wb') as f:
-                pickle.dump(total_get_acton_cnt, f)
-            with open("./all_period_reward_hash.pickle", 'wb') as f:
-                pickle.dump(all_period_reward_hash, f)
-            # with open("./state_x_action_hash.pickle", 'wb') as f:
-            #     pickle.dump(state_x_action_hash, f)
-            with open("./all_period_reward_arr.pickle", 'wb') as f:
-                pickle.dump(all_period_reward_arr, f)
+            # memory.save_memory("memory")
+            # with open("./total_get_action_count.pickle", 'wb') as f:
+            #     pickle.dump(total_get_acton_cnt, f)
+            # with open("./all_period_reward_arr.pickle", 'wb') as f:
+            #     pickle.dump(all_period_reward_arr, f)
+
+        # replay呼び出しに用いる（上ですでに一回行っているので1からスタート）
+        total_episode_on_last_itr = 1
 
         for episode in range(num_episodes):  # 試行数分繰り返す
-            total_get_acton_cnt += 1
-            if needclose:
-                action = 1
-            else:
-                action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
-            next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
-            # 環境が提供する期間が最後までいった場合
-            if done:
-                print(str(cur_itr) + ' training period finished.')
-                # next_stateは今は使っていないのでreshape等は不要
-                # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
+            with tf.device(tf.DeviceSpec(device_type="CPU", device_index=0)):
+                # フィードするデータを用意している間はGPUは利用せず、CPU（コア）も一つのみとして動作させる
+                total_get_acton_cnt += 1
+                total_episode_on_last_itr += 1
+
+                if needclose:
+                    action = 1
+                else:
+                    action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
+                next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+
+                # 環境が提供する期間が最後までいった場合
+                if done:
+                    print(str(cur_itr) + ' training period finished.')
+                    # next_stateは今は使っていないのでreshape等は不要
+                    # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
+                    store_episode_log_to_memory(state, action, reward, next_state, info)
+
+                    # # イテレーションの最後にまとめて複数ミニバッチでfitする
+                    # # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
+                    # mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1 + episode + 1) // batch_size))
+                    break
+
+                next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
                 store_episode_log_to_memory(state, action, reward, next_state, info)
 
-                # イテレーションの最後にまとめて複数ミニバッチでfitする
-                # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
-                mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1 + episode + 1) // batch_size))
-                break
+                # closeされた場合過去のBUY, DONOTについて獲得pipsに係数をかけた値が与えられる.
+                # 各Actionについての獲得pipsが識別子文字列とともにinfo で返されるので、過去のイテレーションでの平均値を踏まえて、
+                # 今回のイテレーションでのリワードを更新し、過去のイテレーションでの平均値も更新する
+                if len(info) > 1:
+                    for keyval in info[1:]:
+                        # # rewardは過去の値の寄与度も考慮した平均値になるように設定する
+                        # current_val = -1
+                        # # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
+                        # # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
+                        # mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
+                        # try:
+                        #     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
+                        # except:
+                        #     past_all_itr_mean_reward = 0
+                        past_all_itr_mean_reward = all_period_reward_arr[keyval[2]][keyval[3]]
+                        current_itr_num = cur_itr + 1
+                        # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+                        # 時間割引の考え方を導入して平均をとる
+                        update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
+                        print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
 
-            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
-            store_episode_log_to_memory(state, action, reward, next_state, info)
+                        memory_hash[keyval[0]][2] = update_val
+                        #all_period_reward_hash[mean_val_stored_key] = update_val
 
-            # closeされた場合過去のBUY, DONOTについて獲得pipsに係数をかけた値が与えられる.
-            # 各Actionについての獲得pipsが識別子文字列とともにinfo で返されるので、過去のイテレーションでの平均値を踏まえて、
-            # 今回のイテレーションでのリワードを更新し、過去のイテレーションでの平均値も更新する
-            if len(info) > 1:
-                for keyval in info[1:]:
-                    # # rewardは過去の値の寄与度も考慮した平均値になるように設定する
-                    # current_val = -1
-                    # # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
-                    # # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
-                    # mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
-                    # try:
-                    #     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-                    # except:
-                    #     past_all_itr_mean_reward = 0
-                    past_all_itr_mean_reward = all_period_reward_arr[keyval[2]][keyval[3]]
-                    current_itr_num = cur_itr + 1
-                    # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
-                    # 時間割引の考え方を導入して平均をとる
-                    update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
-                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
+                        # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
+                        # memoryオブジェクト内の値も更新される
+                        if keyval[3] == LONG: #BUY
+                            all_period_reward_arr[keyval[2]][0] = update_val
+                        else: #NOT_HAVE (DONOT)
+                            all_period_reward_arr[keyval[2]][2] = update_val
+                # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
 
-                    memory_hash[keyval[0]][2] = update_val
-                    #all_period_reward_hash[mean_val_stored_key] = update_val
+                state = next_state  # 状態更新
 
-                    # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
-                    # memoryオブジェクト内の値も更新される
-                    if keyval[3] == LONG: #BUY
-                        all_period_reward_arr[keyval[2]][0] = update_val
-                    else: #NOT_HAVE (DONOT)
-                        all_period_reward_arr[keyval[2]][2] = update_val
-            # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
+                # # Qネットワークの重みを学習・更新する replay
+                # # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
+                # # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
+                # if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
+                #     mainQN.replay(memory, time_series, cur_episode_idx=episode)
 
-            state = next_state  # 状態更新
-
-            # # Qネットワークの重みを学習・更新する replay
-            # # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
-            # # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
-            # if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
-            #     mainQN.replay(memory, time_series, cur_episode_idx=episode)
+        # イテレーションの最後にまとめて複数ミニバッチでfitする
+        # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
+        with tf.device(tf.DeviceSpec(device_type="GPU", device_index=0)):
+            mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
+        # mainQN_GPU.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
+        # # GPU用モデルで学習したパラメータをメインのモデルにコピーする
+        # mainQN.model.set_weights(mainQN_GPU.model.get_weights())
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
