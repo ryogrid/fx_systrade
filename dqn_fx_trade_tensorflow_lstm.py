@@ -323,9 +323,9 @@ holdable_positions = 100 #30 # 100
 # 現在の実装では 1.0 とする
 gamma_at_reward_mean = 1.0 #0.9
 
-NOT_HAVE = 1
-LONG = 0
-SHORT = 2
+LONG = 0 #BUY
+SHORT = 1 #CLOSE
+NOT_HAVE = 2 #DONOT
 
 all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
 
@@ -401,71 +401,71 @@ def tarin_agent():
         total_episode_on_last_itr = 1
 
         for episode in range(num_episodes):  # 試行数分繰り返す
-            with tf.device(tf.DeviceSpec(device_type="CPU", device_index=0)):
-                # フィードするデータを用意している間はGPUは利用せず、CPU（コア）も一つのみとして動作させる
-                total_get_acton_cnt += 1
-                total_episode_on_last_itr += 1
+            #with tf.device(tf.DeviceSpec(device_type="CPU", device_index=0)):
+            # フィードするデータを用意している間はGPUは利用せず、CPU（コア）も一つのみとして動作させる
+            total_get_acton_cnt += 1
+            total_episode_on_last_itr += 1
 
-                if needclose:
-                    action = 1
-                else:
-                    action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
-                next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+            if needclose:
+                action = 1
+            else:
+                action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
+            next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
 
-                # 環境が提供する期間が最後までいった場合
-                if done:
-                    print(str(cur_itr) + ' training period finished.')
-                    # next_stateは今は使っていないのでreshape等は不要
-                    # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
-                    store_episode_log_to_memory(state, action, reward, next_state, info)
-
-                    # # イテレーションの最後にまとめて複数ミニバッチでfitする
-                    # # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
-                    # mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1 + episode + 1) // batch_size))
-                    break
-
-                next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
+            # 環境が提供する期間が最後までいった場合
+            if done:
+                print(str(cur_itr) + ' training period finished.')
+                # next_stateは今は使っていないのでreshape等は不要
+                # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
                 store_episode_log_to_memory(state, action, reward, next_state, info)
 
-                # closeされた場合過去のBUY, DONOTについて獲得pipsに係数をかけた値が与えられる.
-                # 各Actionについての獲得pipsが識別子文字列とともにinfo で返されるので、過去のイテレーションでの平均値を踏まえて、
-                # 今回のイテレーションでのリワードを更新し、過去のイテレーションでの平均値も更新する
-                if len(info) > 1:
-                    for keyval in info[1:]:
-                        # # rewardは過去の値の寄与度も考慮した平均値になるように設定する
-                        # current_val = -1
-                        # # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
-                        # # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
-                        # mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
-                        # try:
-                        #     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-                        # except:
-                        #     past_all_itr_mean_reward = 0
-                        past_all_itr_mean_reward = all_period_reward_arr[keyval[2]][keyval[3]]
-                        current_itr_num = cur_itr + 1
-                        # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
-                        # 時間割引の考え方を導入して平均をとる
-                        update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
-                        print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
+                # # イテレーションの最後にまとめて複数ミニバッチでfitする
+                # # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
+                # mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1 + episode + 1) // batch_size))
+                break
 
-                        memory_hash[keyval[0]][2] = update_val
-                        #all_period_reward_hash[mean_val_stored_key] = update_val
+            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
+            store_episode_log_to_memory(state, action, reward, next_state, info)
 
-                        # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
-                        # memoryオブジェクト内の値も更新される
-                        if keyval[3] == LONG: #BUY
-                            all_period_reward_arr[keyval[2]][0] = update_val
-                        else: #NOT_HAVE (DONOT)
-                            all_period_reward_arr[keyval[2]][2] = update_val
-                # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
+            # closeされた場合過去のBUY, DONOTについて獲得pipsに係数をかけた値が与えられる.
+            # 各Actionについての獲得pipsが識別子文字列とともにinfo で返されるので、過去のイテレーションでの平均値を踏まえて、
+            # 今回のイテレーションでのリワードを更新し、過去のイテレーションでの平均値も更新する
+            if len(info) > 1:
+                for keyval in info[1:]:
+                    # # rewardは過去の値の寄与度も考慮した平均値になるように設定する
+                    # current_val = -1
+                    # # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
+                    # # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
+                    # mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
+                    # try:
+                    #     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
+                    # except:
+                    #     past_all_itr_mean_reward = 0
+                    past_all_itr_mean_reward = all_period_reward_arr[keyval[2]][keyval[3]]
+                    current_itr_num = cur_itr + 1
+                    # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+                    # 時間割引の考え方を導入して平均をとる
+                    update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
+                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
 
-                state = next_state  # 状態更新
+                    memory_hash[keyval[0]][2] = update_val
+                    #all_period_reward_hash[mean_val_stored_key] = update_val
 
-                # # Qネットワークの重みを学習・更新する replay
-                # # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
-                # # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
-                # if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
-                #     mainQN.replay(memory, time_series, cur_episode_idx=episode)
+                    # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
+                    # memoryオブジェクト内の値も更新される
+                    if keyval[3] == LONG: #BUY
+                        all_period_reward_arr[keyval[2]][0] = update_val
+                    else: #NOT_HAVE (DONOT)
+                        all_period_reward_arr[keyval[2]][2] = update_val
+            # CLOSEのrewardは必ず-100.0が返るようにしているため平均値を求める必要はない
+
+            state = next_state  # 状態更新
+
+            # # Qネットワークの重みを学習・更新する replay
+            # # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
+            # # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
+            # if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
+            #     mainQN.replay(memory, time_series, cur_episode_idx=episode)
 
         # イテレーションの最後にまとめて複数ミニバッチでfitする
         # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う

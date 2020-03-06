@@ -325,9 +325,9 @@ class FXEnvironment:
 
     class InnerFXEnvironment:
         def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False):
-            self.NOT_HAVE = 1
+            self.NOT_HAVE = 2
             self.LONG = 0
-            self.SHORT = 2
+            self.SHORT = 1
 
             self.input_arr = input_arr
             self.angle_arr = angle_arr
@@ -571,9 +571,9 @@ class PortforioManager:
         self.half_spread = half_spred
         self.is_backtest = is_backtest
 
-        self.NOT_HAVE = 1
         self.LONG = 0
-        self.SHORT = 2
+        self.SHORT = 1
+        self.NOT_HAVE = 2
 
         self.having_money = 1000000.0
         self.total_won_pips = 0.0
