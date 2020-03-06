@@ -4,14 +4,23 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
+IS_TF_STYLE = False
+
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Sequential, model_from_json, Model, load_model
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
-#from keras.regularizers import l2
-from tensorflow.keras.optimizers import Adam, SGD
+if IS_TF_STYLE:
+    from tensorflow.keras.models import Sequential, model_from_json, Model, load_model
+    from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
+    from tensorflow.keras.optimizers import Adam, SGD
+    #from tensorflow.keras.regularizers import l2
+    #from keras import backend as K
+else:
+    from keras.models import Sequential, model_from_json, Model, load_model
+    from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
+    from keras.optimizers import Adam, SGD
+
 from collections import deque
-#from keras import backend as K
+
 
 import pickle
 from agent_fx_environment_lstm import FXEnvironment
@@ -36,45 +45,42 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
         global all_period_reward_arr
 
-        # #with use_device:
-        # self.model = Sequential()
-        #
-        # self.model.add(
-        #     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
-        # self.model.add(BatchNormalization())
-        # self.model.add(LeakyReLU(0.2))
-        # self.model.add(LSTM(hidden_size, return_sequences=False))
-        # self.model.add(LeakyReLU(0.2))
-        #
-        # # self.model.add(Dense(hidden_size, activation='linear'))
-        # # self.model.add(Dense(hidden_size))
-        # # self.model.add(LeakyReLU(0.2))
-        #
-        # self.model.add(Dense(action_size, activation='linear'))
-        #
-        # self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
-        # #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
-        #
-        # self.model.compile(optimizer=self.optimizer, loss=tf.keras.losses.Huber(delta=1.0))
-        # #self.model.compile(optimizer=self.optimizer, loss=huberloss)
-
-        self.model = tf.keras.Sequential([
-            LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
-            BatchNormalization(),
-            LeakyReLU(0.2),
-            LSTM(hidden_size, return_sequences=False),
-            Dense(action_size, activation='linear')
-        ])
-
         self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
+        # self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
         self.loss_func = tf.keras.losses.Huber(delta=1.0)
+
+        if IS_TF_STYLE:
+            self.model = tf.keras.Sequential([
+                LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
+                BatchNormalization(),
+                LeakyReLU(0.2),
+                LSTM(hidden_size, return_sequences=False),
+                Dense(action_size, activation='linear')
+            ])
+        else:
+            self.model = Sequential()
+
+            self.model.add(
+                LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
+            self.model.add(BatchNormalization())
+            self.model.add(LeakyReLU(0.2))
+            self.model.add(LSTM(hidden_size, return_sequences=False))
+            self.model.add(LeakyReLU(0.2))
+
+            # self.model.add(Dense(hidden_size, activation='linear'))
+            # self.model.add(Dense(hidden_size))
+            # self.model.add(LeakyReLU(0.2))
+
+            self.model.add(Dense(action_size, activation='linear'))
+            self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
+            #self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
         self.model.summary()
 
         self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
         self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
 
-        self.batch_num_to_call_fit = 80
+        #self.batch_num_to_call_fit = 80
         self.batch_datas_for_generator = []
 
     # 重みの学習
@@ -149,8 +155,10 @@ class QNetwork:
         inputs = inputs.reshape((batch_size * batch_num, time_series, feature_num))
         targets = targets.reshape((batch_size * batch_num, nn_output_size))
 
-        #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
-        self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+        if IS_TF_STYLE:
+            self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+        else:
+            self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
         #     # 複数コアで並列に処理するため、複数バッチが貯まったら git_generatorで fit を行う
         #     # Windows環境では動作しない
@@ -274,12 +282,14 @@ class Memory:
 class Actor:
     def get_action(self, state, experienced_episodes, mainQN, cur_itr, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        #epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        epsilon = 0.1 + 0.8 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
-        # if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 5 == 0) and cur_itr != 0):
-        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
+        #if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
+        #if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
+        if isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
             reshaped_state = np.reshape(state, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
@@ -501,9 +511,14 @@ def run_backtest(backtest_type):
 
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
-    tf.config.set_visible_devices([], 'GPU')
-    logical_devices = tf.config.list_logical_devices('GPU')
-    print(logical_devices)
+
+    # TensorFlowの低レイヤ寄りの機能群を利用した実装だと、現状GPUがあるとエラーになるため
+    # GPU自体が存在しないように見えるようにしておく
+    if IS_TF_STYLE:
+        tf.config.set_visible_devices([], 'GPU')
+        logical_devices = tf.config.list_logical_devices('GPU')
+        print(logical_devices)
+
     if sys.argv[1] == "train":
         tarin_agent()
     elif sys.argv[1] == "backtest":
