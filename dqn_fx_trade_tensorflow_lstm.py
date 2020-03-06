@@ -6,10 +6,10 @@
 
 import numpy as np
 import tensorflow as tf
-from keras.models import Sequential, model_from_json, Model, load_model
-from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
+from tensorflow.keras.models import Sequential, model_from_json, Model, load_model
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
 #from keras.regularizers import l2
-from keras.optimizers import Adam, SGD
+from tensorflow.keras.optimizers import Adam, SGD
 from collections import deque
 #from keras import backend as K
 
@@ -19,6 +19,7 @@ import os
 import sys
 import random
 import itertools
+import math
 
 # # [1]損失関数の定義
 # # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
@@ -35,27 +36,38 @@ class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
         global all_period_reward_arr
 
-        #with use_device:
-        self.model = Sequential()
-
-        self.model.add(
-            LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
-        self.model.add(BatchNormalization())
-        self.model.add(LeakyReLU(0.2))
-        self.model.add(LSTM(hidden_size, return_sequences=False))
-        self.model.add(LeakyReLU(0.2))
-
-        # self.model.add(Dense(hidden_size, activation='linear'))
-        # self.model.add(Dense(hidden_size))
+        # #with use_device:
+        # self.model = Sequential()
+        #
+        # self.model.add(
+        #     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
+        # self.model.add(BatchNormalization())
         # self.model.add(LeakyReLU(0.2))
+        # self.model.add(LSTM(hidden_size, return_sequences=False))
+        # self.model.add(LeakyReLU(0.2))
+        #
+        # # self.model.add(Dense(hidden_size, activation='linear'))
+        # # self.model.add(Dense(hidden_size))
+        # # self.model.add(LeakyReLU(0.2))
+        #
+        # self.model.add(Dense(action_size, activation='linear'))
+        #
+        # self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
+        # #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
+        #
+        # self.model.compile(optimizer=self.optimizer, loss=tf.keras.losses.Huber(delta=1.0))
+        # #self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
-        self.model.add(Dense(action_size, activation='linear'))
+        self.model = tf.keras.Sequential([
+            LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
+            BatchNormalization(),
+            LeakyReLU(0.2),
+            LSTM(hidden_size, return_sequences=False),
+            Dense(action_size, activation='linear')
+        ])
 
         self.optimizer = Adam(lr=learning_rate, clipvalue=5.0)
-        #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=5.0)
-
-        self.model.compile(optimizer=self.optimizer, loss=tf.keras.losses.Huber(delta=1.0))
-        #self.model.compile(optimizer=self.optimizer, loss=huberloss)
+        self.loss_func = tf.keras.losses.Huber(delta=1.0)
 
         self.model.summary()
 
@@ -137,86 +149,40 @@ class QNetwork:
         inputs = inputs.reshape((batch_size * batch_num, time_series, feature_num))
         targets = targets.reshape((batch_size * batch_num, nn_output_size))
 
-        self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+        #self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+        self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
-    # # 重みの学習
-    # def replay(self, memory, time_series, cur_episode_idx=0):
-    #     inputs = np.zeros((batch_size, time_series, feature_num))
-    #     targets = np.zeros((batch_size, 1, nn_output_size))
-    #
-    #     mini_batch = memory.get_sequencial_samples(batch_size, (cur_episode_idx + 1) - batch_size)
-    #     # rewardだけ別管理の平均値のリストに置き換える
-    #     mini_batch = memory.get_sequencial_converted_samples(mini_batch, (cur_episode_idx + 1) - batch_size)
-    #
-    #     for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-    #         # state_b_T = state_b.T #.copy()
-    #         # reshaped_state = np.reshape(state_b_T, [1, time_series, feature_num])
-    #         reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
-    #         inputs[idx] = reshaped_state
-    #         targets[idx] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
-    #
-    #         # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
-    #         # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
-    #         # residual は 残差 の意
-    #         # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
-    #         # 1万にデータが満たない場合は、その範囲での平均を出力する
-    #         self.buy_donot_diff_memory_predicted.add(abs(abs(targets[idx][0][0]) - abs(targets[idx][0][2])))
-    #         agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
-    #         # 正解の方も求めて出力
-    #         self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(cur_episode_idx + idx)
-    #         base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
-    #
-    #         # print(targets.shape)
-    #         # sys.exit(1)
-    #         predicted_buy = targets[idx][0][0]
-    #         predicted_donot = targets[idx][0][2]
-    #
-    #         buy_donot_diff = predicted_buy - predicted_donot
-    #         # 符号が同じかどうか判定するための下処理
-    #         buy_donot_diff_abs = abs(buy_donot_diff)
-    #         buy_donot_diff_abs_abs = abs(abs(predicted_buy) - abs(predicted_donot))
-    #
-    #         print("reward_b: BUY -> " + str(predicted_buy) + "," + str(reward_b[0]) +
-    #               " CLOSE -> " + str(targets[idx][0][1]) +
-    #               " DONOT -> " + str(predicted_donot) + "," + str(reward_b[2]) +
-    #               " (BUY - DONOT) -> " + str(buy_donot_diff) + "," + str(
-    #             True if buy_donot_diff_abs > buy_donot_diff_abs_abs else False) +
-    #               " predicted residual -> " + str(agent_learn_residual) +
-    #               " collect residual -> " + str(base_data_residual)
-    #               )
-    #
-    #         # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
-    #         # 全て設定する
-    #
-    #         # targets[idx][0][0] = reward_b[0] # 教師信号
-    #         # targets[idx][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
-    #         # targets[idx][0][2] = reward_b[2] # 教師信号
-    #
-    #         # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
-    #         targets[idx][0][0] = 1.0 if reward_b[0] > 0 else -1.0  # 教師信号
-    #         targets[idx][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
-    #         targets[idx][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
-    #
-    #     targets = np.array(targets)
-    #     inputs = np.array(inputs)
-    #
-    #     inputs = inputs.reshape((batch_size, time_series, feature_num))
-    #     targets = targets.reshape((batch_size, nn_output_size))
-    #
-    #     self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
-    #
-    #
-    #     #     # 複数コアで並列に処理するため、複数バッチが貯まったら git_generatorで fit を行う
-    #     #     # Windows環境では動作しない
-    #     #     def batch_generator():
-    #     #         nonlocal self
-    #     #         for idx, (x, y) in enumerate(self.batch_datas_for_generator):
-    #     #             yield (x, y)
-    #     #
-    #     #     self.batch_datas_for_generator.append([inputs, targets])
-    #     #     if len(self.batch_datas_for_generator) >= self.batch_num_to_call_fit:
-    #     #         self.model.fit_generator(batch_generator(), epochs=1, shuffle=False, workers=8, use_multiprocessing=True, verbose=1, steps_per_epoch=self.batch_num_to_call_fit)
-    #     #         self.batch_datas_for_generator = []
+        #     # 複数コアで並列に処理するため、複数バッチが貯まったら git_generatorで fit を行う
+        #     # Windows環境では動作しない
+        #     def batch_generator():
+        #         nonlocal self
+        #         for idx, (x, y) in enumerate(self.batch_datas_for_generator):
+        #             yield (x, y)
+        #
+        #     self.batch_datas_for_generator.append([inputs, targets])
+        #     if len(self.batch_datas_for_generator) >= self.batch_num_to_call_fit:
+        #         self.model.fit_generator(batch_generator(), epochs=1, shuffle=False, workers=8, use_multiprocessing=True, verbose=1, steps_per_epoch=self.batch_num_to_call_fit)
+        #         self.batch_datas_for_generator = []
+
+    def fit(self, inputs, targets, epochs=1, verbose=0, batch_size=32):
+        bat_per_epoch = math.floor(len(inputs) / batch_size)
+        for epoch in range(epochs):
+            print('=', end='')
+            for i in range(bat_per_epoch):
+                n = i * batch_size
+                self.fit_step(inputs[n:n + batch_size], targets[n:n + batch_size])
+
+    # 入力データはバッチ単位で与えられる
+    def fit_step(self, input, target, epochs=1, verbose=0, batch_size=32):
+        with tf.GradientTape() as tape:
+            predicted = self.model(input, training=True)
+            # # assertを入れて出力の型をチェックする。
+            # tf.debugging.assert_equal(logits.shape, (32, 10))
+            loss_value = self.loss_func(target, predicted)
+
+        #loss_history.append(loss_value.numpy().mean())
+        grads = tape.gradient(loss_value, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
     def save_model(self, file_path_prefix_str):
         self.model.save("./" + file_path_prefix_str + ".hd5")
