@@ -167,7 +167,6 @@ class QNetwork:
     def fit(self, inputs, targets, epochs=1, verbose=0, batch_size=32):
         bat_per_epoch = math.floor(len(inputs) / batch_size)
         for epoch in range(epochs):
-            print('=', end='')
             for i in range(bat_per_epoch):
                 n = i * batch_size
                 self.fit_step(inputs[n:n + batch_size], targets[n:n + batch_size])
@@ -179,6 +178,7 @@ class QNetwork:
             # # assertを入れて出力の型をチェックする。
             # tf.debugging.assert_equal(logits.shape, (32, 10))
             loss_value = self.loss_func(target, predicted)
+            print("loss: " + str(loss_value))
 
         #loss_history.append(loss_value.numpy().mean())
         grads = tape.gradient(loss_value, self.model.trainable_variables)
