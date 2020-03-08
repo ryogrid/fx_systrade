@@ -514,7 +514,8 @@ if __name__ == '__main__':
 
     # TensorFlowの低レイヤ寄りの機能群を利用した実装だと、現状GPUがあるとエラーになるため
     # GPU自体が存在しないように見えるようにしておく
-    if IS_TF_STYLE:
+    # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
+    if IS_TF_STYLE or sys.argv[1] == "backtest" or sys.argv[1] == "backtest_test":
         tf.config.set_visible_devices([], 'GPU')
         logical_devices = tf.config.list_logical_devices('GPU')
         print(logical_devices)
