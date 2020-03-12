@@ -282,14 +282,14 @@ class Memory:
 class Actor:
     def get_action(self, state, experienced_episodes, mainQN, cur_itr, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
-        #epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
-        epsilon = 0.1 + 0.8 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        #epsilon = 0.1 + 0.8 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         #if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
-        #if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
-        if isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
+        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
+        #if isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
             reshaped_state = np.reshape(state, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
@@ -305,9 +305,9 @@ class Actor:
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 64 #32 #64 #32
-batch_size = 1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
+learning_rate = 0.0004 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+time_series = 32 #64 #32 #64 #32
+batch_size = 256 #1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 5000 #720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
@@ -509,6 +509,38 @@ def run_backtest(backtest_type):
         #state = state.T
         state = np.reshape(state, [time_series, feature_num])
 
+def disable_gpu():
+    tf.config.set_visible_devices([], 'GPU')
+    logical_devices = tf.config.list_logical_devices('GPU')
+    print(logical_devices)
+
+def disable_multicore():
+    physical_devices = tf.config.list_physical_devices('CPU')
+    try:
+        # Disable first GPU
+        tf.config.set_visible_devices(physical_devices[0], 'CPU')
+        logical_devices = tf.config.list_logical_devices('CPU')
+        print(logical_devices)
+        # Logical device was not created for first GPU
+    except:
+        # Invalid device or cannot modify virtual devices once initialized.
+        pass
+
+def limit_gpu_memory_usage():
+    # GPUのGPUメモリ使用量にリミットをかける
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+        try:
+            tf.config.experimental.set_virtual_device_configuration(
+                gpus[0],
+                [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Virtual devices must be set before GPUs have been initialized
+            print(e)
+
 if __name__ == '__main__':
     np.random.seed(1337)  # for reproducibility
 
@@ -516,23 +548,12 @@ if __name__ == '__main__':
     # GPU自体が存在しないように見えるようにしておく
     # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
     if IS_TF_STYLE or sys.argv[1] == "backtest" or sys.argv[1] == "backtest_test":
-        tf.config.set_visible_devices([], 'GPU')
-        logical_devices = tf.config.list_logical_devices('GPU')
-        print(logical_devices)
+        #disable_multicore()
+        disable_gpu()
     else:
-        #GPUのGPUメモリ使用量にリミットをかける
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-            # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
-            try:
-                tf.config.experimental.set_virtual_device_configuration(
-                    gpus[0],
-                    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
-                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-            except RuntimeError as e:
-                # Virtual devices must be set before GPUs have been initialized
-                print(e)
+        #disable_multicore()
+        disable_gpu()
+        #limit_gpu_memory_usage()
 
     if sys.argv[1] == "train":
         tarin_agent()
