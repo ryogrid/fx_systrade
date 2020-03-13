@@ -63,6 +63,7 @@ class QNetwork:
             self.model.add(
                 LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
             self.model.add(BatchNormalization())
+            self.model.add(Dropout(0.5))
             self.model.add(LeakyReLU(0.2))
             self.model.add(LSTM(hidden_size, return_sequences=False))
             self.model.add(LeakyReLU(0.2))
@@ -295,7 +296,10 @@ class Actor:
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
-            action = np.random.choice([0, 1, 2])  # ランダムに行動する
+            #action = np.random.choice([0, 1, 2])  # ランダムに行動する
+            # ランダムに行動する
+            # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
+            action = np.random.choice([0, 2])
 
         return action
 
