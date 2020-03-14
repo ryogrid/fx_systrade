@@ -101,7 +101,8 @@ class FXEnvironment:
 
         return ta.RSI(prices, timeperiod = period)[-1]
 
-    def get_ma(self, price_arr, cur_pos, period = 20):
+    def get_ma(self, price_arr, cur_pos, period=40):
+    #def get_ma(self, price_arr, cur_pos, period = 20):
         if cur_pos <= period:
             s = 0
         else:
@@ -139,6 +140,7 @@ class FXEnvironment:
 
         return ta.BBANDS(prices, timeperiod = period)[2][-1]
 
+    # periodは移動平均を求める幅なので20程度で良いはず...
     def get_ema(self, price_arr, cur_pos, period = 20):
         if cur_pos <= period:
             s = 0
@@ -154,10 +156,11 @@ class FXEnvironment:
     # def get_ema_rsi(price_arr, cur_pos, period = None):
     #     return 0
 
-    def get_cci(self, price_arr, cur_pos, period = None):
-        return 0
+    # def get_cci(self, price_arr, cur_pos, period = None):
+    #     return 0
 
-    def get_mo(self, price_arr, cur_pos, period = 20):
+    def get_mo(self, price_arr, cur_pos, period=40):
+    #def get_mo(self, price_arr, cur_pos, period = 20):
         if cur_pos <= (period + 1):
     #        s = 0
             return 0
@@ -169,7 +172,8 @@ class FXEnvironment:
 
         return ta.CMO(prices, timeperiod = period)[-1]
 
-    def get_po(self, price_arr, cur_pos, period = 10):
+    #def get_po(self, price_arr, cur_pos, period = 10):
+    def get_po(self, price_arr, cur_pos, period=40):
         if cur_pos <= period:
             s = 0
         else:
@@ -242,7 +246,7 @@ class FXEnvironment:
                  self.get_bb_1(self.exchange_rates, i),
                  self.get_bb_2(self.exchange_rates, i),
                  #self.get_ema(self.exchange_rates, i),
-                 self.get_cci(self.exchange_rates, i),
+                 #self.get_cci(self.exchange_rates, i),
                  self.get_mo(self.exchange_rates, i),
                  self.get_vorarity(self.exchange_rates, i)#,
                  #self.get_macd(self.exchange_rates, i),
@@ -359,7 +363,7 @@ class FXEnvironment:
             # if(is_backtest == False):
             #     self.half_spread = 0.0
 
-            self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_positions)
+            self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_position_num = self.holdable_positions)
             self.additional_infos = []
             self.reward_gamma = reward_gamma
 

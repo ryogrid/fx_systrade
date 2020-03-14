@@ -320,7 +320,7 @@ memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2)
 feature_num = 10 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-holdable_positions = 100 #30 # 100
+holdable_positions = 30 #100 #30 # 100
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
 # 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
