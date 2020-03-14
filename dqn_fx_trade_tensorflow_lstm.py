@@ -4,7 +4,7 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
-IS_TF_STYLE = False
+IS_TF_STYLE = False #True #False
 
 import numpy as np
 import tensorflow as tf
@@ -53,10 +53,13 @@ class QNetwork:
             self.model = tf.keras.Sequential([
                 LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
                 BatchNormalization(),
+                Dropout(0.5),
                 LeakyReLU(0.2),
                 LSTM(hidden_size, return_sequences=False),
+                LeakyReLU(0.2),
                 Dense(action_size, activation='linear')
             ])
+            self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         else:
             self.model = Sequential()
 
@@ -157,7 +160,8 @@ class QNetwork:
         targets = targets.reshape((batch_size * batch_num, nn_output_size))
 
         if IS_TF_STYLE:
-            self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+            #self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+            self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
         else:
             self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
@@ -174,6 +178,16 @@ class QNetwork:
         #         self.batch_datas_for_generator = []
 
     def fit(self, inputs, targets, epochs=1, verbose=0, batch_size=32):
+        # config = tf.ConfigProto(
+        #     gpu_options=tf.GPUOptions(
+        #         visible_device_list="0",  # specify GPU number
+        #         allow_growth=True
+        #     )
+        # )
+        # sess = tf.Session(config=config)
+        # sess.run(tf.global_variables_initializer())
+
+        #with sess:
         bat_per_epoch = math.floor(len(inputs) / batch_size)
         for epoch in range(epochs):
             for i in range(bat_per_epoch):
@@ -553,7 +567,8 @@ if __name__ == '__main__':
     # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
     if IS_TF_STYLE or sys.argv[1] == "backtest" or sys.argv[1] == "backtest_test":
         #disable_multicore()
-        disable_gpu()
+        #disable_gpu()
+        #limit_gpu_memory_usage()
     else:
         #disable_multicore()
         disable_gpu()
