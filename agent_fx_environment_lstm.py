@@ -101,8 +101,9 @@ class FXEnvironment:
 
         return ta.RSI(prices, timeperiod = period)[-1]
 
-    def get_ma(self, price_arr, cur_pos, period=40):
+
     #def get_ma(self, price_arr, cur_pos, period = 20):
+    def get_ma(self, price_arr, cur_pos, period=40):
         if cur_pos <= period:
             s = 0
         else:
@@ -159,8 +160,8 @@ class FXEnvironment:
     # def get_cci(self, price_arr, cur_pos, period = None):
     #     return 0
 
-    def get_mo(self, price_arr, cur_pos, period=40):
     #def get_mo(self, price_arr, cur_pos, period = 20):
+    def get_mo(self, price_arr, cur_pos, period=40):
         if cur_pos <= (period + 1):
     #        s = 0
             return 0

@@ -4,12 +4,13 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
-IS_TF_STYLE = False #True #False
+IS_TF_STYLE = True #True #False
+USE_TENSOR_BOARD = False
 
 import numpy as np
 import tensorflow as tf
 if IS_TF_STYLE:
-    from tensorflow.keras.models import Sequential, model_from_json, Model, load_model
+    from tensorflow.keras.models import Sequential, model_from_json, Model, load_model, save_model
     from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
     from tensorflow.keras.optimizers import Adam, SGD
     #from tensorflow.keras.regularizers import l2
@@ -161,7 +162,14 @@ class QNetwork:
 
         if IS_TF_STYLE:
             #self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
-            self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
+
+            cbks = []
+            if USE_TENSOR_BOARD:
+                # tensorboardのためのデータを記録するコールバック
+                callbacks = tf.keras.callbacks.TensorBoard(log_dir='logdir', histogram_freq=1,
+                                                        write_graph=True, write_grads=True, profile_batch=True)
+                cbks = [callbacks]
+            self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size, callbacks=cbks)
         else:
             self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
@@ -208,7 +216,10 @@ class QNetwork:
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
     def save_model(self, file_path_prefix_str):
-        self.model.save("./" + file_path_prefix_str + ".hd5")
+        if IS_TF_STYLE:
+            save_model(self.model, "./" + file_path_prefix_str + ".hd5", save_format="h5")
+        else:
+            self.model.save("./" + file_path_prefix_str + ".hd5")
         # with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
         #     f.write(self.model.to_json())
         # self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
@@ -567,8 +578,8 @@ if __name__ == '__main__':
     # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
     if IS_TF_STYLE:
         #disable_multicore()
-        #disable_gpu()
-        limit_gpu_memory_usage()
+        disable_gpu()
+        #limit_gpu_memory_usage()
     elif sys.argv[1] == "train" or sys.argv[1] == "backtest" or sys.argv[1] == "backtest_test":
         #disable_multicore()
         disable_gpu()
