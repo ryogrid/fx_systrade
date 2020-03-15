@@ -274,33 +274,43 @@ class Actor:
     def init_selected_action_q(self):
         self.pre_selected_action_q = deque([], maxlen=(holdable_positions * 2 + 10))
 
-    def generate_pre_selected_actions(self, model, generate_num, experienced_episodes, episode_idx, state_arr):
+    def generate_pre_selected_actions(self, q_network, generate_num, experienced_episodes, episode_idx, state_arr):
         generated_action_arr = [-1] * generate_num
         states_to_predict = []
+        # -1 しているのは イテレーションループが始まる前に一度アクションをとっていることとのつじつま合わせ
+        episode_idx_conved_to_sate_idx = episode_idx + time_series - 1
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        #epsilon = 0.001
         for idx in range(generate_num):
             if epsilon <= np.random.uniform(0, 1):
-                states_to_predict.append(state_arr[episode_idx - time_series + 1:episode_idx + 1])
-                generated_action_arr[episode_idx + idx] = None
+                # +1 しているのは 現時点でのインデックスの state を含めるため（rangeは第二引数の値は返さないので）
+                states_to_predict.append(state_arr[episode_idx_conved_to_sate_idx - time_series + 1:episode_idx_conved_to_sate_idx + 1])
+                generated_action_arr[idx] = None
             else:
                 # ランダムに行動する
                 # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
                 action = np.random.choice([0, 2])
-                generated_action_arr[episode_idx + idx] = action
+                generated_action_arr[idx] = action
 
         # generated_action_arrのNoneになっている要素をpredictして値を埋める
 
-        reshaped_state = np.reshape(states_to_predict, [len(states_to_predict), time_series, feature_num])
-        predicted_values = model.predict(reshaped_state)
-        predicted_values_q = deque([], max_size=generate_num)
-        # 配列だと扱いずらいのでキューに移し替える
-        for idx in range(len(predicted_values)):
-            predicted_values_q.append(predicted_values[idx])
-        for idx in range(len(generated_action_arr)):
-            if generated_action_arr[idx] == None:
-                predicted_val = predicted_values_q.pop()
-                print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(predicted_val))))
-                generated_action_arr[idx] = np.argmax(predicted_val)
+        print("elem num of states_to_predict: " + str(len(states_to_predict)))
+        if len(states_to_predict) > 0:
+            reshaped_state = np.reshape(states_to_predict, [len(states_to_predict), time_series, feature_num])
+            predicted_values = q_network.model.predict(reshaped_state)
+            #print(predicted_values)
+            predicted_values_q = deque([], maxlen=generate_num)
+            # 配列だと扱いずらいのでキューに移し替える
+            for idx in range(len(predicted_values)):
+                #print(predicted_values[idx])
+                predicted_values_q.append(predicted_values[idx])
+            for idx in range(len(generated_action_arr)):
+                if generated_action_arr[idx] == None:
+                    predicted_val = predicted_values_q.pop()
+                    #print(predicted_val)
+                    #print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(predicted_val))))
+                    print("NN all output at get_action: " + str(predicted_val))
+                    generated_action_arr[idx] = np.argmax(predicted_val)
 
         # 生成したリストをキューの末尾にまとめて追加する
         self.pre_selected_action_q.extend(generated_action_arr)
@@ -309,6 +319,9 @@ class Actor:
         # 可能な限りpredictをまとめて発行しておくモード
         # (CLOSEが発生するまでは、同一イテレーションの他の選択とは独立にBUYかDONOTを選択できる点を活用する)
         if ENABLE_PRE_EXCUTION_OF_PREDICT and isBacktest == False:
+            #print("episode_idx:" + str(episode_idx))
+            #print("buy_num:" + str(buy_num))
+            #print("donot_num:" + str(donot_num))
             action = -1
             try:
                 action = self.pre_selected_action_q.pop()
@@ -316,13 +329,13 @@ class Actor:
             except:
                 #生成しておいたアクションが無くなったので再生成する
                 generate_action_num = min([holdable_positions - buy_num, holdable_positions - donot_num])
+                print("generate_action_num:" + str(generate_action_num))
                 # アクションを生成しておく
                 self.generate_pre_selected_actions(mainQN, generate_action_num, experienced_episodes, episode_idx, state_arr)
 
                 action = self.pre_selected_action_q.pop()
                 return action
 
-            return None
         else: #通常モード
             # 徐々に最適行動のみをとる、ε-greedy法
             epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
@@ -359,7 +372,7 @@ memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2)
 feature_num = 9 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-holdable_positions = 30 #100 #30 # 100
+holdable_positions = 100 #30 #100 #30 # 100
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
 # 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
@@ -415,6 +428,10 @@ def tarin_agent():
         env = env_master.get_env('train')
         #action = np.random.choice([0, 1, 2])
         action = np.random.choice([0, 2])
+        if action == 0:
+            buy_num += 1
+        elif action == 2:
+            donot_num += 1
         state, reward, done, info, needclose = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
         total_get_acton_cnt += 1
         state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
@@ -510,6 +527,8 @@ def tarin_agent():
         memory.clear()
         # 次週では空の状態でスタート
         actor.init_selected_action_q()
+        # 次週ではリセット
+        buy_num = donot_num = 0
 
 def run_backtest(backtest_type):
     env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
@@ -579,8 +598,8 @@ if __name__ == '__main__':
     # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
     if IS_TF_STYLE:
         #disable_multicore()
-        #disable_gpu()
-        limit_gpu_memory_usage()
+        disable_gpu()
+        #limit_gpu_memory_usage()
     elif sys.argv[1] == "train" or sys.argv[1] == "backtest" or sys.argv[1] == "backtest_test":
         #disable_multicore()
         disable_gpu()
