@@ -6,6 +6,7 @@
 
 IS_TF_STYLE = True #True #False
 USE_TENSOR_BOARD = False
+ENABLE_PRE_EXCUTION_OF_PREDICT = True
 
 import numpy as np
 import tensorflow as tf
@@ -21,8 +22,6 @@ else:
     from keras.optimizers import Adam, SGD
 
 from collections import deque
-
-
 import pickle
 from agent_fx_environment_lstm import FXEnvironment
 import os
@@ -30,16 +29,6 @@ import sys
 import random
 import itertools
 import math
-
-# # [1]損失関数の定義
-# # 損失関数にhuber関数を使用 参考https://github.com/jaara/AI-blog/blob/master/CartPole-DQN.py
-# def huberloss(y_true, y_pred):
-#    err = y_true - y_pred
-#    cond = K.abs(err) < 1.0
-#    L2 = 0.5 * K.square(err)
-#    L1 = (K.abs(err) - 0.5)
-#    loss = tf.where(cond, L2, L1)  # Keras does not cover where function in tensorflow :-(
-#    return K.mean(loss)
 
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
@@ -72,21 +61,18 @@ class QNetwork:
             self.model.add(LSTM(hidden_size, return_sequences=False))
             self.model.add(LeakyReLU(0.2))
 
-            # self.model.add(Dense(hidden_size, activation='linear'))
-            # self.model.add(Dense(hidden_size))
-            # self.model.add(LeakyReLU(0.2))
-
             self.model.add(Dense(action_size, activation='linear'))
             self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
-            #self.model.compile(optimizer=self.optimizer, loss=huberloss)
 
         self.model.summary()
 
-        self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000) # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
-        self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM) # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
+        # # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
+        # self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000)
 
-        #self.batch_num_to_call_fit = 80
-        self.batch_datas_for_generator = []
+        # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
+        self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM)
+
+        # self.batch_datas_for_generator = []
 
     # 重みの学習
     def replay(self, memory, time_series, cur_episode_idx = 0, batch_num = 1):
@@ -106,45 +92,23 @@ class QNetwork:
             for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
                 reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
                 inputs[all_sample_cnt] = reshaped_state
+
+                # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
+                # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
+                # residual は 残差 の意
+
                 # targets[all_sample_cnt] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
-                #
-                # # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
-                # # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
-                # # residual は 残差 の意
-                # # 今のパラメータでは1万差分の平均をスライドさせながら基本的に出力する.
-                # # 1万にデータが満たない場合は、その範囲での平均を出力する
                 # self.buy_donot_diff_memory_predicted.add(abs(abs(targets[all_sample_cnt][0][0]) - abs(targets[all_sample_cnt][0][2])))
                 # agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
 
-                # 正解の方も求めて出力
+                # 正解の方を求めて出力
                 self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(episode_idx + idx)
                 base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
-
-                # predicted_buy = targets[all_sample_cnt][0][0]
-                # predicted_donot = targets[all_sample_cnt][0][2]
-                #
-                # buy_donot_diff = predicted_buy - predicted_donot
-                # # 符号が同じかどうか判定するための下処理
-                # buy_donot_diff_abs = abs(buy_donot_diff)
-                # buy_donot_diff_abs_abs = abs(abs(predicted_buy) - abs(predicted_donot))
-                #
-                # print("reward_b: BUY -> " + str(predicted_buy) + "," + str(reward_b[0]) +
-                #       " CLOSE -> " + str(targets[all_sample_cnt][0][1]) +
-                #       " DONOT -> " + str(predicted_donot) + "," + str(reward_b[2]) +
-                #       " (BUY - DONOT) -> " + str(buy_donot_diff) + "," + str(True if buy_donot_diff_abs > buy_donot_diff_abs_abs else False) +
-                #       " predicted residual -> " + str(agent_learn_residual) +
-                #       " collect residual -> " + str(base_data_residual)
-                # )
 
                 print("reward_b: collect residual -> " + str(base_data_residual))
 
                 # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
                 # 全て設定する
-
-                # targets[all_sample_cnt][0][0] = reward_b[0] # 教師信号
-                # targets[all_sample_cnt][0][1] = -100.0      # CLOSEのrewardは必ず-100.0
-                # targets[all_sample_cnt][0][2] = reward_b[2] # 教師信号
-
                 # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
                 targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
                 targets[all_sample_cnt][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
@@ -162,7 +126,6 @@ class QNetwork:
 
         if IS_TF_STYLE:
             #self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
-
             cbks = []
             if USE_TENSOR_BOARD:
                 # tensorboardのためのデータを記録するコールバック
@@ -211,7 +174,6 @@ class QNetwork:
             loss_value = self.loss_func(target, predicted)
             print("loss: " + str(loss_value))
 
-        #loss_history.append(loss_value.numpy().mean())
         grads = tape.gradient(loss_value, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
@@ -306,27 +268,79 @@ class Memory:
 
 # [4]カートの状態に応じて、行動を決定するクラス
 class Actor:
-    def get_action(self, state, experienced_episodes, mainQN, cur_itr, isBacktest = False):   # [C]ｔ＋１での行動を返す
-        # 徐々に最適行動のみをとる、ε-greedy法
+    def __init__(self):
+        self.init_selected_action_q()
+
+    def init_selected_action_q(self):
+        self.pre_selected_action_q = deque([], maxlen=(holdable_positions * 2 + 10))
+
+    def generate_pre_selected_actions(self, model, generate_num, experienced_episodes, episode_idx, state_arr):
+        generated_action_arr = [-1] * generate_num
+        states_to_predict = []
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
-        #epsilon = 0.1 + 0.8 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        for idx in range(generate_num):
+            if epsilon <= np.random.uniform(0, 1):
+                states_to_predict.append(state_arr[episode_idx - time_series + 1:episode_idx + 1])
+                generated_action_arr[episode_idx + idx] = None
+            else:
+                # ランダムに行動する
+                # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
+                action = np.random.choice([0, 2])
+                generated_action_arr[episode_idx + idx] = action
 
-        # epsilonが小さい値の場合の方が最大報酬の行動が起こる
-        # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
-        #if epsilon <= np.random.uniform(0, 1) or isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
-        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
-        #if isBacktest == True or ((cur_itr % 20 == 0) and cur_itr != 0):
-            reshaped_state = np.reshape(state, [1, time_series, feature_num])
-            retTargetQs = mainQN.model.predict(reshaped_state)
-            print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
-            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
-        else:
-            #action = np.random.choice([0, 1, 2])  # ランダムに行動する
-            # ランダムに行動する
-            # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
-            action = np.random.choice([0, 2])
+        # generated_action_arrのNoneになっている要素をpredictして値を埋める
 
-        return action
+        reshaped_state = np.reshape(states_to_predict, [len(states_to_predict), time_series, feature_num])
+        predicted_values = model.predict(reshaped_state)
+        predicted_values_q = deque([], max_size=generate_num)
+        # 配列だと扱いずらいのでキューに移し替える
+        for idx in range(len(predicted_values)):
+            predicted_values_q.append(predicted_values[idx])
+        for idx in range(len(generated_action_arr)):
+            if generated_action_arr[idx] == None:
+                predicted_val = predicted_values_q.pop()
+                print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(predicted_val))))
+                generated_action_arr[idx] = np.argmax(predicted_val)
+
+        # 生成したリストをキューの末尾にまとめて追加する
+        self.pre_selected_action_q.extend(generated_action_arr)
+
+    def get_action(self, state, experienced_episodes, mainQN, episode_idx, isBacktest = False, buy_num = None, donot_num = None, state_arr = None):   # [C]ｔ＋１での行動を返す
+        # 可能な限りpredictをまとめて発行しておくモード
+        # (CLOSEが発生するまでは、同一イテレーションの他の選択とは独立にBUYかDONOTを選択できる点を活用する)
+        if ENABLE_PRE_EXCUTION_OF_PREDICT and isBacktest == False:
+            action = -1
+            try:
+                action = self.pre_selected_action_q.pop()
+                return action
+            except:
+                #生成しておいたアクションが無くなったので再生成する
+                generate_action_num = min([holdable_positions - buy_num, holdable_positions - donot_num])
+                # アクションを生成しておく
+                self.generate_pre_selected_actions(mainQN, generate_action_num, experienced_episodes, episode_idx, state_arr)
+
+                action = self.pre_selected_action_q.pop()
+                return action
+
+            return None
+        else: #通常モード
+            # 徐々に最適行動のみをとる、ε-greedy法
+            epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+
+            # epsilonが小さい値の場合の方が最大報酬の行動が起こる
+            # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
+            if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
+                reshaped_state = np.reshape(state, [1, time_series, feature_num])
+                retTargetQs = mainQN.model.predict(reshaped_state)
+                print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
+                action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+            else:
+                # ランダムに行動する
+                # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
+                #action = np.random.choice([0, 1, 2])
+                action = np.random.choice([0, 2])
+
+            return action
 
 # [5] メイン関数開始----------------------------------------------------
 # [5.1] 初期設定--------------------------------------------------------
@@ -372,11 +386,10 @@ def tarin_agent():
     actor = Actor()
 
     total_get_acton_cnt = 1
-    all_period_reward_hash = {}
-    # # イテレーションを跨いで state x action で最新のエピソードのみ記録して、replay可能とするため
-    # # のハッシュ. 必要なのはrewardの値だが実装の都合上不要な情報も含む
-    # # 値は [state, action, reward, next_state]
-    # state_x_action_hash = {}
+
+    #アクション選択の事前生成のための情報を保持する配列
+    buy_num = 0
+    donot_num = 0
 
     # if os.path.exists("./mainQN_nw.json"):
     if os.path.exists("./mainQN.hd5"):
@@ -395,23 +408,14 @@ def tarin_agent():
         memory.add(a_log)  # メモリを更新する
         # 後からrewardを更新するためにエピソード識別子をキーにエピソードを取得可能としておく
         memory_hash[info[0]] = a_log
-        # key_str = str(state) + str(action)
-        # # 最新の値で更新する、もしくはエントリが無い場合は追加する
-        # # ハッシュが持っている要素はエピソードの記録（リストで実装されている）への参照であるため、
-        # # 当該エピソードの記録が更新された場合、state_x_action_hashが保持するデータも更新
-        # # されることになる
-        #
-        # # 本来不要な情報だが、memoryの中のオブジェクトが更新された場合に
-        # # 情報が更新されるよう、episodeの情報全てへの参照を持つ形にする
-        # # 既にエントリがあろうが無かろうか最新のepisodeへの参照を設定してしまう
-        # state_x_action_hash[key_str] = a_log
 
     #######################################################
 
     for cur_itr in range(iteration_num):
         env = env_master.get_env('train')
-        action = np.random.choice([0, 1, 2])
-        state, reward, done, info, needclose = env.step(action)  # 1step目は適当な行動をとる
+        #action = np.random.choice([0, 1, 2])
+        action = np.random.choice([0, 2])
+        state, reward, done, info, needclose = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
         total_get_acton_cnt += 1
         state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
@@ -437,8 +441,21 @@ def tarin_agent():
 
             if needclose:
                 action = 1
+                # CLOSEが発生したので、事前生成しておいたものはクリアする
+                actor.init_selected_action_q()
+                buy_num = donot_num = 0
             else:
-                action = actor.get_action(state, total_get_acton_cnt, mainQN, cur_itr)  # 時刻tでの行動を決定する
+                # 時刻tでの行動を決定する
+                action = actor.get_action(state, total_get_acton_cnt, mainQN, episode, buy_num=buy_num, donot_num=donot_num, state_arr=env.input_arr[env.time_series - 1:])
+                if action == 0:
+                    buy_num += 1
+                elif action == 2:
+                    donot_num += 1
+                else: # 1 (CLOSE)
+                    #基本的には選択されないはずだが、NNの学習中に選択されてしまう可能性はあるのでその場合の対処
+                    actor.init_selected_action_q()
+                    buy_num = donot_num = 0
+
             next_state, reward, done, info, needclose = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
 
             # 環境が提供する期間が最後までいった場合
@@ -447,10 +464,6 @@ def tarin_agent():
                 # next_stateは今は使っていないのでreshape等は不要
                 # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
                 store_episode_log_to_memory(state, action, reward, next_state, info)
-
-                # # イテレーションの最後にまとめて複数ミニバッチでfitする
-                # # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
-                # mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=((1 + episode + 1) // batch_size))
                 break
 
             next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
@@ -461,15 +474,6 @@ def tarin_agent():
             # 今回のイテレーションでのリワードを更新し、過去のイテレーションでの平均値も更新する
             if len(info) > 1:
                 for keyval in info[1:]:
-                    # # rewardは過去の値の寄与度も考慮した平均値になるように設定する
-                    # current_val = -1
-                    # # 同じ足についてstateは各イテレーションで共通なので、 state と action を文字列として結合したものをキーとして
-                    # # 最新の rewardの 平均値を all_period_reward_hashに 保持しておく
-                    # mean_val_stored_key = str(memory_hash[keyval[0]][0]) + str(memory_hash[keyval[0]][1])
-                    # try:
-                    #     past_all_itr_mean_reward = all_period_reward_hash[mean_val_stored_key]
-                    # except:
-                    #     past_all_itr_mean_reward = 0
                     past_all_itr_mean_reward = all_period_reward_arr[keyval[2]][keyval[3]]
                     current_itr_num = cur_itr + 1
                     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
@@ -478,7 +482,6 @@ def tarin_agent():
                     print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
 
                     memory_hash[keyval[0]][2] = update_val
-                    #all_period_reward_hash[mean_val_stored_key] = update_val
 
                     # memoryオブジェクトにはall_period_reward_arrの参照が渡してあるため
                     # memoryオブジェクト内の値も更新される
@@ -497,17 +500,16 @@ def tarin_agent():
             #     mainQN.replay(memory, time_series, cur_episode_idx=episode)
 
         # イテレーションの最後にまとめて複数ミニバッチでfitする
-        # これにより、fitがコア並列で動作していた場合のオーバヘッド削減を狙う
+        # これにより、fitがコア並列やGPUで動作していた場合のオーバヘッド削減を狙う
         #with tf.device(tf.DeviceSpec(device_type="GPU", device_index=0)):
         mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
-        # mainQN_GPU.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
-        # # GPU用モデルで学習したパラメータをメインのモデルにコピーする
-        # mainQN.model.set_weights(mainQN_GPU.model.get_weights())
 
         # 一周回したら、次の周で利用されることはないのでクリア
         memory_hash = {}
         # 次周では過去のmemoryは参照しない（rewardは別途保持されている）ので、memoryはクリアしてしまう
         memory.clear()
+        # 次週では空の状態でスタート
+        actor.init_selected_action_q()
 
 def run_backtest(backtest_type):
     env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
@@ -522,7 +524,6 @@ def run_backtest(backtest_type):
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
-    #state = state.T
     state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if needclose:
@@ -578,8 +579,8 @@ if __name__ == '__main__':
     # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
     if IS_TF_STYLE:
         #disable_multicore()
-        disable_gpu()
-        #limit_gpu_memory_usage()
+        #disable_gpu()
+        limit_gpu_memory_usage()
     elif sys.argv[1] == "train" or sys.argv[1] == "backtest" or sys.argv[1] == "backtest_test":
         #disable_multicore()
         disable_gpu()
