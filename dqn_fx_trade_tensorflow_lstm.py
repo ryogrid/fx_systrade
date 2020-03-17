@@ -7,6 +7,7 @@
 IS_TF_STYLE = True #True #False
 USE_TENSOR_BOARD = False
 ENABLE_PRE_EXCUTION_OF_PREDICT = True
+ENABLE_L2_LEGURALIZER = False
 
 import numpy as np
 import tensorflow as tf
@@ -14,12 +15,14 @@ if IS_TF_STYLE:
     from tensorflow.keras.models import Sequential, model_from_json, Model, load_model, save_model
     from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
     from tensorflow.keras.optimizers import Adam, SGD
+    from tensorflow.keras.regularizers import l2
     #from tensorflow.keras.regularizers import l2
     #from keras import backend as K
 else:
     from keras.models import Sequential, model_from_json, Model, load_model
     from keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
     from keras.optimizers import Adam, SGD
+    from keras.regularizers import l2
 
 from collections import deque
 import pickle
@@ -40,28 +43,55 @@ class QNetwork:
         self.loss_func = tf.keras.losses.Huber(delta=1.0)
 
         if IS_TF_STYLE:
-            self.model = tf.keras.Sequential([
-                LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
-                BatchNormalization(),
-                Dropout(0.5),
-                LeakyReLU(0.2),
-                LSTM(hidden_size, return_sequences=False),
-                LeakyReLU(0.2),
-                Dense(action_size, activation='linear')
-            ])
+            if ENABLE_L2_LEGURALIZER:
+                self.model = tf.keras.Sequential([
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                                bias_regularizer=l2(0.01)),
+                    BatchNormalization(),
+                    Dropout(0.5),
+                    LeakyReLU(0.2),
+                    LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                                bias_regularizer=l2(0.01)),
+                    LeakyReLU(0.2),
+                    Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01))
+
+                ])
+            else:
+                self.model = tf.keras.Sequential([
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
+                    BatchNormalization(),
+                    Dropout(0.5),
+                    LeakyReLU(0.2),
+                    LSTM(hidden_size, return_sequences=False),
+                    LeakyReLU(0.2),
+                    Dense(action_size, activation='linear')
+                ])
             self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         else:
             self.model = Sequential()
 
-            self.model.add(
-                LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
-            self.model.add(BatchNormalization())
-            self.model.add(Dropout(0.5))
-            self.model.add(LeakyReLU(0.2))
-            self.model.add(LSTM(hidden_size, return_sequences=False))
-            self.model.add(LeakyReLU(0.2))
+            if ENABLE_L2_LEGURALIZER:
+                self.model.add(
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                                bias_regularizer=l2(0.01)))
+                self.model.add(BatchNormalization())
+                self.model.add(Dropout(0.5))
+                self.model.add(LeakyReLU(0.2))
+                self.model.add(LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
+                                bias_regularizer=l2(0.01)))
+                self.model.add(LeakyReLU(0.2))
+                self.model.add(Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01)))
+            else:
+                self.model.add(
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
+                self.model.add(BatchNormalization())
+                self.model.add(Dropout(0.5))
+                self.model.add(LeakyReLU(0.2))
+                self.model.add(LSTM(hidden_size, return_sequences=False))
+                self.model.add(LeakyReLU(0.2))
+                self.model.add(
+                    Dense(action_size, activation='linear'))
 
-            self.model.add(Dense(action_size, activation='linear'))
             self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
 
         self.model.summary()
@@ -362,7 +392,7 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0004 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 32 #64 #32 #64 #32
+time_series = 64 #64 #32 #64 #32
 batch_size = 256 #1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
@@ -372,7 +402,7 @@ memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2)
 feature_num = 9 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-holdable_positions = 100 #30 #100 #30 # 100
+holdable_positions = 30 #30 #100 #30 # 100
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
 # 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので

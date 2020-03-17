@@ -13,6 +13,8 @@ import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
 
+IS_BUY_SELL_MODE = True #DONOTをSELLとして扱い実際に売買をする
+
 class FXEnvironment:
     def __init__(self, time_series=32, holdable_positions=100):
         print("FXEnvironment class constructor called.")
@@ -636,14 +638,25 @@ class PortforioManager:
     # 資産額の変動を起こさず、self.having_long_or_short, self.position_num を変更しないという点を
     # 除いてはSELLの場合と同様の処理をする
     def donot(self, rate_idx):
-        pos_kind = self.NOT_HAVE
-        trade_val = self.exchange_rates[rate_idx] - self.half_spread
-        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
+        if IS_BUY_SELL_MODE: #DONOTだがSELLと同様に実売買をさせる
+            pos_kind = self.NOT_HAVE
+            trade_val = self.exchange_rates[rate_idx] - self.half_spread
+            currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
 
-        self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-        self.donot_num += 1
+            self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
+            self.position_num += 1
+            self.having_money -= trade_val * currency_num
+            self.having_long_or_short = self.SHORT
+            return trade_val
+        else:
+            pos_kind = self.NOT_HAVE
+            trade_val = self.exchange_rates[rate_idx] - self.half_spread
+            currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
 
-        return trade_val
+            self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
+            self.donot_num += 1
+
+            return trade_val
 
     # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
     def close_long(self, position, rate_idx):
@@ -673,9 +686,24 @@ class PortforioManager:
 
     # DONOT用のダミーポジションをクローズする（1単位は1通貨を意味するものではない）
     def close_donot(self, position, rate_idx):
-        # 保持しているダミーポジション（ショートポジションとほぼ同様に扱う）をクローズする
-        cur_price = self.exchange_rates[rate_idx] + self.half_spread
-        won_pips = position[0] - cur_price
+        if IS_BUY_SELL_MODE:  # DONOTだがSELLと同様に実売買をさせる
+            cur_price = self.exchange_rates[rate_idx] + self.half_spread
+            trade_result = position[2] * position[0] - position[2] * cur_price
+            won_pips = position[0] - cur_price
+
+            # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
+            # 1)まず損益を求める
+            diff = position[2] * (position[0] - cur_price)
+            # 2)オープン時にとられた証拠金を求める
+            collateral_at_open = position[0] * position[2]
+            # 3)2つを足し合わせた額が決済によって戻ってくるお金
+            return_money = collateral_at_open + diff
+
+            return won_pips, trade_result, return_money
+        else:
+            # 保持しているダミーポジション（ショートポジションとほぼ同様に扱う）をクローズする
+            cur_price = self.exchange_rates[rate_idx] + self.half_spread
+            won_pips = position[0] - cur_price
 
         return won_pips
 
@@ -692,16 +720,24 @@ class PortforioManager:
             elif position[1] == self.SHORT: # self.SHORT
                 won_pips, won_money, return_money = self.close_short(position, rate_idx)
             else: #NOT_HAVE(DONOT)
-                won_pips = self.close_donot(position, rate_idx)
+                if IS_BUY_SELL_MODE:
+                    won_pips, won_money, return_money = self.close_donot(position, rate_idx)
+                else:
+                    won_pips, won_money, return_money = self.close_donot(position, rate_idx)
 
             # 獲得pips, エピソードの1イテレーションの中でのインデックス（rateのidxである点に注意）, ポジションの種類
             # DONOT用のダミーポジションについても追加
             won_pips_arr.append([won_pips, position[3], position[1]])
-            # DONOTのダミーポジションについては加算しない
-            if position[1] != self.NOT_HAVE:
+            if IS_BUY_SELL_MODE: # DONOTはSELLと同様に売買を行うので加算する
                 won_pips_sum += won_pips
                 won_money_sum += won_money
                 returned_money_sum += return_money
+            else:
+                # DONOTのダミーポジションについては加算しない
+                if position[1] != self.NOT_HAVE:
+                    won_pips_sum += won_pips
+                    won_money_sum += won_money
+                    returned_money_sum += return_money
 
 
         self.having_long_or_short = self.NOT_HAVE
