@@ -6,7 +6,7 @@
 
 IS_TF_STYLE = True #True #False
 USE_TENSOR_BOARD = False
-ENABLE_PRE_EXCUTION_OF_PREDICT = True
+ENABLE_PRE_EXCUTION_OF_PREDICT = False
 ENABLE_L2_LEGURALIZER = False
 
 import numpy as np
@@ -46,23 +46,22 @@ class QNetwork:
             if ENABLE_L2_LEGURALIZER:
                 self.model = tf.keras.Sequential([
                     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01)),
+                                bias_regularizer=l2(0.01), activation=None, recurrent_dropout=0.5),
                     BatchNormalization(),
                     Dropout(0.5),
                     LeakyReLU(0.2),
                     LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01)),
+                                bias_regularizer=l2(0.01), activation=None, recurrent_dropout=0.5),
                     LeakyReLU(0.2),
                     Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01))
-
                 ])
             else:
                 self.model = tf.keras.Sequential([
-                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True),
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None, recurrent_dropout=0.5),
                     BatchNormalization(),
-                    Dropout(0.5),
                     LeakyReLU(0.2),
-                    LSTM(hidden_size, return_sequences=False),
+                    Dropout(0.5),
+                    LSTM(hidden_size, return_sequences=False, activation=None, recurrent_dropout=0.5),
                     LeakyReLU(0.2),
                     Dense(action_size, activation='linear')
                 ])
@@ -73,21 +72,21 @@ class QNetwork:
             if ENABLE_L2_LEGURALIZER:
                 self.model.add(
                     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01)))
+                                bias_regularizer=l2(0.01), activation=None, recurrent_dropout=0.5))
                 self.model.add(BatchNormalization())
-                self.model.add(Dropout(0.5))
                 self.model.add(LeakyReLU(0.2))
+                self.model.add(Dropout(0.5))
                 self.model.add(LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01)))
+                                bias_regularizer=l2(0.01), activation=None))
                 self.model.add(LeakyReLU(0.2))
                 self.model.add(Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01)))
             else:
                 self.model.add(
-                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True))
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, recurrent_dropout=0.5))
                 self.model.add(BatchNormalization())
-                self.model.add(Dropout(0.5))
                 self.model.add(LeakyReLU(0.2))
-                self.model.add(LSTM(hidden_size, return_sequences=False))
+                self.model.add(Dropout(0.5))
+                self.model.add(LSTM(hidden_size, return_sequences=False, recurrent_dropout=0.5))
                 self.model.add(LeakyReLU(0.2))
                 self.model.add(
                     Dense(action_size, activation='linear'))
@@ -380,8 +379,8 @@ class Actor:
             else:
                 # ランダムに行動する
                 # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
-                #action = np.random.choice([0, 1, 2])
-                action = np.random.choice([0, 2])
+                action = np.random.choice([0, 1, 2])
+                #action = np.random.choice([0, 2])
 
             return action
 
