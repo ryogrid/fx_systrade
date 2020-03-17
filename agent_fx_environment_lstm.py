@@ -773,7 +773,7 @@ class PortforioManager:
             if position[1] == self.LONG:
                 # 売った際に得られる現金で評価
                 total_evaluated_money += position[2] * (cur_price_no_spread - self.half_spread)
-            elif position[1] == self.SHORT: # DONOT用のダミーポジション
+            elif position[1] == self.SHORT or (position[1] == self.NOT_HAVE and IS_BUY_SELL_MODE):
                 # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
                 # 1)まず損益を求める
                 diff = position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
