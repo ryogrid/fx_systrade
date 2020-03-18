@@ -425,7 +425,7 @@ if IS_PREDICT_BUY_DONOT_ONLY_MODE:
 else:
     nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-HODABLE_POSITIONS = 30 #100 #30 # 100
+HODABLE_POSITIONS = 100 #30 #100 #30 # 100
 BACKTEST_ITR_PERIOD = 30
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
