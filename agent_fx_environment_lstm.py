@@ -508,7 +508,8 @@ class FXEnvironment:
             elif action == "DONOT":
                 reward = 0
 
-                if self.portfolio_mngr.additonal_donot_dummy_pos_openable():
+                if (self.portfolio_mngr.additonal_donot_dummy_pos_openable() and IS_BUY_SELL_MODE == False)\
+                        or (self.portfolio_mngr.portfolio_mngr.additional_pos_openable() and IS_BUY_SELL_MODE == True):
                     # おおむねSELLと同様にrewardが計算されるDONOT用のダミーポジションをオープンする
                     self.portfolio_mngr.donot(cur_episode_rate_idx)
                     self.positions_identifiers.append(cur_step_identifier)
