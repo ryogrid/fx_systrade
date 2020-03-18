@@ -321,6 +321,14 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
                                            angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True)
+        if(type_str == "auto_backtest"):
+            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
+                                           self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
+                                           angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
+        if(type_str == "auto_backtest_test"):
+            return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
+                                           0, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
+                                           angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            0, idx_step = 1, holdable_positions = self.holdable_positions, #idx_step=self.PREDICT_FUTURE_LEGS,
@@ -331,7 +339,7 @@ class FXEnvironment:
                                            angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False, is_auto_backtest=False):
             self.NOT_HAVE = 2
             self.LONG = 0
             self.SHORT = 1
@@ -344,11 +352,21 @@ class FXEnvironment:
             self.time_series = time_series
             self.cur_idx = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
             self.idx_geta = idx_geta
-            self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode = "w")
+            self.is_backtest = is_backtest
+            self.is_auto_backtest = is_auto_backtest
+
+            if self.is_backtest and self.is_auto_backtest:
+                self.log_fd_bt = open("./auto_backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".csv", mode = "w")
+            elif self.is_backtest:
+                self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode="w")
+            else:
+                self.log_fd_bt = open("./learning_trade_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt",
+                                      mode="w")
+
             self.start = time.time()
             self.idx_step = 1
             self.idx_real_step = 1
-            self.is_backtest = is_backtest
+
 
             self.done = False
             self.positions_identifiers = []
@@ -370,70 +388,12 @@ class FXEnvironment:
             self.additional_infos = []
             self.reward_gamma = reward_gamma
 
-            # self.input_arr の要素をstateとして返したあと、次の回でactionがとられた時のwon_pipsを記録しておく
-            # input_arrと同じ要素数のリストとして初期化しておく
-            self.won_pips_to_calculate_sratio = [0.0] * len(input_arr)
-
-            self.base3_max_float = float(int("".join(["2"] * (self.performance_eval_len - 1)), 3))
-
-        def get_last_actions_encoded(self):
-            # # 厳密にエンコードする. その代わりNNの入力がすごく増える
-            # ret_list = []
-            # if self.cur_idx < self.performance_eval_len:
-            #     for idx in range(self.performance_eval_len - 1):
-            #         # 全てDONOTにする
-            #         ret_list.append(0)
-            #         ret_list.append(0)
-            #         ret_list.append(1)
-            # else:
-            #     actions_length = len(self.actions_log)
-            #     start = actions_length - (self.performance_eval_len - 1)
-            #     end = actions_length
-            #     for idx in range(start, end):
-            #         val = self.actions_log[idx]
-            #         if val == 0: #BUY
-            #             ret_list.append(1)
-            #             ret_list.append(0)
-            #             ret_list.append(0)
-            #         elif val == 1: #CLOSE
-            #             ret_list.append(0)
-            #             ret_list.append(1)
-            #             ret_list.append(0)
-            #         else: # 2 DONOT
-            #             ret_list.append(0)
-            #             ret_list.append(0)
-            #             ret_list.append(1)
-            #
-            # return ret_list
-
-            # 1つのスカラにエンコードする
-            if self.cur_idx < self.performance_eval_len:
-                #return [0] * (self.performance_eval_len - 1)
-                return [0.0]
-            else:
-                actions_length = len(self.actions_log)
-                start = actions_length - (self.performance_eval_len - 1)
-                end = actions_length
-                action_list = [str(self.actions_log[ii]) for ii in range(start, end)]
-                # 数値化した時に現時点に近いアクションの方が大きな値にエンコードされるよう、逆順にする
-                reverse_action_list = reversed(action_list)
-                # 3進数と見なしてint化し1をMaxに正規化する
-                return [int("".join(reverse_action_list), 3) / self.base3_max_float]
-
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
 
         def logfile_writeln_bt(self, log_str):
             self.log_fd_bt.write(log_str + "\n")
             self.log_fd_bt.flush()
-
-        def get_recent_rewards_sum(self, episode_idx):
-            if self.cur_idx < self.performance_eval_len:
-                return 0
-            else:
-                calc_list = self.won_pips_to_calculate_sratio[episode_idx - self.performance_eval_len + 1:episode_idx + 1]
-                return sum(calc_list)
-                #return sum(calc_list) / (np.std(np.array(calc_list)) + 0.00001)
 
         def close_all(self, cur_episode_rate_idx):
             won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
@@ -509,7 +469,7 @@ class FXEnvironment:
                 reward = 0
 
                 if (self.portfolio_mngr.additonal_donot_dummy_pos_openable() and IS_BUY_SELL_MODE == False)\
-                        or (self.portfolio_mngr.portfolio_mngr.additional_pos_openable() and IS_BUY_SELL_MODE == True):
+                        or (self.portfolio_mngr.additional_pos_openable() and IS_BUY_SELL_MODE == True):
                     # おおむねSELLと同様にrewardが計算されるDONOT用のダミーポジションをオープンする
                     self.portfolio_mngr.donot(cur_episode_rate_idx)
                     self.positions_identifiers.append(cur_step_identifier)
@@ -543,7 +503,14 @@ class FXEnvironment:
 
             a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)) +\
                               "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(self.portfolio_mngr.get_nomal_position_num())
-            self.logfile_writeln_bt(a_log_str_line)
+
+
+            if self.is_auto_backtest:
+            #自動バックテストの際は、CLOSEのアクションの内容だけ出力させる
+                if action == "CLOSE":
+                    self.logfile_writeln_bt(a_log_str_line)
+            else:
+                self.logfile_writeln_bt(a_log_str_line)
 
             self.cur_idx += self.idx_real_step #self.idx_step
             if (self.idx_geta + self.cur_idx) >= len(self.input_arr):
@@ -559,9 +526,10 @@ class FXEnvironment:
             else:
                 # valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
                 # has_position = 1 if valuated_diff == 0 else 1
-                if len(self.positions_identifiers) >= self.holdable_positions * 2 \
-                        or self.portfolio_mngr.additional_pos_openable() == False \
-                        or self.portfolio_mngr.additonal_donot_dummy_pos_openable() == False:
+                if (len(self.positions_identifiers) >= self.holdable_positions * 2 and IS_BUY_SELL_MODE == False)\
+                    or (len(self.positions_identifiers) >= self.holdable_positions and IS_BUY_SELL_MODE == True)\
+                    or self.portfolio_mngr.additional_pos_openable() == False \
+                    or self.portfolio_mngr.additonal_donot_dummy_pos_openable() == False:
                     needclose = True
                 else:
                     needclose = False
@@ -724,7 +692,7 @@ class PortforioManager:
                 if IS_BUY_SELL_MODE:
                     won_pips, won_money, return_money = self.close_donot(position, rate_idx)
                 else:
-                    won_pips, won_money, return_money = self.close_donot(position, rate_idx)
+                    won_pips = self.close_donot(position, rate_idx)
 
             # 獲得pips, エピソードの1イテレーションの中でのインデックス（rateのidxである点に注意）, ポジションの種類
             # DONOT用のダミーポジションについても追加

@@ -46,23 +46,23 @@ class QNetwork:
             if ENABLE_L2_LEGURALIZER:
                 self.model = tf.keras.Sequential([
                     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01)), #, activation=None, recurrent_dropout=0.5),
+                                bias_regularizer=l2(0.01), activation=None), #, recurrent_dropout=0.5),
                     BatchNormalization(),
                     Dropout(0.5),
-                    #LeakyReLU(0.2),
+                    LeakyReLU(0.2),
                     LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01)), #activation=None, recurrent_dropout=0.5),
-                    #LeakyReLU(0.2),
+                                bias_regularizer=l2(0.01), activation=None), # , recurrent_dropout=0.5),
+                    LeakyReLU(0.2),
                     Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01))
                 ])
             else:
                 self.model = tf.keras.Sequential([
-                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True), # activation=None, recurrent_dropout=0.5),
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #recurrent_dropout=0.5),
                     BatchNormalization(),
-                    #LeakyReLU(0.2),
                     Dropout(0.5),
-                    LSTM(hidden_size, return_sequences=False), #activation=None, recurrent_dropout=0.5),
-                    #LeakyReLU(0.2),
+                    LeakyReLU(0.2),
+                    LSTM(hidden_size, return_sequences=False, activation=None), #recurrent_dropout=0.5),
+                    LeakyReLU(0.2),
                     Dense(action_size, activation='linear')
                 ])
             self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
@@ -72,21 +72,21 @@ class QNetwork:
             if ENABLE_L2_LEGURALIZER:
                 self.model.add(
                     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01),
-                                bias_regularizer=l2(0.01))) #activation=None, recurrent_dropout=0.5))
+                                bias_regularizer=l2(0.01), activation=None)) #, recurrent_dropout=0.5))
                 self.model.add(BatchNormalization())
-                #self.model.add(LeakyReLU(0.2))
                 self.model.add(Dropout(0.5))
-                self.model.add(LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01), bias_regularizer=l2(0.01))) #, activation=None,  recurrent_dropout=0.5))
-                #self.model.add(LeakyReLU(0.2))
+                self.model.add(LeakyReLU(0.2))
+                self.model.add(LSTM(hidden_size, return_sequences=False, kernel_regularizer=l2(0.01), recurrent_regularizer=l2(0.01), bias_regularizer=l2(0.01), activation=None)) #,  recurrent_dropout=0.5))
+                self.model.add(LeakyReLU(0.2))
                 self.model.add(Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01)))
             else:
                 self.model.add(
-                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True)) #, activation=None, recurrent_dropout=0.5))
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None)) #, recurrent_dropout=0.5))
                 self.model.add(BatchNormalization())
-                #self.model.add(LeakyReLU(0.2))
                 self.model.add(Dropout(0.5))
-                self.model.add(LSTM(hidden_size, return_sequences=False)) #, activation=None, recurrent_dropout=0.5))
-                #self.model.add(LeakyReLU(0.2))
+                self.model.add(LeakyReLU(0.2))
+                self.model.add(LSTM(hidden_size, return_sequences=False, activation=None)) #, recurrent_dropout=0.5))
+                self.model.add(LeakyReLU(0.2))
                 self.model.add(
                     Dense(action_size, activation='linear'))
 
@@ -300,7 +300,7 @@ class Actor:
         self.init_selected_action_q()
 
     def init_selected_action_q(self):
-        self.pre_selected_action_q = deque([], maxlen=(holdable_positions * 2 + 10))
+        self.pre_selected_action_q = deque([], maxlen=(HODABLE_POSITIONS * 2 + 10))
 
     def generate_pre_selected_actions(self, q_network, generate_num, experienced_episodes, episode_idx, state_arr):
         generated_action_arr = [-1] * generate_num
@@ -356,7 +356,7 @@ class Actor:
                 return action
             except:
                 #生成しておいたアクションが無くなったので再生成する
-                generate_action_num = min([holdable_positions - buy_num, holdable_positions - donot_num])
+                generate_action_num = min([HODABLE_POSITIONS - buy_num, HODABLE_POSITIONS - donot_num])
                 print("generate_action_num:" + str(generate_action_num))
                 # アクションを生成しておく
                 self.generate_pre_selected_actions(mainQN, generate_action_num, experienced_episodes, episode_idx, state_arr)
@@ -389,7 +389,7 @@ class Actor:
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.0004 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+learning_rate = 0.0008 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
 time_series = 32 #64 #32 #64 #32
 batch_size = 256 #1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
@@ -400,7 +400,8 @@ memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2)
 feature_num = 9 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
 nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-holdable_positions = 30 #30 #100 #30 # 100
+HODABLE_POSITIONS = 100 #30 #100 #30 # 100
+BACKTEST_ITR_PERIOD = 30
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
 # 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
@@ -416,7 +417,7 @@ all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
 def tarin_agent():
     global all_period_reward_arr
 
-    env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
+    env_master = FXEnvironment(time_series=time_series, holdable_positions=HODABLE_POSITIONS)
     # [5.2]Qネットワークとメモリ、Actorの生成--------------------------------------------------------
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     # mainQN_GPU = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num,
@@ -453,6 +454,12 @@ def tarin_agent():
     #######################################################
 
     for cur_itr in range(iteration_num):
+        # 定期的にバックテストを行い評価できるようにしておく（CSVを吐く）
+        if cur_itr % BACKTEST_ITR_PERIOD == 0 and cur_itr != 0:
+            run_backtest("auto_backtest")
+            run_backtest("auto_backtest_test")
+            continue
+
         env = env_master.get_env('train')
         #action = np.random.choice([0, 1, 2])
         action = np.random.choice([0, 2])
@@ -524,7 +531,7 @@ def tarin_agent():
                     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
                     # 時間割引の考え方を導入して平均をとる
                     update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
-                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(action) + " update_val=" + str(update_val))
+                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(keyval[3]) + " update_val=" + str(update_val))
 
                     memory_hash[keyval[0]][2] = update_val
 
@@ -559,7 +566,7 @@ def tarin_agent():
         buy_num = donot_num = 0
 
 def run_backtest(backtest_type):
-    env_master = FXEnvironment(time_series=time_series, holdable_positions=holdable_positions)
+    env_master = FXEnvironment(time_series=time_series, holdable_positions=HODABLE_POSITIONS)
     env = env_master.get_env(backtest_type)
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
 
@@ -567,7 +574,8 @@ def run_backtest(backtest_type):
     mainQN = QNetwork(learning_rate=learning_rate, time_series=time_series)     # メインのQネットワーク
     actor = Actor()
 
-    mainQN.load_model("mainQN")
+    if not (backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test"):
+        mainQN.load_model("mainQN")
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)
