@@ -399,8 +399,6 @@ class FXEnvironment:
             won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
 
             for idx in range(0, len(self.positions_identifiers)):
-                # won_pipsを記録しておく（過去のepisodeも含めた獲得pips総計等を計算する前に）
-                self.won_pips_to_calculate_sratio[each_pos_won[idx][1] - self.idx_geta] = each_pos_won[idx][0]
                 episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
                 # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時のイテレーション上のインデックス,ポジションの種類
                 self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])

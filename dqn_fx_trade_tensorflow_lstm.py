@@ -8,6 +8,7 @@ IS_TF_STYLE = True #True #False
 USE_TENSOR_BOARD = False
 ENABLE_PRE_EXCUTION_OF_PREDICT = False
 ENABLE_L2_LEGURALIZER = False
+IS_PREDICT_BUY_DONOT_ONLY_MODE = True
 
 import numpy as np
 import tensorflow as tf
@@ -138,9 +139,13 @@ class QNetwork:
                 # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
                 # 全て設定する
                 # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
-                targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
-                targets[all_sample_cnt][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
-                targets[all_sample_cnt][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+                if IS_PREDICT_BUY_DONOT_ONLY_MODE:
+                    targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+                    targets[all_sample_cnt][0][1] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
+                else:
+                    targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+                    targets[all_sample_cnt][0][1] = -100.0  # CLOSEのrewardは必ず-100.0
+                    targets[all_sample_cnt][0][2] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
 
                 all_sample_cnt += 1
 
@@ -353,7 +358,6 @@ class Actor:
             action = -1
             try:
                 action = self.pre_selected_action_q.pop()
-                return action
             except:
                 #生成しておいたアクションが無くなったので再生成する
                 generate_action_num = min([HODABLE_POSITIONS - buy_num, HODABLE_POSITIONS - donot_num])
@@ -362,7 +366,13 @@ class Actor:
                 self.generate_pre_selected_actions(mainQN, generate_action_num, experienced_episodes, episode_idx, state_arr)
 
                 action = self.pre_selected_action_q.pop()
-                return action
+                if IS_PREDICT_BUY_DONOT_ONLY_MODE:
+                    # このモードではCLOSEをpredictさせず、BUYとDONOTの報酬のみ扱う
+                    # 従って、0, 1 が返ってくるが、 0, 2 の値を返す必要がある
+                    # 以下はそのためのつじつま合わせ
+                    action = 2* action
+
+            return action
 
         else: #通常モード
             # 徐々に最適行動のみをとる、ε-greedy法
@@ -375,6 +385,11 @@ class Actor:
                 retTargetQs = mainQN.model.predict(reshaped_state)
                 print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
                 action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+                if IS_PREDICT_BUY_DONOT_ONLY_MODE:
+                    # このモードではCLOSEをpredictさせず、BUYとDONOTの報酬のみ扱う
+                    # 従って、0, 1 が返ってくるが、 0, 2 の値を返す必要がある
+                    # 以下はそのためのつじつま合わせ
+                    action = 2* action
             else:
                 # ランダムに行動する
                 # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
@@ -398,9 +413,12 @@ iteration_num = 5000 #720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で8
 #memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 memory_size = TRAIN_DATA_NUM * 2 + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
 feature_num = 9 #10 + 1 #10 + 9*3 #10 #11 #10 #11 #10 #11
-nn_output_size = 3
+if IS_PREDICT_BUY_DONOT_ONLY_MODE:
+    nn_output_size = 2
+else:
+    nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-HODABLE_POSITIONS = 100 #30 #100 #30 # 100
+HODABLE_POSITIONS = 100 #30 # 100
 BACKTEST_ITR_PERIOD = 30
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
