@@ -456,8 +456,8 @@ def tarin_agent():
     for cur_itr in range(iteration_num):
         # 定期的にバックテストを行い評価できるようにしておく（CSVを吐く）
         if cur_itr % BACKTEST_ITR_PERIOD == 0 and cur_itr != 0:
-            run_backtest("auto_backtest")
-            run_backtest("auto_backtest_test")
+            run_backtest("auto_backtest", learingQN=mainQN)
+            run_backtest("auto_backtest_test", learingQN=mainQN)
             continue
 
         env = env_master.get_env('train')
