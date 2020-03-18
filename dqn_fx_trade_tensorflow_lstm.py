@@ -565,7 +565,7 @@ def tarin_agent():
         # 次週ではリセット
         buy_num = donot_num = 0
 
-def run_backtest(backtest_type):
+def run_backtest(backtest_type, learingQN=None):
     env_master = FXEnvironment(time_series=time_series, holdable_positions=HODABLE_POSITIONS)
     env = env_master.get_env(backtest_type)
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
@@ -574,7 +574,9 @@ def run_backtest(backtest_type):
     mainQN = QNetwork(learning_rate=learning_rate, time_series=time_series)     # メインのQネットワーク
     actor = Actor()
 
-    if not (backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test"):
+    if backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test":
+        mainQN = learingQN
+    else:
         mainQN.load_model("mainQN")
 
     # DONOT でスタート
