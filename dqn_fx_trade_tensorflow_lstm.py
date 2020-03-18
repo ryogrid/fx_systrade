@@ -320,10 +320,17 @@ class Actor:
                 states_to_predict.append(state_arr[episode_idx_conved_to_sate_idx - time_series + 1:episode_idx_conved_to_sate_idx + 1])
                 generated_action_arr[idx] = None
             else:
-                # ランダムに行動する
-                # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
-                action = np.random.choice([0, 2])
-                generated_action_arr[idx] = action
+                if IS_PREDICT_BUY_DONOT_ONLY_MODE:
+                    # ランダムに行動する
+                    # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
+                    # (PREDICT_BY_DNOT_ONLY_MODEでは、 DONOTがpredictの結果としては1として返ることを想定している）
+                    action = np.random.choice([0, 1])
+                    generated_action_arr[idx] = action
+                else:
+                    # ランダムに行動する
+                    # 現在の実装ではagentが自発的にCLOSEを選択することはないので、BUYかDONOTの2つからランダム選択する
+                    action = np.random.choice([0, 2])
+                    generated_action_arr[idx] = action
 
         # generated_action_arrのNoneになっている要素をpredictして値を埋める
 
@@ -418,7 +425,7 @@ if IS_PREDICT_BUY_DONOT_ONLY_MODE:
 else:
     nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-HODABLE_POSITIONS = 100 #30 # 100
+HODABLE_POSITIONS = 30 #100 #30 # 100
 BACKTEST_ITR_PERIOD = 30
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
