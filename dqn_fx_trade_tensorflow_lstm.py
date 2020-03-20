@@ -57,11 +57,12 @@ class QNetwork:
                     Dense(action_size, activation='linear', kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01))
                 ])
             else:
+                # 面倒なので動かすルートだけ、DropoutとBatchNormalizationの位置変えの修正を入れる（0320-1013）
                 self.model = tf.keras.Sequential([
                     LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #recurrent_dropout=0.5),
+                    LeakyReLU(0.2),
                     BatchNormalization(),
                     Dropout(0.5),
-                    LeakyReLU(0.2),
                     LSTM(hidden_size, return_sequences=False, activation=None), #recurrent_dropout=0.5),
                     LeakyReLU(0.2),
                     Dense(action_size, activation='linear')
@@ -411,10 +412,10 @@ class Actor:
 # ---
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
-learning_rate = 0.0008 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 32 #64 #32 #64 #32
+learning_rate = 0.0004 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
+time_series = 64 #32 #64 #32
 batch_size = 256 #1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
-TRAIN_DATA_NUM = 36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
+TRAIN_DATA_NUM = 72000 - time_series #36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 iteration_num = 5000 #720 # <- 劇的に減らす(1足あたり 16 * 1 * 50 で800回のfitが行われる計算) #720 #20
 #memory_size = TRAIN_DATA_NUM * iteration_num + 10 #TRAIN_DATA_NUM * int(iteration_num * 0.2) # 全体の20%は収まるサイズ. つまり終盤は最新の当該割合に対応するエピソードのみreplayする #10000
@@ -425,7 +426,7 @@ if IS_PREDICT_BUY_DONOT_ONLY_MODE:
 else:
     nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
-HODABLE_POSITIONS = 100 #30 #100 #30 # 100
+HODABLE_POSITIONS = 100 #30 # 100
 BACKTEST_ITR_PERIOD = 30
 
 # イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
