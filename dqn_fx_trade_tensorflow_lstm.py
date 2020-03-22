@@ -58,12 +58,11 @@ class QNetwork:
                 ])
             else:
                 self.model = tf.keras.Sequential([
-                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #recurrent_dropout=0.5),
-#                    BatchNormalization(),
-                    Dropout(0.5),
-                    LeakyReLU(0.2),
-                    LSTM(hidden_size, return_sequences=False, activation=None), #recurrent_dropout=0.5),
+                    LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True), #activation=None), #recurrent_dropout=0.5),
                     BatchNormalization(),
+                    LeakyReLU(0.2),
+                    Dropout(0.5),
+                    LSTM(hidden_size, return_sequences=False), # activation=None), #recurrent_dropout=0.5),
                     LeakyReLU(0.2),
                     Dense(action_size, activation='linear')
                 ])
@@ -413,7 +412,7 @@ class Actor:
 #gamma = 0.95 # <- 今の実装では利用されていない #0.99 #0.3 # #0.99 #0.3 #0.99  # 割引係数
 hidden_size = 64 #32 #24 #50 #28 #80 #28 #50 # <- 50層だとバッチサイズ=32のepoch=1で1エピソード約3時間かかっていた # Q-networkの隠れ層のニューロンの数
 learning_rate = 0.0004 #0.0016 #0.0001 #0.01 #0.001 #0.01 #0.0005 # 0.0005 #0.0001 #0.005 #0.01 # 0.05 #0.001 #0.0001 # 0.00001         # Q-networkの学習係数
-time_series = 64 #32 #64 #32
+time_series = 32 #64 #32 #64 #32
 batch_size = 256 #1024 #64 #8 #64 #8 #1 #64 #16 #32 #16 #32 #64 # 32  # Q-networkを更新するバッチの大きさ
 TRAIN_DATA_NUM = 36000 - time_series # <- 10分足で1年  #12000 - time_series # <- 30分足で1年 #72000 - time_series #36000 - time_series # 1000 - time_series #テストデータでうまくいくまで半年に減らす  #74651 # <- 検証中は期間を1年程度に減らす　223954 # 3years (test is 5 years)
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
