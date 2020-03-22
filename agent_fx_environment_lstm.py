@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from collections import deque
 
 IS_BUY_SELL_MODE = False #True #DONOTをSELLとして扱い実際に売買をする
+RATE_AND_DATE_STLIDE = int(30 / 5) # 30分足
 
 class FXEnvironment:
     def __init__(self, time_series=32, holdable_positions=100):
@@ -22,7 +23,7 @@ class FXEnvironment:
         self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
         self.PREDICT_FUTURE_LEGS = 5
         self.COMPETITION_DIV = True
-        self.COMPETITION_TRAIN_DATA_NUM =  72000 #36000 # 1000 # テスト期間でうまく動くまでは半年まで減らす #74651 # <- 検証中は期間を1年程度に減らす # 223954 # 3years (test is 5 years)
+        self.COMPETITION_TRAIN_DATA_NUM =  12000 # <- 30分足で1年 #72000 #36000 # 1000 # テスト期間でうまく動くまでは半年まで減らす #74651 # <- 検証中は期間を1年程度に減らす # 223954 # 3years (test is 5 years)
 
         self.TRAINDATA_DIV = 2
         self.CHART_TYPE_JDG_LEN = 25
@@ -290,6 +291,9 @@ class FXEnvironment:
                     val = float(splited[1])
                     self.exchange_dates.append(time)
                     self.exchange_rates.append(val)
+            # 足の長さを調節する
+            self.exchange_dates = self.exchange_dates[::RATE_AND_DATE_STLIDE]
+            self.exchange_rates = self.exchange_rates[::RATE_AND_DATE_STLIDE]
             with open("./exchange_rates.pickle", 'wb') as f:
                 pickle.dump(self.exchange_rates, f)
             with open("./exchange_dates.pickle", 'wb') as f:
