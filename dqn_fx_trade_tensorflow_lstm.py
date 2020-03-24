@@ -131,7 +131,7 @@ class QNetwork:
                 # agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
 
                 # 正解の方を求めて出力
-                self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(episode_idx + idx)
+                self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(((episode_idx + 1) - batch_size) + idx)
                 base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
 
                 print("reward_b: collect residual -> " + str(base_data_residual))
