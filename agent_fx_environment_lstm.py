@@ -19,7 +19,7 @@ class FXEnvironment:
     def __init__(self, time_series=32, holdable_positions=100):
         print("FXEnvironment class constructor called.")
         self.INPUT_LEN = 1
-        self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
+        # self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
         self.PREDICT_FUTURE_LEGS = 5
         self.COMPETITION_DIV = True
         self.COMPETITION_TRAIN_DATA_NUM =  72000 #36000 # 1000 # テスト期間でうまく動くまでは半年まで減らす #74651 # <- 検証中は期間を1年程度に減らす # 223954 # 3years (test is 5 years)
@@ -302,7 +302,7 @@ class FXEnvironment:
                 all_angle_mat = pickle.load(f)
         else:
             all_input_mat, all_angle_mat = \
-                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS, './all_input_mat.pickle', './all_angle_mat.pickle')
+                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, 1, './all_input_mat.pickle', './all_angle_mat.pickle')
 
         self.tr_input_arr = all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
         self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
@@ -327,11 +327,11 @@ class FXEnvironment:
                                            angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
         if(type_str == "auto_backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           0, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
+                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
                                            angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           0, idx_step = 1, holdable_positions = self.holdable_positions, #idx_step=self.PREDICT_FUTURE_LEGS,
+                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, idx_step = 1, holdable_positions = self.holdable_positions, #idx_step=self.PREDICT_FUTURE_LEGS,
                                            angle_arr=self.tr_angle_arr, time_series = self.time_series, is_backtest=True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
