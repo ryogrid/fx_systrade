@@ -557,7 +557,7 @@ def tarin_agent():
                     # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
                     # 時間割引の考え方を導入して平均をとる
                     update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * gamma_at_reward_mean) + keyval[1]) / current_itr_num
-                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " action=" + str(keyval[3]) + " update_val=" + str(update_val))
+                    print("update_reward: cur_itr=" + str(cur_itr) + " episode=" + str(episode) + " update_idx=" + str(keyval[2]) +  " action=" + str(keyval[3]) + " update_val=" + str(update_val))
 
                     memory_hash[keyval[0]][2] = update_val
 
