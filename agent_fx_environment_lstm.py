@@ -403,6 +403,8 @@ class FXEnvironment:
             won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
 
             for idx in range(0, len(self.positions_identifiers)):
+                # 対象のエピソードが対応する  all_period_reward_arr のインデックスに対応させる
+                # 最小の値は time_series - 1 で良い
                 episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
                 # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時のイテレーション上のインデックス,ポジションの種類
                 self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])
