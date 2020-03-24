@@ -437,7 +437,7 @@ LONG = 0 #BUY
 SHORT = 1 #CLOSE
 NOT_HAVE = 2 #DONOT
 
-all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM)]
+all_period_reward_arr = [[0.0, -100.0, 0.0] for i in range(TRAIN_DATA_NUM + 100)]
 
 def tarin_agent():
     global all_period_reward_arr
