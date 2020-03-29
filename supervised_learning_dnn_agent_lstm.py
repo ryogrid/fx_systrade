@@ -29,7 +29,8 @@ class QNetwork:
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
 
         #self.loss_func = tf.keras.losses.Huber(delta=1.0)
-        self.loss_func = tf.keras.losses.SparseCategoricalCrossentropy()
+        #self.loss_func = tf.keras.losses.SparseCategoricalCrossentropy()
+        self.loss_func = "categorical_crossentropy"
 
         self.model = tf.keras.Sequential([
             LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None, kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
