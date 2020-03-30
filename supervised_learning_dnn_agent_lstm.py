@@ -115,7 +115,7 @@ class Actor:
 
 
 hidden_size = 64
-learning_rate = 0.0004
+learning_rate = 0.0001
 time_series = 64
 batch_size = 256
 TRAIN_DATA_NUM = 72000 # <- 5分足で1年 # 36000 - time_series # <- 10分足で1年
