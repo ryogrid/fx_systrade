@@ -41,13 +41,14 @@ class QNetwork:
             LSTM(hidden_size, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
             LeakyReLU(0.2),
             #PReLU(),
-            #BatchNormalization(),
+            BatchNormalization(),
             #Dropout(0.5),
             Dense(action_size, activation='softmax')
         ])
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         #self.model.compile(optimizer=self.optimizer, loss="sparse_categorical_crossentropy", metrics = ['accuracy'])
         self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
+        tf.random.set_seed(1337) # for reproductivity
         self.model.summary()
 
 
@@ -124,7 +125,7 @@ feature_num = 10
 nn_output_size = 2 #3
 HODABLE_POSITIONS = 100 #30
 predict_future_legs = 40
-epochs = 4000 #45 #15 #45 # 90 #400
+epochs = 4000 #259 #4000 #45 #15 #45 # 90 #400
 half_spread = 0.0015
 
 BUY = 0
@@ -208,7 +209,7 @@ def limit_gpu_memory_usage():
             print(e)
 
 if __name__ == '__main__':
-    np.random.seed(1337)  # for reproducibility
+    #np.random.seed(1337)  # for reproducibility
 
     # バックテストだけ行う際はGPUで predictすると遅いので搭載されてないものとして動作させる
     if sys.argv[1] == "train":
