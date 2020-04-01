@@ -48,7 +48,7 @@ class QNetwork:
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         #self.model.compile(optimizer=self.optimizer, loss="sparse_categorical_crossentropy", metrics = ['accuracy'])
         self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
-        tf.set_random_seed(1337) # for reproductivity
+        tf.random.set_seed(1337) # for reproductivity
         self.model.summary()
 
 
