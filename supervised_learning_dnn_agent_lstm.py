@@ -125,7 +125,7 @@ feature_num = 10
 nn_output_size = 2 #3
 HODABLE_POSITIONS = 100 #30
 predict_future_legs = 40
-epochs = 4000 #259 #4000 #45 #15 #45 # 90 #400
+epochs = 25 #4000 #259 #4000 #45 #15 #45 # 90 #400
 half_spread = 0.0015
 
 BUY = 0
