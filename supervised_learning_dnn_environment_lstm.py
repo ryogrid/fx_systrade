@@ -42,9 +42,10 @@ class FXEnvironment:
 
         self.setup_serialized_fx_data()
 
-    def preprocess_data(self, X):
-        scaler = StandardScaler()
-        scaler.fit(X)
+    def preprocess_data(self, X, scaler=None):
+        if scaler == None:
+            scaler = StandardScaler()
+            scaler.fit(X)
 
         X_T = scaler.transform(X)
         return X_T, scaler
@@ -271,7 +272,6 @@ class FXEnvironment:
                     angle_mat.append([0.0, 1.0])
 
         input_mat = np.array(input_mat, dtype=np.float64)
-        input_mat, _ = self.preprocess_data(input_mat)
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
         with open(y_arr_fpath, 'wb') as f:
@@ -316,9 +316,9 @@ class FXEnvironment:
             all_input_mat, all_angle_mat = \
                 self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.predict_future_legs, 1, './all_input_mat.pickle', './all_angle_mat.pickle')
 
-        self.tr_input_arr = all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
+        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
         self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
-        self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2]
+        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2], tr_scaler)
         self.ts_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2]
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
