@@ -264,12 +264,15 @@ class FXEnvironment:
                 # else:
                 #     # DONOT
                 #     angle_mat.append([0.0, 0.0, 1.0])
-                if diff > 0:
-                    # BUY
-                    angle_mat.append([1.0, 0.0])
-                else:
-                    # SELL
-                    angle_mat.append([0.0, 1.0])
+
+                # if diff > 0:
+                #     # BUY
+                #     angle_mat.append([1.0, 0.0])
+                # else:
+                #     # SELL
+                #     angle_mat.append([0.0, 1.0])
+
+                angle_mat.append([diff])
 
         input_mat = np.array(input_mat, dtype=np.float64)
         with open(x_arr_fpath, 'wb') as f:
