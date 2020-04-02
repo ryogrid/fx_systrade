@@ -47,7 +47,6 @@ class QNetwork:
         ])
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         #self.model.compile(optimizer=self.optimizer, loss="sparse_categorical_crossentropy", metrics = ['accuracy'])
-        tf.random.set_seed(1337) # for reproductivity
         self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
         self.model.summary()
 
@@ -209,7 +208,10 @@ def limit_gpu_memory_usage():
             print(e)
 
 if __name__ == '__main__':
-    #np.random.seed(1337)  # for reproducibility
+    # for reproducibility
+    random.seed(1337)
+    np.random.seed(1337)
+    tf.random.set_seed(1337)
 
     # バックテストだけ行う際はGPUで predictすると遅いので搭載されてないものとして動作させる
     if sys.argv[1] == "train":
