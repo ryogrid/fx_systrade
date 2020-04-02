@@ -28,9 +28,9 @@ class QNetwork:
         #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
 
-        #self.loss_func = tf.keras.losses.Huber(delta=1.0)
+        self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = tf.keras.losses.SparseCategoricalCrossentropy()
-        self.loss_func = "categorical_crossentropy"
+        #self.loss_func = "categorical_crossentropy"
 
         self.model = tf.keras.Sequential([
             LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
@@ -106,8 +106,8 @@ class Actor:
 
         #ベストモデルを自動保存するようコールバックを設定
         snapshot_cbk = tf.keras.callbacks.ModelCheckpoint(
-            "./best_model", monitor='val_accuracy', verbose=1, save_best_only=True,
-            save_weights_only=False, mode='auto', save_freq='epoch'
+            "./best_model", monitor='val_loss', verbose=1, save_best_only=True,
+            save_weights_only=True, mode='min', save_freq='epoch'
         )
         cbks.append(snapshot_cbk)
 
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     random.seed(1337)
     np.random.seed(1337)
     tf.random.set_seed(1337)
-
+    #
     # バックテストだけ行う際はGPUで predictすると遅いので搭載されてないものとして動作させる
     if sys.argv[1] == "train":
         disable_gpu()
