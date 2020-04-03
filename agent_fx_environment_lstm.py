@@ -334,7 +334,7 @@ class FXEnvironment:
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True)
-        elif(type_str == "backtest_test"):
+        elif(type_str == "auto_backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True, is_auto_backtest = True)
