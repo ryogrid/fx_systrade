@@ -104,13 +104,13 @@ class QNetwork:
                 # targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
                 # targets[all_sample_cnt][0][1] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
 
-                # BUYの値を基準にワンホットエンコーディングでラベルを設定する
-                if action_b == 0:
-                    targets[all_sample_cnt][0][0] = 1 if reward_b[0] >= 0 else 0 # 教師信号
-                    targets[all_sample_cnt][0][1] = 0 if reward_b[0] < 0 else 1  # 教師信号
+                bigger_pips_action = np.argmax(reward_b)
+                if bigger_pips_action == 0:
+                    targets[all_sample_cnt][0][0] = 1 # 教師信号
+                    targets[all_sample_cnt][0][1] = 0 # 教師信号
                 else: # 2 => DONOT
-                    targets[all_sample_cnt][0][0] = 0 if reward_b[2] < 0 else 1 # 教師信号
-                    targets[all_sample_cnt][0][1] = 1 if reward_b[2] >= 0 else 0  # 教師信号
+                    targets[all_sample_cnt][0][0] = 0 # 教師信号
+                    targets[all_sample_cnt][0][1] = 1 # 教師信号
 
                 all_sample_cnt += 1
 
