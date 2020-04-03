@@ -134,7 +134,7 @@ feature_num = 10
 nn_output_size = 1 #2 #3
 HODABLE_POSITIONS = 100 #30
 predict_future_legs = 40
-epochs = 4000 #25 #4000 #259 #4000 #45 #15 #45 # 90 #400
+epochs = 550 #4000 #25 #4000 #259 #4000 #45 #15 #45 # 90 #400
 half_spread = 0.0015
 
 BUY = 0
@@ -154,9 +154,9 @@ def tarin_agent():
     mainQN.save_model("mainQN")
 
 def run_backtest(backtest_type, learingQN=None):
-    close_position_episode_idx_arr = [[-1] for i in range(TRAIN_DATA_NUM)]
+    close_position_episode_idx_arr = [-1 for i in range(TRAIN_DATA_NUM)]
 
-    env_master = FXEnvironment(time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=0.0015)
+    env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=0.0015)
     env = env_master.get_env(backtest_type)
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
 
@@ -167,13 +167,13 @@ def run_backtest(backtest_type, learingQN=None):
     mainQN.load_model("mainQN")
 
     # DONOT でスタート
-    state, reward, done, info, needclose = env.step(0)
+    state, done = env.step(0)
     state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         if close_position_episode_idx_arr[episode] != -1:
             action = CLOSE
         else:
-            action = actor.get_action(state, episode, mainQN)   # 時刻tでの行動を決定する
+            action = actor.get_action(state, mainQN)   # 時刻tでの行動を決定する
             if action == BUY or action == SELL:
                 close_position_episode_idx_arr[episode + predict_future_legs] = 1
 
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     random.seed(1337)
     np.random.seed(1337)
     tf.random.set_seed(1337)
-    #
+
     # バックテストだけ行う際はGPUで predictすると遅いので搭載されてないものとして動作させる
     if sys.argv[1] == "train":
         disable_gpu()
