@@ -17,13 +17,13 @@ IS_BUY_SELL_MODE = False #True #DONOTをSELLとして扱い実際に売買をす
 RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 
 class FXEnvironment:
-    def __init__(self, time_series=32, holdable_positions=100):
+    def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015):
         print("FXEnvironment class constructor called.")
         self.INPUT_LEN = 1
         # self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
         self.PREDICT_FUTURE_LEGS = 5
         self.COMPETITION_DIV = True
-        self.COMPETITION_TRAIN_DATA_NUM = 72000 # <- 5分足で1年 # 36000 # <- 10分足で1年 72000 #72000 #36000 # 1000 # テスト期間でうまく動くまでは半年まで減らす #74651 # <- 検証中は期間を1年程度に減らす # 223954 # 3years (test is 5 years)
+        self.COMPETITION_TRAIN_DATA_NUM = train_data_num
 
         self.TRAINDATA_DIV = 2
         self.CHART_TYPE_JDG_LEN = 25
@@ -47,10 +47,12 @@ class FXEnvironment:
         self.holdable_positions  = holdable_positions
 
         self.setup_serialized_fx_data()
+        self.half_spread = half_spread
 
-    def preprocess_data(self, X):
-        scaler = StandardScaler()
-        scaler.fit(X)
+    def preprocess_data(self, X, scaler=None):
+        if scaler == None:
+            scaler = StandardScaler()
+            scaler.fit(X)
 
         X_T = scaler.transform(X)
         return X_T, scaler
@@ -252,9 +254,9 @@ class FXEnvironment:
                  #self.get_ema(self.exchange_rates, i),
                  #self.get_cci(self.exchange_rates, i),
                  self.get_mo(self.exchange_rates, i),
-                 self.get_vorarity(self.exchange_rates, i)#,
+                 self.get_vorarity(self.exchange_rates, i),
                  #self.get_macd(self.exchange_rates, i),
-                 #self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
+                 self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
                  ]
             )
 
@@ -263,7 +265,6 @@ class FXEnvironment:
                 angle_mat.append(tmp)
 
         input_mat = np.array(input_mat, dtype=np.float64)
-        input_mat, _ = self.preprocess_data(input_mat)
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
         with open(y_arr_fpath, 'wb') as f:
@@ -308,10 +309,10 @@ class FXEnvironment:
             all_input_mat, all_angle_mat = \
                 self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, 1, './all_input_mat.pickle', './all_angle_mat.pickle')
 
-        self.tr_input_arr = all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
+        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
         self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
-        #self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:]
-        self.ts_input_arr = all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2]
+        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2], tr_scaler)
+        self.ts_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2]
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
         print("num of rate datas for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
@@ -323,27 +324,27 @@ class FXEnvironment:
     def get_env(self, type_str):
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True)
+                                           self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           angle_arr=self.tr_angle_arr,  time_series = self.time_series, is_backtest=True)
         if(type_str == "auto_backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
-        if(type_str == "auto_backtest_test"):
-            return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, idx_step = 1, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, holdable_positions = self.holdable_positions, time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
+                                           self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           angle_arr=self.tr_angle_arr,  time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, idx_step = 1, holdable_positions = self.holdable_positions, #idx_step=self.PREDICT_FUTURE_LEGS,
-                                           angle_arr=self.tr_angle_arr, time_series = self.time_series, is_backtest=True)
+                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True)
+        elif(type_str == "backtest_test"):
+            return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
+                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, time_series = self.time_series, idx_step = 1, holdable_positions = self.holdable_positions,
+                                           self.DATA_HEAD_ASOBI, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, idx_step=5, angle_arr = None, half_spred=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest=False, is_auto_backtest=False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, angle_arr = None, half_spread=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest = False, is_auto_backtest = False):
             self.NOT_HAVE = 2
             self.LONG = 0
             self.SHORT = 1
@@ -352,7 +353,7 @@ class FXEnvironment:
             self.angle_arr = angle_arr
             self.exchange_dates = exchange_dates
             self.exchange_rates = exchange_rates
-            self.half_spread = half_spred
+            self.half_spread = half_spread
             self.time_series = time_series
             self.cur_idx = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
             self.idx_geta = idx_geta
@@ -369,7 +370,6 @@ class FXEnvironment:
 
             self.start = time.time()
             self.idx_step = 1
-            self.idx_real_step = 1
 
 
             self.done = False
@@ -516,7 +516,7 @@ class FXEnvironment:
             else:
                 self.logfile_writeln_bt(a_log_str_line)
 
-            self.cur_idx += self.idx_real_step #self.idx_step
+            self.cur_idx += self.idx_step
             if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
