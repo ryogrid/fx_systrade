@@ -337,8 +337,11 @@ def tarin_agent():
     for cur_itr in range(iteration_num):
         # 定期的にバックテストを行い評価できるようにしておく（CSVを吐く）
         if cur_itr % BACKTEST_ITR_PERIOD == 0 and cur_itr != 0:
-            run_backtest("auto_backtest", learingQN=mainQN)
-            run_backtest("auto_backtest_test", learingQN=mainQN)
+            # スナップショットをまずとる
+            mainQN.save_model("mainQN")
+            # auto backtest
+            run_backtest("auto_backtest")
+            run_backtest("auto_backtest_test")
             continue
 
         env = env_master.get_env('train')
@@ -349,15 +352,6 @@ def tarin_agent():
         state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state, info)
-
-        # スナップショットをとっておく
-        if cur_itr % 20 == 0 and cur_itr != 0:
-            mainQN.save_model("mainQN")
-            # memory.save_memory("memory")
-            # with open("./total_get_action_count.pickle", 'wb') as f:
-            #     pickle.dump(total_get_acton_cnt, f)
-            # with open("./all_period_reward_arr.pickle", 'wb') as f:
-            #     pickle.dump(all_period_reward_arr, f)
 
         # replay呼び出しに用いる（上ですでに一回行っているので1からスタート）
         total_episode_on_last_itr = 1
@@ -434,7 +428,7 @@ def run_backtest(backtest_type, learingQN=None):
     mainQN = QNetwork(learning_rate=learning_rate, time_series=time_series)     # メインのQネットワーク
     actor = Actor()
 
-    if backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test":
+    if (backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test") and learingQN != None:
         mainQN = learingQN
     else:
         mainQN.load_model("mainQN")
