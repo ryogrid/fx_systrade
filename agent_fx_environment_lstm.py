@@ -277,7 +277,7 @@ class FXEnvironment:
         self.exchange_dates = []
         self.exchange_rates = []
 
-        if os.path.exists("./exchange_rates.pickle"):
+        if False: #os.path.exists("./exchange_rates.pickle"):
             with open("./exchange_dates.pickle", 'rb') as f:
                 self.exchange_dates = pickle.load(f)
             with open("./exchange_rates.pickle", 'rb') as f:
@@ -300,7 +300,7 @@ class FXEnvironment:
             with open("./exchange_dates.pickle", 'wb') as f:
                 pickle.dump(self.exchange_dates, f)
 
-        if os.path.exists("./all_input_mat.pickle"):
+        if False: #os.path.exists("./all_input_mat.pickle"):
             with open('./all_input_mat.pickle', 'rb') as f:
                 all_input_mat = pickle.load(f)
             with open('./all_angle_mat.pickle', 'rb') as f:
