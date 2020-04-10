@@ -173,9 +173,7 @@ class FXEnvironment:
         train_end_idx = -1
         print("all rate and data size: " + str(len(self.exchange_rates)))
         for i in range(start_idx, end_idx, step):
-            if self.exchange_dates[i] == "2003-12-31 23:55:00":
-                train_end_idx = i
-            if i % 2000:
+            if i % 100 == 0:
                 print("current date idx: " + str(i))
             input_mat.append(
                 [self.exchange_rates[i],
@@ -187,7 +185,6 @@ class FXEnvironment:
         input_mat = np.array(input_mat, dtype=np.float64)
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
-        print("test data end index: " + str(train_end_idx))
 
         return input_mat, angle_mat
 
@@ -279,7 +276,7 @@ class FXEnvironment:
             elif self.is_backtest:
                 self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode="w")
             else:
-                self.log_fd_bt = open("./learning_trade_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt",
+                self.log_fd_bt = open("./learn_trade_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt",
                                       mode="w")
 
             self.start = time.time()

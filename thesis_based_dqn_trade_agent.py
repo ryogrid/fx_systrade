@@ -18,7 +18,7 @@ from tensorflow.keras.regularizers import l1, l2
 
 from collections import deque
 import pickle
-from agent_fx_environment_lstm import FXEnvironment
+from thesis_based_dqn_trade_environment import FXEnvironment
 import os
 import sys
 import random
