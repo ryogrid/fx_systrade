@@ -1,762 +1,443 @@
 # coding:utf-8
+# [0]必要なライブラリのインポート
+
+# this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
+# I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
+
+#IS_TF_STYLE = True #True #False
+USE_TENSOR_BOARD = False
+#ENABLE_PRE_EXCUTION_OF_PREDICT = False
+#ENABLE_L2_LEGURALIZER = False
+#IS_PREDICT_BUY_DONOT_ONLY_MODE = True
+
 import numpy as np
-import scipy.sparse
+import tensorflow as tf
+
+from tensorflow.keras.models import Sequential, model_from_json, Model, load_model, save_model
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
+from tensorflow.keras.optimizers import Adam, SGD
+from tensorflow.keras.regularizers import l1, l2
+#from tensorflow.keras.regularizers import l2
+
+from collections import deque
 import pickle
-import talib as ta
-from datetime import datetime as dt
-import pytz
+from agent_fx_environment_lstm import FXEnvironment
 import os
 import sys
-import sklearn
-import time
 import random
-from sklearn.preprocessing import StandardScaler
-from collections import deque
+import itertools
+import math
 
-IS_BUY_SELL_MODE = False #True  #DONOTをSELLとして扱い実際に売買をする
-RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
+# [2]Q関数をディープラーニングのネットワークをクラスとして定義
+class QNetwork:
+    def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
+        global all_period_reward_arr
 
-class FXEnvironment:
-    def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015):
-        print("FXEnvironment class constructor called.")
-        self.INPUT_LEN = 1
-        # self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
-        self.PREDICT_FUTURE_LEGS = 5
-        self.COMPETITION_DIV = True
-        self.COMPETITION_TRAIN_DATA_NUM = train_data_num
+        self.optimizer = Adam(lr=learning_rate, clipvalue=0.5)
+        #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
+        #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
+        #self.loss_func = tf.keras.losses.Huber(delta=1.0)
+        self.loss_func = "categorical_crossentropy"
 
-        self.TRAINDATA_DIV = 2
-        self.CHART_TYPE_JDG_LEN = 25
+        self.model = tf.keras.Sequential([
+            LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            LeakyReLU(0.2),
+            #PReLU(),
+            #BatchNormalization(),
+            #Dropout(0.5),
+            LSTM(hidden_size, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            LeakyReLU(0.2),
+            #PReLU(),
+            BatchNormalization(),
+            #Dropout(0.5),
+            Dense(action_size, activation='softmax')
+            #Dense(action_size, activation='linear')
+        ])
+        self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
+        self.model.summary()
 
-        self.VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
-        self.DATA_HEAD_ASOBI = 200
+        # # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
+        # self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000)
 
-        #self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "cci", "mo","vorariity", "macd", "chart_type"]
-        self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1",
-                              "bb_2", "cci", "mo", "vorariity"]
-        self.tr_input_arr = None
-        self.tr_angle_arr = None
-        self.val_input_arr = None
-        self.val_angle_arr = None
+        # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
+        self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM)
 
-        self.exchange_dates = None
-        self.exchange_rates = None
-        self.reverse_exchange_rates = None
+        # self.batch_datas_for_generator = []
 
-        self.time_series = time_series
-        self.holdable_positions  = holdable_positions
+    # 重みの学習
+    def replay(self, memory, time_series, targetQN, cur_episode_idx = 0, batch_num = 1):
+        inputs = np.zeros((batch_size * batch_num, time_series, feature_num))
+        targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
-        self.setup_serialized_fx_data()
-        self.half_spread = half_spread
+        all_sample_cnt = 0
+        episode_idx = batch_size - 1 # 1引いているのは後続のコードがゼロオリジンを想定しているため
+        if batch_num == 1:
+            episode_idx = cur_episode_idx
 
-    def preprocess_data(self, X, scaler=None):
-        if scaler == None:
-            scaler = StandardScaler()
-            scaler.fit(X)
+        for ii in range(batch_num):
+            mini_batch = memory.get_sequencial_samples(batch_size, (episode_idx + 1) - batch_size)
+            # rewardだけ別管理の平均値のリストに置き換える
+            mini_batch = memory.get_sequencial_converted_samples(mini_batch, (episode_idx + 1) - batch_size)
 
-        X_T = scaler.transform(X)
-        return X_T, scaler
+            for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
+                reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
+                inputs[all_sample_cnt] = reshaped_state
 
-    # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
-    def judge_chart_type(self, data_arr):
-        max_val = 0
-        min_val = float("inf")
+                # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
+                # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
+                # residual は 残差 の意
 
-        last_idx = len(data_arr)-1
+                # targets[all_sample_cnt] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
+                # self.buy_donot_diff_memory_predicted.add(abs(abs(targets[all_sample_cnt][0][0]) - abs(targets[all_sample_cnt][0][2])))
+                # agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
 
-        for idx in range(len(data_arr)):
-            if data_arr[idx] > max_val:
-                max_val = data_arr[idx]
-                max_idx = idx
+                # 正解の方を求めて出力
+                self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(((episode_idx + 1) - batch_size) + idx)
+                base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
 
-            if data_arr[idx] < min_val:
-                min_val = data_arr[idx]
-                min_idx = idx
+                print("reward_b: collect residual -> " + str(base_data_residual))
 
 
-        if max_val == min_val:
-            return 0
+                # # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
+                # # 全て設定する
+                # # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
+                # targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
+                # targets[all_sample_cnt][0][1] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
 
-        if min_idx == 0 and max_idx == last_idx:
-            return 1
+                bigger_pips_action = np.argmax(reward_b)
+                if bigger_pips_action == 0:
+                    targets[all_sample_cnt][0][0] = 1 # 教師信号
+                    targets[all_sample_cnt][0][1] = 0 # 教師信号
+                else: # 2 => DONOT
+                    targets[all_sample_cnt][0][0] = 0 # 教師信号
+                    targets[all_sample_cnt][0][1] = 1 # 教師信号
 
-        if max_idx == 0 and min_idx == last_idx:
-            return 2
+                all_sample_cnt += 1
 
-        if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
-            return 0
+            episode_idx += batch_size
 
-        if max_idx != 0 and max_idx != last_idx:
-            return 3
+        targets = np.array(targets)
+        inputs = np.array(inputs)
 
-        if min_idx != 0 and min_idx != last_idx:
-            return 4
+        inputs = inputs.reshape((batch_size * batch_num, time_series, feature_num))
+        targets = targets.reshape((batch_size * batch_num, nn_output_size))
 
-        return 0
+        cbks = []
+        if USE_TENSOR_BOARD:
+            # tensorboardのためのデータを記録するコールバック
+            callbacks = tf.keras.callbacks.TensorBoard(log_dir='logdir', histogram_freq=1,
+                                                    write_graph=True, write_grads=True, profile_batch=True)
+            cbks = [callbacks]
+        self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size, callbacks=cbks)
+        # self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
 
-    def get_rsi(self, price_arr, cur_pos, period = 40):
-        if cur_pos <= period:
-    #        s = 0
-            return 0
+    # def fit(self, inputs, targets, epochs=1, verbose=0, batch_size=32):
+    #     # config = tf.ConfigProto(
+    #     #     gpu_options=tf.GPUOptions(
+    #     #         visible_device_list="0",  # specify GPU number
+    #     #         allow_growth=True
+    #     #     )
+    #     # )
+    #     # sess = tf.Session(config=config)
+    #     # sess.run(tf.global_variables_initializer())
+    #
+    #     #with sess:
+    #     bat_per_epoch = math.floor(len(inputs) / batch_size)
+    #     for epoch in range(epochs):
+    #         for i in range(bat_per_epoch):
+    #             n = i * batch_size
+    #             self.fit_step(inputs[n:n + batch_size], targets[n:n + batch_size])
+    #
+    # # 入力データはバッチ単位で与えられる
+    # def fit_step(self, input, target, epochs=1, verbose=0, batch_size=32):
+    #     with tf.GradientTape() as tape:
+    #         predicted = self.model(input, training=True)
+    #         # # assertを入れて出力の型をチェックする。
+    #         # tf.debugging.assert_equal(logits.shape, (32, 10))
+    #         loss_value = self.loss_func(target, predicted)
+    #         print("loss: " + str(loss_value))
+    #
+    #     grads = tape.gradient(loss_value, self.model.trainable_variables)
+    #     self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+
+    def save_model(self, file_path_prefix_str):
+        save_model(self.model, "./" + file_path_prefix_str + ".hd5", save_format="h5")
+        # with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
+        #     f.write(self.model.to_json())
+        # self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
+
+    def load_model(self, file_path_prefix_str):
+        self.model = load_model("./" + file_path_prefix_str + ".hd5", compile=False)
+        # with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
+        #     self.model = model_from_json(f.read())
+        # self.model.compile(loss=huberloss, optimizer=self.optimizer)
+        # self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
+
+# replay に 利用するための キュー的なもの
+class Memory:
+    def __init__(self, initial_elements, max_size=1000):
+        self.max_size = max_size
+        self.buffer = deque(initial_elements, maxlen=max_size)
+
+    def add(self, experience):
+        self.buffer.append(experience)
+
+    # def sample(self, batch_size):
+    #     idx = np.random.choice(np.arange(len(self.buffer)), size=batch_size, replace=False)
+    #     return [self.buffer[ii] for ii in idx]
+
+    def get_last(self, num):
+        deque_length = len(self.buffer)
+        start = deque_length - num
+        end = deque_length
+        return [self.buffer[ii] for ii in range(start, end)]
+
+    # 呼び出し側がmemory内の適切なstart要素インデックスを計算して呼び出す
+    def get_sequencial_samples(self, batch_size, start_idx):
+        print(start_idx)
+        return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size)]
+
+    def sum(self):
+        return sum(list(self.buffer))
+
+    def get_mean_value(self):
+        return self.sum() / self.len()
+
+    def len(self):
+        return len(self.buffer)
+
+    def clear(self):
+        self.buffer = deque(maxlen=self.max_size)
+
+    def save_memory(self, file_path_prefix_str):
+        with open("./" + file_path_prefix_str + ".pickle", 'wb') as f:
+            pickle.dump(self.buffer, f)
+
+    def load_memory(self, file_path_prefix_str):
+        with open("./" + file_path_prefix_str + ".pickle", 'rb') as f:
+            self.buffer = pickle.load(f)
+
+# [4]カートの状態に応じて、行動を決定するクラス
+class Actor:
+    def __init__(self):
+        pass
+
+    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+        # 徐々に最適行動のみをとる、ε-greedy法
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+
+        # epsilonが小さい値の場合の方が最大報酬の行動が起こる
+        # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
+        if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
+            reshaped_state = np.reshape(state, [1, time_series, feature_num])
+            retTargetQs = mainQN.model.predict(reshaped_state)
+            print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
+            # TODO: 1出力の値を -1, 0, 1に 置き換える必要がある
+            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
         else:
-            s = cur_pos - (period + 1)
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
+            # ランダムに行動する
+            action = np.random.choice([-1, 0, 1])
 
-        return ta.RSI(prices, timeperiod = period)[-1]
+        return action
+
+# ---
+hidden_size = 64 #32
+learning_rate = 0.0001 #0.0016
+time_series = 64 #32
+batch_size = 64 #256 #1024
+TRAIN_DATA_NUM = 72000 # TODO: 日足の数に合わせる必要あり
+num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
+iteration_num = 5000 #720
+memory_size = TRAIN_DATA_NUM * 2 + 10
+feature_num = 3
+nn_output_size = 1
+TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
+HODABLE_POSITIONS = 1 #30
+BACKTEST_ITR_PERIOD = 30
+half_spread = 0.0015
+
+# イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
+# 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
+# 現在の実装では 1.0 とする
+gamma_at_reward_mean = 1.0
+# mean_pips_update_stop_itr = 90
+
+LONG = 0 #BUY
+SHORT = 1 #CLOSE
+NOT_HAVE = 2 #DONOT
+
+def tarin_agent():
+    env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread = half_spread)
+    mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
+    targetQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # Double DQNのためのネットワーク
 
 
-    #def get_ma(self, price_arr, cur_pos, period = 20):
-    def get_ma(self, price_arr, cur_pos, period=40):
-        if cur_pos <= period:
-            s = 0
+    memory = Memory([], max_size=memory_size)
+    actor = Actor()
+
+    total_get_acton_cnt = 1
+
+    # if os.path.exists("./mainQN_nw.json"):
+    if os.path.exists("./mainQN.hd5"):
+        mainQN.load_model("mainQN")
+        # memory.load_memory("memory")
+        # with open("./total_get_action_count.pickle", 'rb') as f:
+        #     total_get_acton_cnt = pickle.load(f)
+        # with open("./all_period_reward_arr.pickle", 'rb') as f:
+        #     all_period_reward_arr = pickle.load(f)
+
+    def store_episode_log_to_memory(state, action, reward, next_state):
+        nonlocal memory
+        # nonlocal state_x_action_hash
+        a_log = [state, action, reward, next_state]
+        memory.add(a_log)  # メモリを更新する
+
+    #######################################################
+
+    for cur_itr in range(iteration_num):
+        # 定期的にバックテストを行い評価できるようにしておく（CSVを吐く）
+        if cur_itr % BACKTEST_ITR_PERIOD == 0 and cur_itr != 0:
+            mainQN.save_model("mainQN")
+            run_backtest("auto_backtest", learingQN=mainQN, env_master=env_master)
+            run_backtest("auto_backtest_test", learingQN=mainQN, env_master=env_master)
+            continue
+
+        env = env_master.get_env('train')
+        #action = np.random.choice([0, 1, 2])
+        action = np.random.choice([0, 2])
+        state, reward, done = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
+        total_get_acton_cnt += 1
+        state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
+        # ここだけ 同じstateから同じstateに遷移したことにする
+        store_episode_log_to_memory(state, action, reward, state)
+
+        # replay呼び出しに用いる（上ですでに一回行っているので1からスタート）
+        total_episode_on_last_itr = 1
+
+        # Double DQNを実現するため
+        targetQN.model.set_weights(mainQN.model.get_weights())
+
+        for episode in range(num_episodes):  # 試行数分繰り返す
+            #with tf.device(tf.DeviceSpec(device_type="CPU", device_index=0)):
+            # フィードするデータを用意している間はGPUは利用せず、CPU（コア）も一つのみとして動作させる
+            total_get_acton_cnt += 1
+            total_episode_on_last_itr += 1
+
+            # 時刻tでの行動を決定する
+            action = actor.get_action(state, total_get_acton_cnt, mainQN)
+
+            next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+
+            # 環境が提供する期間が最後までいった場合
+            if done:
+                print(str(cur_itr) + ' training period finished.')
+                # next_stateは今は使っていないのでreshape等は不要
+                # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
+                store_episode_log_to_memory(state, action, reward, next_state, info)
+                break
+
+            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
+            store_episode_log_to_memory(state, action, reward, next_state)
+
+            state = next_state  # 状態更新
+
+            # TODO: 1000エピソードごとに行わないといけないはず（それでFixed DQNを実装したことになるはず）
+            # Qネットワークの重みを学習・更新する replay
+            # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
+            # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
+            if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
+                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode)
+
+        # # イテレーションの最後にまとめて複数ミニバッチでfitする
+        # # これにより、fitがコア並列やGPUで動作していた場合のオーバヘッド削減を狙う
+        # mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
+
+        # 次周では過去のmemoryは参照しない
+        memory.clear()
+
+def run_backtest(backtest_type, learingQN=None, env_master=None):
+    if env_master:
+        env_master_local = env_master
+    else:
+        env_master_local = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=half_spread)
+
+    env = env_master_local.get_env(backtest_type)
+    num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく
+
+    mainQN = QNetwork(learning_rate=learning_rate, time_series=time_series)     # メインのQネットワーク
+    actor = Actor()
+
+    mainQN.load_model("mainQN")
+    # if backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test":
+    #     mainQN = learingQN
+    # else:
+    #     mainQN.load_model("mainQN")
+
+    # DONOT でスタート
+    state, reward, done, info, needclose = env.step(0)
+    state = np.reshape(state, [time_series, feature_num])
+    for episode in range(num_episodes):   # 試行数分繰り返す
+        if needclose:
+            action = 1
         else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.SMA(prices, timeperiod = period)[-1]
-
-    def get_ma_kairi(self, price_arr, cur_pos, period = None):
-        ma = self.get_ma(price_arr, cur_pos)
-        return ((price_arr[cur_pos] - ma) / ma) * 100.0
-        return 0
-
-    def get_bb_1(self, price_arr, cur_pos, period = 40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.BBANDS(prices, timeperiod = period)[0][-1]
-
-    def get_bb_2(self, price_arr, cur_pos, period = 40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.BBANDS(prices, timeperiod = period)[2][-1]
-
-    # periodは移動平均を求める幅なので20程度で良いはず...
-    def get_ema(self, price_arr, cur_pos, period = 20):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.EMA(prices, timeperiod = period)[-1]
-
-
-    # def get_ema_rsi(price_arr, cur_pos, period = None):
-    #     return 0
-
-    # def get_cci(self, price_arr, cur_pos, period = None):
-    #     return 0
-
-    #def get_mo(self, price_arr, cur_pos, period = 20):
-    def get_mo(self, price_arr, cur_pos, period=40):
-        if cur_pos <= (period + 1):
-    #        s = 0
-            return 0
-        else:
-            s = cur_pos - (period + 1)
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.CMO(prices, timeperiod = period)[-1]
-
-    #def get_po(self, price_arr, cur_pos, period = 10):
-    def get_po(self, price_arr, cur_pos, period=40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.PPO(prices)[-1]
-
-    def get_vorarity(self, price_arr, cur_pos, period = None):
-        tmp_arr = []
-        prev = -1.0
-        for val in price_arr[cur_pos-self.CHART_TYPE_JDG_LEN:cur_pos]:
-            if prev == -1.0:
-                tmp_arr.append(0.0)
-            else:
-                tmp_arr.append(val - prev)
-            prev = val
-
-        return np.std(tmp_arr)
-
-    def get_macd(self, price_arr, cur_pos, period = 100):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        macd, macdsignal, macdhist = ta.MACD(prices,fastperiod=12, slowperiod=26, signalperiod=9)
-        if macd[-1] > macdsignal[-1]:
-            return 1
-        else:
-            return 0
-
-    # 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
-    # なお、本来は月曜朝5:00から取引できるのが一般的なようである
-    def is_weekend(self, date_str):
-        tz = pytz.timezone('Asia/Tokyo')
-        dstr = date_str.replace(".","-")
-        tdatetime = dt.strptime(dstr, '%Y-%m-%d %H:%M:%S')
-        tz_time = tz.localize(tdatetime)
-        gmt_plus2_tz = pytz.timezone('Etc/GMT+2')
-        gmt_plus2_time = tz_time.astimezone(gmt_plus2_tz)
-        week = gmt_plus2_time.weekday()
-        return (week == 5 or week == 6)
-
-    def logfile_writeln_with_fd(self, out_fd, log_str):
-        out_fd.write(log_str + "\n")
-        #out_fd.flush()
-
-    def make_serialized_data(self, start_idx, end_idx, step, x_arr_fpath, y_arr_fpath):
-        input_mat = []
-        angle_mat = []
-        train_end_idx = -1
-        print("all rate and data size: " + str(len(self.exchange_rates)))
-        for i in range(start_idx, end_idx, step):
-            if self.exchange_dates[i] == "2003-12-31 23:55:00":
-                train_end_idx = i
-            if i % 2000:
-                print("current date idx: " + str(i))
-            input_mat.append(
-                [self.exchange_rates[i],
-                 (self.exchange_rates[i] - self.exchange_rates[i - 1]) / self.exchange_rates[i - 1],
-                 self.get_rsi(self.exchange_rates, i),
-                 self.get_ma(self.exchange_rates, i),
-                 self.get_ma_kairi(self.exchange_rates, i),
-                 self.get_bb_1(self.exchange_rates, i),
-                 self.get_bb_2(self.exchange_rates, i),
-                 #self.get_ema(self.exchange_rates, i),
-                 #self.get_cci(self.exchange_rates, i),
-                 self.get_mo(self.exchange_rates, i),
-                 self.get_vorarity(self.exchange_rates, i),
-                 #self.get_macd(self.exchange_rates, i),
-                 self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
-                 ]
-            )
-
-            if y_arr_fpath != None:
-                tmp = self.exchange_rates[i + self.PREDICT_FUTURE_LEGS] - self.exchange_rates[i]
-                angle_mat.append(tmp)
-
-        input_mat = np.array(input_mat, dtype=np.float64)
-        with open(x_arr_fpath, 'wb') as f:
-            pickle.dump(input_mat, f)
-        with open(y_arr_fpath, 'wb') as f:
-            pickle.dump(angle_mat, f)
-        print("test data end index: " + str(train_end_idx))
-
-        return input_mat, angle_mat
-
-    def setup_serialized_fx_data(self):
-        self.exchange_dates = []
-        self.exchange_rates = []
-
-        if False: #self.is_fist_call == False and os.path.exists("./exchange_rates.pickle"):
-            with open("./exchange_dates.pickle", 'rb') as f:
-                self.exchange_dates = pickle.load(f)
-            with open("./exchange_rates.pickle", 'rb') as f:
-                self.exchange_rates = pickle.load(f)
-        else:
-            rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
-            for line in rates_fd:
-                splited = line.split(",")
-                if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[
-                    0] != "20004/04/26" and self.is_weekend(splited[0]) == False:
-                    time = splited[0].replace("/", "-")  # + " " + splited[1]
-                    val = float(splited[1])
-                    self.exchange_dates.append(time)
-                    self.exchange_rates.append(val)
-            # 足の長さを調節する
-            self.exchange_dates = self.exchange_dates[::RATE_AND_DATE_STLIDE]
-            self.exchange_rates = self.exchange_rates[::RATE_AND_DATE_STLIDE]
-            with open("./exchange_rates.pickle", 'wb') as f:
-                pickle.dump(self.exchange_rates, f)
-            with open("./exchange_dates.pickle", 'wb') as f:
-                pickle.dump(self.exchange_dates, f)
-
-        if False: #self.is_fist_call == False and os.path.exists("./all_input_mat.pickle"):
-            with open('./all_input_mat.pickle', 'rb') as f:
-                all_input_mat = pickle.load(f)
-            with open('./all_angle_mat.pickle', 'rb') as f:
-                all_angle_mat = pickle.load(f)
-        else:
-            all_input_mat, all_angle_mat = \
-                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, 1, './all_input_mat.pickle', './all_angle_mat.pickle')
-
-        # self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        # self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
-        # self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2], tr_scaler)
-        # self.ts_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2]
-        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM*2])
-        self.tr_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM*2]
-        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM*2:self.COMPETITION_TRAIN_DATA_NUM * 3], tr_scaler)
-        self.ts_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM*2:self.COMPETITION_TRAIN_DATA_NUM * 3]
-
-        print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
-        print("num of rate datas for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
-        print("input features sets for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
-        print("input features sets for test: " + str(len(self.ts_input_arr)))
-        print("finished setup environment data.")
-
-    # type_str: "train", "test"
-    def get_env(self, type_str):
-        if(type_str == "backtest"):
-            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.tr_angle_arr,  time_series = self.time_series, is_backtest=True)
-        if(type_str == "auto_backtest"):
-            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.tr_angle_arr,  time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
-        elif(type_str == "backtest_test"):
-            return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM * 2, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True)
-        elif(type_str == "auto_backtest_test"):
-            return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM * 2, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True, is_auto_backtest = True)
-        else:
-            return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.tr_angle_arr, is_backtest=False)
-
-    class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, angle_arr = None, half_spread=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest = False, is_auto_backtest = False):
-            self.NOT_HAVE = 2
-            self.LONG = 0
-            self.SHORT = 1
-
-            self.input_arr = input_arr
-            self.angle_arr = angle_arr
-            self.exchange_dates = exchange_dates
-            self.exchange_rates = exchange_rates
-            self.half_spread = half_spread
-            self.time_series = time_series
-            self.cur_idx = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
-            self.idx_geta = idx_geta
-            self.is_backtest = is_backtest
-            self.is_auto_backtest = is_auto_backtest
-
-            if self.is_backtest and self.is_auto_backtest:
-                self.log_fd_bt = open("./auto_backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".csv", mode = "w")
-            elif self.is_backtest:
-                self.log_fd_bt = open("./backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt", mode="w")
-            else:
-                self.log_fd_bt = open("./learning_trade_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".txt",
-                                      mode="w")
-
-            self.start = time.time()
-            self.idx_step = 1
-
-
-            self.done = False
-            self.positions_identifiers = []
-
-
-            # BUYでもう買えない時の対処としてのみ利用される
-            self.donot_identifiers = []
-            self.donot_episode_idxes = []
-
-            self.input_arr_len = len(input_arr)
-            self.actions_log = deque(maxlen=self.input_arr_len)
-
-            self.performance_eval_len = performance_eval_len
-            self.holdable_positions = holdable_positions
-            # if(is_backtest == False):
-            #     self.half_spread = 0.0
-
-            self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_position_num = self.holdable_positions)
-            self.additional_infos = []
-            self.reward_gamma = reward_gamma
-
-        def get_rand_str(self):
-            return str(random.randint(0, 10000000))
-
-        def logfile_writeln_bt(self, log_str):
-            self.log_fd_bt.write(log_str + "\n")
-            self.log_fd_bt.flush()
-
-        def close_all(self, cur_episode_rate_idx):
-            won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
-
-            for idx in range(0, len(self.positions_identifiers)):
-                # 対象のエピソードが対応する  all_period_reward_arr のインデックスに対応させる
-                # 最小の値は time_series - 1 で良い
-                episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
-                # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時のイテレーション上のインデックス,ポジションの種類
-                self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])
-            # # buyのrewardが更新された場合、緊急回避措置でポジションを作ったアクションのrewardも平均に反映されないといけないため
-            # # 更新情報に追加する（DONOTのダミーポジションとは別）
-            # for idx in range(0, len(self.donot_identifiers)):
-            #     self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx], self.NOT_HAVE])
-            # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
-
-            self.positions_identifiers = []
-            self.positions_idxes = []
-            self.donot_identifiers = []
-            self.donot_episode_idxes = []
-            return won_pips, won_money
-
-        def step(self, action_num):
-            reward = 0
-            action = -1
-            cur_step_identifier = self.get_rand_str()
-            cur_episode_rate_idx = self.idx_geta + self.cur_idx
-            self.actions_log.append(action_num)
-            is_closed = False
-
-            if action_num == 0:
-                action = "BUY"
-            elif action_num == 1:
-                action = "CLOSE"
-            elif action_num == 2:
-                 action = "DONOT"
-            else:
-                raise Exception(str(action_num) + " is invalid.")
-
-            a_log_str_line = "log," + str(self.cur_idx) + "," + action
-            self.additional_infos = []
-
-            if action == "BUY":
-                #reward = reward = self.get_recent_rewards_sum(self.cur_idx)
-                reward = 0
-
-                if self.portfolio_mngr.additional_pos_openable():
-                    buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
-                    self.positions_identifiers.append(cur_step_identifier)
-                    a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
-                    self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
-                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    # rewardが更新されないと困るのでDONOT扱いで記録しておく. agentに戻ってからはBUYとして扱われるので問題ない
-                    self.donot_identifiers.append(cur_step_identifier)
-                    self.donot_episode_idxes.append(self.cur_idx)
-
-                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
-                    self.exchange_rates[cur_episode_rate_idx]) + ",0"
-            elif action == "CLOSE":
-                # クローズしたポジションの情報は close_allの中で addtional_info に設定される
-
-                # 基本的にCLOSEは保有ポジション数が限界まで達した時点で行われるようにする
-                reward = -100.0
-                if len(self.positions_identifiers) > 0:
-                    won_pips, won_money = self.close_all(cur_episode_rate_idx)
-                    #reward += won_pips
-                    a_log_str_line += ",CLOSE_LONG_AND_DONOT" + "," + str(won_money) + "," + str(
-                       won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
-                    #reward = won_pips
-                else:
-                    a_log_str_line += ",KEEP_NO_POSITION" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
-            elif action == "DONOT":
-                reward = 0
-
-                if (self.portfolio_mngr.additonal_donot_dummy_pos_openable() and IS_BUY_SELL_MODE == False)\
-                        or (self.portfolio_mngr.additional_pos_openable() and IS_BUY_SELL_MODE == True):
-                    # おおむねSELLと同様にrewardが計算されるDONOT用のダミーポジションをオープンする
-                    self.portfolio_mngr.donot(cur_episode_rate_idx)
-                    self.positions_identifiers.append(cur_step_identifier)
-                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    # rewardが更新されないと困るのでDONOT扱いで記録しておく. agentに戻ってからはポジションの種別は区別されないため問題ない
-                    self.donot_identifiers.append(cur_step_identifier)
-                    self.donot_episode_idxes.append(self.cur_idx)
-
-
-                if len(self.positions_identifiers) > 0:
-                    if self.portfolio_mngr.having_long_or_short == self.LONG:
-                        operation_str = ",POSITION_HOLD_LONG,0,"
-                    elif self.portfolio_mngr.having_long_or_short == self.SHORT:
-                        operation_str = ",POSITION_HOLD_SHORT,0,"
-                    elif self.portfolio_mngr.having_long_or_short == self.NOT_HAVE: #DONOTのダミーポジションだけ存在する場合
-                        operation_str = ",KEEP_NO_POSITION,0,"
-
-                    if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
-                        diff_str = "0"
-                    else:
-                        diff_str = str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx))
-
-                    a_log_str_line += operation_str + diff_str + "," + str(
-                        self.exchange_rates[cur_episode_rate_idx]) + ",0"
-                else:
-                    a_log_str_line += ",KEEP_NO_POSITION,0,0," + str(
-                        self.exchange_rates[cur_episode_rate_idx]) + ",0"
-
-            else:
-                raise Exception(str(action) + " is invalid.")
-
-            a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)) +\
-                              "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(self.portfolio_mngr.get_nomal_position_num())
-
-
-            if self.is_auto_backtest:
-            #自動バックテストの際は、CLOSEのアクションの内容だけ出力させる
-                if action == "CLOSE":
-                    self.logfile_writeln_bt(a_log_str_line)
-            else:
-                self.logfile_writeln_bt(a_log_str_line)
-
-            self.cur_idx += self.idx_step
-            if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
-                self.logfile_writeln_bt("finished backtest.")
-                print("finished backtest.")
-                process_time = time.time() - self.start
-                self.logfile_writeln_bt("excecution time of backtest: " + str(process_time))
-                self.logfile_writeln_bt("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
-                print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
-                self.log_fd_bt.flush()
-                self.log_fd_bt.close()
-                return None, reward, True, [cur_step_identifier] + self.additional_infos, False
-            else:
-                # valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
-                # has_position = 1 if valuated_diff == 0 else 1
-                if (len(self.positions_identifiers) >= self.holdable_positions * 2 and IS_BUY_SELL_MODE == False)\
-                    or (len(self.positions_identifiers) >= self.holdable_positions and IS_BUY_SELL_MODE == True)\
-                    or self.portfolio_mngr.additional_pos_openable() == False \
-                    or self.portfolio_mngr.additonal_donot_dummy_pos_openable() == False:
-                    needclose = True
-                else:
-                    needclose = False
-
-                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
-                # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
-                # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
-                return next_state, reward, False, [cur_step_identifier] + self.additional_infos, needclose
-
-class PortforioManager:
-
-    def __init__(self, exchange_rates, half_spred=0.0015, holdable_position_num = 100, is_backtest=False):
-        self.holdable_position_num = holdable_position_num
-        self.exchange_rates = exchange_rates
-        self.half_spread = half_spred
-        self.is_backtest = is_backtest
-
-        self.LONG = 0
-        self.SHORT = 1
-        self.NOT_HAVE = 2
-
-        self.having_money = 1000000.0
-        self.total_won_pips = 0.0
-
-        # 各要素は [購入時の価格（スプレッド含む）, self.LONG or self.SHORT, 数量]
-        # 数量は通貨の数を表しLONGであれば正、SHORTであれば負の値となる
-        self.positions = []
-        self.position_num = 0
-        self.donot_num = 0
-
-        # ポジションは複数持つが、一種類のものしか持たないという制約を設けるため
-        # 判別が簡単になるようにこのフィールドを設ける
-        self.having_long_or_short = self.NOT_HAVE
-
-    # ダミーポジションも含めた数が返される
-    def get_all_position_num(self):
-        return len(self.positions)
-
-    def get_nomal_position_num(self):
-        return self.position_num
-
-    # ダミーのポジションを含まずにチェックされる
-    def additional_pos_openable(self):
-        return self.position_num < self.holdable_position_num
-
-    def additonal_donot_dummy_pos_openable(self):
-        return self.donot_num < self.holdable_position_num
-
-    # 規約: 保持可能なポジション数を超える場合は呼び出されない
-    # ロングポジションを最大保持可能数における1単位分購入する（購入通貨数が整数になるような調整は行わない）
-    def buy(self, rate_idx):
-        pos_kind = self.LONG
-        trade_val = self.exchange_rates[rate_idx] + self.half_spread
-        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
-
-        self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-        self.position_num += 1
-        self.having_money -= trade_val * currency_num
-        self.having_long_or_short = self.LONG
-        return trade_val
-
-    # 規約: 保持可能なポジション数を超える場合は呼び出されない
-    # ショートポジションを最大保持可能数における1単位分購入する（購入通貨数が整数になるような調整は行わない）
-    def sell(self, rate_idx):
-        pos_kind = self.SHORT
-        trade_val = self.exchange_rates[rate_idx] - self.half_spread
-        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
-
-        self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-        self.position_num += 1
-        self.having_money -= trade_val * currency_num
-        self.having_long_or_short = self.SHORT
-        return trade_val
-
-    # 資産額の変動を起こさず、self.having_long_or_short, self.position_num を変更しないという点を
-    # 除いてはSELLの場合と同様の処理をする
-    def donot(self, rate_idx):
-        if IS_BUY_SELL_MODE: #DONOTだがSELLと同様に実売買をさせる
-            pos_kind = self.NOT_HAVE
-            trade_val = self.exchange_rates[rate_idx] - self.half_spread
-            currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
-
-            self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-            self.position_num += 1
-            self.having_money -= trade_val * currency_num
-            self.having_long_or_short = self.SHORT
-            return trade_val
-        else:
-            pos_kind = self.NOT_HAVE
-            trade_val = self.exchange_rates[rate_idx] - self.half_spread
-            currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
-
-            self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-            self.donot_num += 1
-
-            return trade_val
-
-    # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
-    def close_long(self, position, rate_idx):
-        # 保持しているロングポジションをクローズする
-        cur_price = self.exchange_rates[rate_idx] - self.half_spread
-        trade_result = position[2] * cur_price - position[2] * position[0]
-        return_money = position[2] * cur_price
-        won_pips = cur_price - position[0]
-        return won_pips, trade_result, return_money
-
-    # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
-    def close_short(self, position, rate_idx):
-        # 保持しているショートポジションをクローズする
-        cur_price = self.exchange_rates[rate_idx] + self.half_spread
-        trade_result = position[2] * position[0] - position[2] * cur_price
-        won_pips = position[0] - cur_price
-
-        # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
-        # 1)まず損益を求める
-        diff = position[2] * (position[0] - cur_price)
-        # 2)オープン時にとられた証拠金を求める
-        collateral_at_open = position[0] * position[2]
-        # 3)2つを足し合わせた額が決済によって戻ってくるお金
-        return_money = collateral_at_open + diff
-
-        return won_pips, trade_result, return_money
-
-    # DONOT用のダミーポジションをクローズする（1単位は1通貨を意味するものではない）
-    def close_donot(self, position, rate_idx):
-        if IS_BUY_SELL_MODE:  # DONOTだがSELLと同様に実売買をさせる
-            cur_price = self.exchange_rates[rate_idx] + self.half_spread
-            trade_result = position[2] * position[0] - position[2] * cur_price
-            won_pips = position[0] - cur_price
-
-            # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
-            # 1)まず損益を求める
-            diff = position[2] * (position[0] - cur_price)
-            # 2)オープン時にとられた証拠金を求める
-            collateral_at_open = position[0] * position[2]
-            # 3)2つを足し合わせた額が決済によって戻ってくるお金
-            return_money = collateral_at_open + diff
-
-            return won_pips, trade_result, return_money
-        else:
-            # 保持しているダミーポジション（ショートポジションとほぼ同様に扱う）をクローズする
-            cur_price = self.exchange_rates[rate_idx] + self.half_spread
-            won_pips = position[0] - cur_price
-
-        return won_pips
-
-    # 全てのポジションをcloseしてしまう
-    # ポジションの種類が混在していても呼び出し方法は変える必要がない
-    def close_all(self, rate_idx):
-        won_pips_sum = 0
-        won_money_sum = 0
-        returned_money_sum = 0
-        won_pips_arr = []
-        for position in self.positions:
-            if position[1] == self.LONG:
-                won_pips, won_money, return_money = self.close_long(position, rate_idx)
-            elif position[1] == self.SHORT: # self.SHORT
-                won_pips, won_money, return_money = self.close_short(position, rate_idx)
-            else: #NOT_HAVE(DONOT)
-                if IS_BUY_SELL_MODE:
-                    won_pips, won_money, return_money = self.close_donot(position, rate_idx)
-                else:
-                    won_pips = self.close_donot(position, rate_idx)
-
-            # 獲得pips, エピソードの1イテレーションの中でのインデックス（rateのidxである点に注意）, ポジションの種類
-            # DONOT用のダミーポジションについても追加
-            won_pips_arr.append([won_pips, position[3], position[1]])
-            if IS_BUY_SELL_MODE: # DONOTはSELLと同様に売買を行うので加算する
-                won_pips_sum += won_pips
-                won_money_sum += won_money
-                returned_money_sum += return_money
-            else:
-                # DONOTのダミーポジションについては加算しない
-                if position[1] != self.NOT_HAVE:
-                    won_pips_sum += won_pips
-                    won_money_sum += won_money
-                    returned_money_sum += return_money
-
-
-        self.having_long_or_short = self.NOT_HAVE
-        self.total_won_pips += won_pips_sum
-        self.having_money += returned_money_sum
-        self.positions = []
-        self.position_num = 0
-        self.donot_num = 0
-
-        return won_pips_sum, won_money_sum, won_pips_arr
-
-    # 現在のpipsで見た保有ポジションの評価損益
-    def get_evaluated_val_diff_of_all_pos(self, rate_idx):
-        total_evaluated_money_diff = 0
-        total_currecy_num = 0
-        cur_price_no_spread = self.exchange_rates[rate_idx]
-        for position in self.positions:
-            if position[1] == self.LONG:
-                total_evaluated_money_diff += position[2] * ((cur_price_no_spread - self.half_spread) - position[0])
-            else: # self.SHORT
-                total_evaluated_money_diff += position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
-            total_currecy_num +=  position[2]
-
-        if total_currecy_num == 0:
-            return 0
-        else:
-            return total_evaluated_money_diff / total_currecy_num
-
-    def get_current_portfolio(self, rate_idx):
-        total_evaluated_money = 0
-        cur_price_no_spread = self.exchange_rates[rate_idx]
-        for position in self.positions:
-            if position[1] == self.LONG:
-                # 売った際に得られる現金で評価
-                total_evaluated_money += position[2] * (cur_price_no_spread - self.half_spread)
-            elif position[1] == self.SHORT or (position[1] == self.NOT_HAVE and IS_BUY_SELL_MODE):
-                # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
-                # 1)まず損益を求める
-                diff = position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
-                # 2)オープン時にとられた証拠金を求める
-                collateral_at_open = position[0] * position[2]
-                # 3)2つを足し合わせた額が決済によって戻ってくるお金
-                total_evaluated_money += collateral_at_open + diff
-
-        return self.having_money + total_evaluated_money
+            action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+
+        state, reward, done, info, needclose  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+        # 環境が提供する期間が最後までいった場合
+        if done:
+            print('all training period learned.')
+            break
+        #state = state.T
+        state = np.reshape(state, [time_series, feature_num])
+
+def disable_gpu():
+    tf.config.set_visible_devices([], 'GPU')
+    logical_devices = tf.config.list_logical_devices('GPU')
+    print(logical_devices)
+
+# def disable_multicore():
+#     physical_devices = tf.config.list_physical_devices('CPU')
+#     try:
+#         # Disable first GPU
+#         tf.config.set_visible_devices(physical_devices[0], 'CPU')
+#         logical_devices = tf.config.list_logical_devices('CPU')
+#         print(logical_devices)
+#         # Logical device was not created for first GPU
+#     except:
+#         # Invalid device or cannot modify virtual devices once initialized.
+#         pass
+
+def limit_gpu_memory_usage():
+    # GPUのGPUメモリ使用量にリミットをかける
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+        try:
+            tf.config.experimental.set_virtual_device_configuration(
+                gpus[0],
+                [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Virtual devices must be set before GPUs have been initialized
+            print(e)
+
+if __name__ == '__main__':
+    # 再現性のため乱数シードを固定
+    random.seed(1337)
+    np.random.seed(1337)
+    tf.random.set_seed(1337)
+
+    # GPUを用いると学習結果の再現性が担保できないため利用しない
+    # また、バックテストだけ行う際もGPUで predictすると遅いので搭載されてないものとして動作させる
+    disable_gpu()
+    # limit_gpu_memory_usage()
+
+    if sys.argv[1] == "train":
+        tarin_agent()
+    elif sys.argv[1] == "backtest":
+        run_backtest("backtest")
+    elif sys.argv[1] == "backtest_test":
+        run_backtest("backtest_test")
+    else:
+        print("please pass argument 'train' or 'backtest'")

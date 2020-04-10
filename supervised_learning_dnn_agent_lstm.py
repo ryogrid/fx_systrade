@@ -49,8 +49,8 @@ class QNetwork:
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         #self.model.compile(optimizer=self.optimizer, loss="sparse_categorical_crossentropy", metrics = ['accuracy'])
         #tf.random.set_seed(1337) # for reproductivity
-        #self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
-        self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
+        self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
+        #self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         self.model.summary()
 
 
@@ -131,7 +131,7 @@ batch_size = 256
 TRAIN_DATA_NUM = 72000 # <- 5分足で1年 # 36000 - time_series # <- 10分足で1年
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定 #1000  # 総試行回数
 feature_num = 10
-nn_output_size = 1 #2 #3
+nn_output_size = 2 #1 #2 #3
 HODABLE_POSITIONS = 100 #30
 predict_future_legs = 40
 epochs = 1000 #4000 #25 #4000 #259 #4000 #45 #15 #45 # 90 #400

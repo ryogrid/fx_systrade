@@ -13,7 +13,6 @@ import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
 
-IS_BUY_SELL_MODE = False #True  #DONOTをSELLとして扱い実際に売買をする
 RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 
 class FXEnvironment:
@@ -31,9 +30,7 @@ class FXEnvironment:
         self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1",
                               "bb_2", "cci", "mo", "vorariity"]
         self.tr_input_arr = None
-        self.tr_angle_arr = None
         self.val_input_arr = None
-        self.val_angle_arr = None
 
         self.exchange_dates = None
         self.exchange_rates = None
@@ -148,6 +145,7 @@ class FXEnvironment:
 
         return np.std(tmp_arr)
 
+    #TODO: パラメータと返り値の変更が必要
     def get_macd(self, price_arr, cur_pos, period = 100):
         if cur_pos <= period:
             s = 0
@@ -190,19 +188,19 @@ class FXEnvironment:
             if i % 2000:
                 print("current date idx: " + str(i))
             input_mat.append(
-                [self.exchange_rates[i],
-                 (self.exchange_rates[i] - self.exchange_rates[i - 1]) / self.exchange_rates[i - 1],
+                [self.exchange_rates[i], #TODO: この要素だけは別にリストを用意しておいて normalizerにかける必要あり
+                 #(self.exchange_rates[i] - self.exchange_rates[i - 1]) / self.exchange_rates[i - 1],
                  self.get_rsi(self.exchange_rates, i),
-                 self.get_ma(self.exchange_rates, i),
-                 self.get_ma_kairi(self.exchange_rates, i),
-                 self.get_bb_1(self.exchange_rates, i),
-                 self.get_bb_2(self.exchange_rates, i),
+                 #self.get_ma(self.exchange_rates, i),
+                 #self.get_ma_kairi(self.exchange_rates, i),
+                 #self.get_bb_1(self.exchange_rates, i),
+                 #self.get_bb_2(self.exchange_rates, i),
                  #self.get_ema(self.exchange_rates, i),
                  #self.get_cci(self.exchange_rates, i),
-                 self.get_mo(self.exchange_rates, i),
-                 self.get_vorarity(self.exchange_rates, i),
-                 #self.get_macd(self.exchange_rates, i),
-                 self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
+                 #self.get_mo(self.exchange_rates, i),
+                 #self.get_vorarity(self.exchange_rates, i),
+                 self.get_macd(self.exchange_rates, i),
+                 #self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
                  ]
             )
 
@@ -249,20 +247,13 @@ class FXEnvironment:
         if False: #self.is_fist_call == False and os.path.exists("./all_input_mat.pickle"):
             with open('./all_input_mat.pickle', 'rb') as f:
                 all_input_mat = pickle.load(f)
-            with open('./all_angle_mat.pickle', 'rb') as f:
-                all_angle_mat = pickle.load(f)
         else:
-            all_input_mat, all_angle_mat = \
-                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, 1, './all_input_mat.pickle', './all_angle_mat.pickle')
+            all_input_mat = \
+                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, 1, './all_input_mat.pickle')
 
-        # self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        # self.tr_angle_arr = all_angle_mat[0:self.COMPETITION_TRAIN_DATA_NUM]
-        # self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2], tr_scaler)
-        # self.ts_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2]
-        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM*2])
-        self.tr_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM*2]
-        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM*2:self.COMPETITION_TRAIN_DATA_NUM * 3], tr_scaler)
-        self.ts_angle_arr = all_angle_mat[self.COMPETITION_TRAIN_DATA_NUM*2:self.COMPETITION_TRAIN_DATA_NUM * 3]
+        # TODO: 価格の特徴量のみnormalizeするよう変更が必要
+        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
+        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2], tr_scaler)
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
         print("num of rate datas for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
@@ -294,13 +285,12 @@ class FXEnvironment:
                                            angle_arr=self.tr_angle_arr, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, angle_arr = None, half_spread=0.0015, holdable_positions=100, performance_eval_len = 20, reward_gamma = 0.95, is_backtest = False, is_auto_backtest = False):
-            self.NOT_HAVE = 2
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, angle_arr = None, half_spread=0.0015, holdable_positions=100, is_backtest = False, is_auto_backtest = False):
             self.LONG = 0
             self.SHORT = 1
+            self.NOT_HAVE = 2
 
             self.input_arr = input_arr
-            self.angle_arr = angle_arr
             self.exchange_dates = exchange_dates
             self.exchange_rates = exchange_rates
             self.half_spread = half_spread
@@ -321,26 +311,13 @@ class FXEnvironment:
             self.start = time.time()
             self.idx_step = 1
 
-
             self.done = False
-            self.positions_identifiers = []
-
-
-            # BUYでもう買えない時の対処としてのみ利用される
-            self.donot_identifiers = []
-            self.donot_episode_idxes = []
-
             self.input_arr_len = len(input_arr)
-            self.actions_log = deque(maxlen=self.input_arr_len)
-
-            self.performance_eval_len = performance_eval_len
             self.holdable_positions = holdable_positions
             # if(is_backtest == False):
             #     self.half_spread = 0.0
 
             self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_position_num = self.holdable_positions)
-            self.additional_infos = []
-            self.reward_gamma = reward_gamma
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
@@ -350,117 +327,93 @@ class FXEnvironment:
             self.log_fd_bt.flush()
 
         def close_all(self, cur_episode_rate_idx):
-            won_pips, won_money, each_pos_won = self.portfolio_mngr.close_all(cur_episode_rate_idx)
+            won_pips, won_money = self.portfolio_mngr.close_all(cur_episode_rate_idx)
 
-            for idx in range(0, len(self.positions_identifiers)):
-                # 対象のエピソードが対応する  all_period_reward_arr のインデックスに対応させる
-                # 最小の値は time_series - 1 で良い
-                episode_idx_of_past_open = each_pos_won[idx][1] - self.idx_geta
-                # エピソードの識別子,そのエピソードでのポジションのオープンによる獲得pips,ポジションをオープンした時のイテレーション上のインデックス,ポジションの種類
-                self.additional_infos.append([self.positions_identifiers[idx], each_pos_won[idx][0], episode_idx_of_past_open, each_pos_won[idx][2]])
-            # # buyのrewardが更新された場合、緊急回避措置でポジションを作ったアクションのrewardも平均に反映されないといけないため
-            # # 更新情報に追加する（DONOTのダミーポジションとは別）
-            # for idx in range(0, len(self.donot_identifiers)):
-            #     self.additional_infos.append([self.donot_identifiers[idx], 0, self.donot_episode_idxes[idx], self.NOT_HAVE])
-            # CLOSEについては元々、actionに対するrewardとして返しており、それを受けてエージェント側もよろしくやっているので追加は不要
-
-            self.positions_identifiers = []
-            self.positions_idxes = []
-            self.donot_identifiers = []
-            self.donot_episode_idxes = []
             return won_pips, won_money
 
         def step(self, action_num):
-            reward = 0
-            action = -1
-            cur_step_identifier = self.get_rand_str()
             cur_episode_rate_idx = self.idx_geta + self.cur_idx
-            self.actions_log.append(action_num)
-            is_closed = False
 
-            if action_num == 0:
-                action = "BUY"
+            if action_num == -1:
+                action = "SELL"
+            elif action_num == 0:
+                action = "DONOT"
             elif action_num == 1:
-                action = "CLOSE"
-            elif action_num == 2:
-                 action = "DONOT"
+                 action = "BUY"
             else:
                 raise Exception(str(action_num) + " is invalid.")
 
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
-            self.additional_infos = []
 
             if action == "BUY":
-                #reward = reward = self.get_recent_rewards_sum(self.cur_idx)
                 reward = 0
 
-                if self.portfolio_mngr.additional_pos_openable():
+                # TODO: rewardの計算が必要
+
+                if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
-                    self.positions_identifiers.append(cur_step_identifier)
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
-                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    # rewardが更新されないと困るのでDONOT扱いで記録しておく. agentに戻ってからはBUYとして扱われるので問題ない
-                    self.donot_identifiers.append(cur_step_identifier)
-                    self.donot_episode_idxes.append(self.cur_idx)
-
-                    a_log_str_line += ",POSITION_HOLD,0," + str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)) + "," + str(
-                    self.exchange_rates[cur_episode_rate_idx]) + ",0"
-            elif action == "CLOSE":
-                # クローズしたポジションの情報は close_allの中で addtional_info に設定される
-
-                # 基本的にCLOSEは保有ポジション数が限界まで達した時点で行われるようにする
-                reward = -100.0
-                if len(self.positions_identifiers) > 0:
-                    won_pips, won_money = self.close_all(cur_episode_rate_idx)
-                    #reward += won_pips
-                    a_log_str_line += ",CLOSE_LONG_AND_DONOT" + "," + str(won_money) + "," + str(
-                       won_pips) + "," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
-                    #reward = won_pips
+                elif self.portfolio_mngr.having_long_or_short == self.SHORT:
+                    #持っているSHORTポジションをクローズ
+                    self.close_all(cur_episode_rate_idx)
+                    # LONGに持ちかえる
+                    buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
+                    a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
+                elif self.portfolio_mngr.having_long_or_short == self.LONG:
+                    #既にLONGポジションを持っていたら何もしない
+                    a_log_str_line += ",HOLD_LONG" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
                 else:
-                    a_log_str_line += ",KEEP_NO_POSITION" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
+                    raise Exception("unknown state")
             elif action == "DONOT":
                 reward = 0
 
-                if (self.portfolio_mngr.additonal_donot_dummy_pos_openable() and IS_BUY_SELL_MODE == False)\
-                        or (self.portfolio_mngr.additional_pos_openable() and IS_BUY_SELL_MODE == True):
-                    # おおむねSELLと同様にrewardが計算されるDONOT用のダミーポジションをオープンする
-                    self.portfolio_mngr.donot(cur_episode_rate_idx)
-                    self.positions_identifiers.append(cur_step_identifier)
-                else: #もうオープンできない（このルートを通る場合、ポジションのクローズは行っていないはずなので更なる分岐は不要）
-                    # rewardが更新されないと困るのでDONOT扱いで記録しておく. agentに戻ってからはポジションの種別は区別されないため問題ない
-                    self.donot_identifiers.append(cur_step_identifier)
-                    self.donot_episode_idxes.append(self.cur_idx)
+                # TODO: rewardの計算が必要
 
+                if self.portfolio_mngr.having_long_or_short == self.LONG:
+                    operation_str = ",POSITION_HOLD_LONG,0,"
+                elif self.portfolio_mngr.having_long_or_short == self.SHORT:
+                    operation_str = ",POSITION_HOLD_SHORT,0,"
+                elif self.portfolio_mngr.having_long_or_short == self.NOT_HAVE: #DONOTのダミーポジションだけ存在する場合
+                    operation_str = ",KEEP_NO_POSITION,0,"
 
-                if len(self.positions_identifiers) > 0:
-                    if self.portfolio_mngr.having_long_or_short == self.LONG:
-                        operation_str = ",POSITION_HOLD_LONG,0,"
-                    elif self.portfolio_mngr.having_long_or_short == self.SHORT:
-                        operation_str = ",POSITION_HOLD_SHORT,0,"
-                    elif self.portfolio_mngr.having_long_or_short == self.NOT_HAVE: #DONOTのダミーポジションだけ存在する場合
-                        operation_str = ",KEEP_NO_POSITION,0,"
-
-                    if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
-                        diff_str = "0"
-                    else:
-                        diff_str = str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx))
-
-                    a_log_str_line += operation_str + diff_str + "," + str(
-                        self.exchange_rates[cur_episode_rate_idx]) + ",0"
+                if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
+                    diff_str = "0"
                 else:
-                    a_log_str_line += ",KEEP_NO_POSITION,0,0," + str(
-                        self.exchange_rates[cur_episode_rate_idx]) + ",0"
+                    diff_str = str(self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx))
 
+                a_log_str_line += operation_str + diff_str + "," + str(
+                    self.exchange_rates[cur_episode_rate_idx]) + ",0"
+            elif action == "SELL":
+                reward = 0
+
+                # TODO: rewardの計算が必要
+
+                if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
+                    sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
+                    a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
+                    self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                elif self.portfolio_mngr.having_long_or_short == self.LONG:
+                    #持っているLONGポジションをクローズ
+                    self.close_all(cur_episode_rate_idx)
+                    # SHORTに持ちかえる
+                    sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
+                    a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                elif self.portfolio_mngr.having_long_or_short == self.SHORT:
+                    #既にSHORTポジションを持っていたら何もしない
+                    a_log_str_line += ",HOLD_SHORT" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
+                else:
+                    raise Exception("unknown state")
             else:
                 raise Exception(str(action) + " is invalid.")
 
             a_log_str_line += "," + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)) +\
-                              "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(self.portfolio_mngr.get_nomal_position_num())
+                              "," + str(self.portfolio_mngr.total_won_pips) + "," + str(self.portfolio_mngr.having_money) + "," + str(self.portfolio_mngr.get_position_num())
 
 
             if self.is_auto_backtest:
             #自動バックテストの際は、CLOSEのアクションの内容だけ出力させる
+                # TODO: CLOSEアクションは無いので対処が必要
                 if action == "CLOSE":
                     self.logfile_writeln_bt(a_log_str_line)
             else:
@@ -476,22 +429,12 @@ class FXEnvironment:
                 print("result of portfolio: " + str(self.portfolio_mngr.get_current_portfolio(cur_episode_rate_idx)))
                 self.log_fd_bt.flush()
                 self.log_fd_bt.close()
-                return None, reward, True, [cur_step_identifier] + self.additional_infos, False
-            else:
-                # valuated_diff = self.portfolio_mngr.get_evaluated_val_diff_of_all_pos(cur_episode_rate_idx)
-                # has_position = 1 if valuated_diff == 0 else 1
-                if (len(self.positions_identifiers) >= self.holdable_positions * 2 and IS_BUY_SELL_MODE == False)\
-                    or (len(self.positions_identifiers) >= self.holdable_positions and IS_BUY_SELL_MODE == True)\
-                    or self.portfolio_mngr.additional_pos_openable() == False \
-                    or self.portfolio_mngr.additonal_donot_dummy_pos_openable() == False:
-                    needclose = True
-                else:
-                    needclose = False
+                return None, reward, True
 
                 next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
                 # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
                 # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
-                return next_state, reward, False, [cur_step_identifier] + self.additional_infos, needclose
+                return next_state, reward, False
 
 class PortforioManager:
 
@@ -518,19 +461,11 @@ class PortforioManager:
         # 判別が簡単になるようにこのフィールドを設ける
         self.having_long_or_short = self.NOT_HAVE
 
-    # ダミーポジションも含めた数が返される
-    def get_all_position_num(self):
-        return len(self.positions)
-
-    def get_nomal_position_num(self):
+    def get_position_num(self):
         return self.position_num
 
-    # ダミーのポジションを含まずにチェックされる
     def additional_pos_openable(self):
         return self.position_num < self.holdable_position_num
-
-    def additonal_donot_dummy_pos_openable(self):
-        return self.donot_num < self.holdable_position_num
 
     # 規約: 保持可能なポジション数を超える場合は呼び出されない
     # ロングポジションを最大保持可能数における1単位分購入する（購入通貨数が整数になるような調整は行わない）
@@ -558,29 +493,6 @@ class PortforioManager:
         self.having_long_or_short = self.SHORT
         return trade_val
 
-    # 資産額の変動を起こさず、self.having_long_or_short, self.position_num を変更しないという点を
-    # 除いてはSELLの場合と同様の処理をする
-    def donot(self, rate_idx):
-        if IS_BUY_SELL_MODE: #DONOTだがSELLと同様に実売買をさせる
-            pos_kind = self.NOT_HAVE
-            trade_val = self.exchange_rates[rate_idx] - self.half_spread
-            currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
-
-            self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-            self.position_num += 1
-            self.having_money -= trade_val * currency_num
-            self.having_long_or_short = self.SHORT
-            return trade_val
-        else:
-            pos_kind = self.NOT_HAVE
-            trade_val = self.exchange_rates[rate_idx] - self.half_spread
-            currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
-
-            self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
-            self.donot_num += 1
-
-            return trade_val
-
     # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
     def close_long(self, position, rate_idx):
         # 保持しているロングポジションをクローズする
@@ -588,6 +500,7 @@ class PortforioManager:
         trade_result = position[2] * cur_price - position[2] * position[0]
         return_money = position[2] * cur_price
         won_pips = cur_price - position[0]
+
         return won_pips, trade_result, return_money
 
     # 指定された一単位のポジションをクローズする（1単位は1通貨を意味するものではない）
@@ -607,60 +520,21 @@ class PortforioManager:
 
         return won_pips, trade_result, return_money
 
-    # DONOT用のダミーポジションをクローズする（1単位は1通貨を意味するものではない）
-    def close_donot(self, position, rate_idx):
-        if IS_BUY_SELL_MODE:  # DONOTだがSELLと同様に実売買をさせる
-            cur_price = self.exchange_rates[rate_idx] + self.half_spread
-            trade_result = position[2] * position[0] - position[2] * cur_price
-            won_pips = position[0] - cur_price
-
-            # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
-            # 1)まず損益を求める
-            diff = position[2] * (position[0] - cur_price)
-            # 2)オープン時にとられた証拠金を求める
-            collateral_at_open = position[0] * position[2]
-            # 3)2つを足し合わせた額が決済によって戻ってくるお金
-            return_money = collateral_at_open + diff
-
-            return won_pips, trade_result, return_money
-        else:
-            # 保持しているダミーポジション（ショートポジションとほぼ同様に扱う）をクローズする
-            cur_price = self.exchange_rates[rate_idx] + self.half_spread
-            won_pips = position[0] - cur_price
-
-        return won_pips
-
     # 全てのポジションをcloseしてしまう
     # ポジションの種類が混在していても呼び出し方法は変える必要がない
     def close_all(self, rate_idx):
         won_pips_sum = 0
         won_money_sum = 0
         returned_money_sum = 0
-        won_pips_arr = []
         for position in self.positions:
             if position[1] == self.LONG:
                 won_pips, won_money, return_money = self.close_long(position, rate_idx)
             elif position[1] == self.SHORT: # self.SHORT
                 won_pips, won_money, return_money = self.close_short(position, rate_idx)
-            else: #NOT_HAVE(DONOT)
-                if IS_BUY_SELL_MODE:
-                    won_pips, won_money, return_money = self.close_donot(position, rate_idx)
-                else:
-                    won_pips = self.close_donot(position, rate_idx)
 
-            # 獲得pips, エピソードの1イテレーションの中でのインデックス（rateのidxである点に注意）, ポジションの種類
-            # DONOT用のダミーポジションについても追加
-            won_pips_arr.append([won_pips, position[3], position[1]])
-            if IS_BUY_SELL_MODE: # DONOTはSELLと同様に売買を行うので加算する
-                won_pips_sum += won_pips
-                won_money_sum += won_money
-                returned_money_sum += return_money
-            else:
-                # DONOTのダミーポジションについては加算しない
-                if position[1] != self.NOT_HAVE:
-                    won_pips_sum += won_pips
-                    won_money_sum += won_money
-                    returned_money_sum += return_money
+            won_pips_sum += won_pips
+            won_money_sum += won_money
+            returned_money_sum += return_money
 
 
         self.having_long_or_short = self.NOT_HAVE
@@ -668,9 +542,8 @@ class PortforioManager:
         self.having_money += returned_money_sum
         self.positions = []
         self.position_num = 0
-        self.donot_num = 0
 
-        return won_pips_sum, won_money_sum, won_pips_arr
+        return won_pips_sum, won_money_sum
 
     # 現在のpipsで見た保有ポジションの評価損益
     def get_evaluated_val_diff_of_all_pos(self, rate_idx):
@@ -696,7 +569,7 @@ class PortforioManager:
             if position[1] == self.LONG:
                 # 売った際に得られる現金で評価
                 total_evaluated_money += position[2] * (cur_price_no_spread - self.half_spread)
-            elif position[1] == self.SHORT or (position[1] == self.NOT_HAVE and IS_BUY_SELL_MODE):
+            elif position[1] == self.SHORT:
                 # 買い物度↓した時に得られる損益をオープン時に利用した証拠金に足し合わせることで評価
                 # 1)まず損益を求める
                 diff = position[2] * (position[0] - (cur_price_no_spread + self.half_spread))
