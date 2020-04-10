@@ -28,9 +28,9 @@ class QNetwork:
         #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
 
-        self.loss_func = tf.keras.losses.Huber(delta=1.0)
+        #self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = tf.keras.losses.SparseCategoricalCrossentropy()
-        #self.loss_func = "categorical_crossentropy"
+        self.loss_func = "categorical_crossentropy"
 
         self.model = tf.keras.Sequential([
             LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
@@ -43,8 +43,8 @@ class QNetwork:
             #PReLU(),
             BatchNormalization(),
             #Dropout(0.5),
-            #Dense(action_size, activation='softmax')
-            Dense(action_size, activation='linear')
+            Dense(action_size, activation='softmax')
+            #Dense(action_size, activation='linear')
         ])
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         #self.model.compile(optimizer=self.optimizer, loss="sparse_categorical_crossentropy", metrics = ['accuracy'])
@@ -134,7 +134,7 @@ feature_num = 10
 nn_output_size = 1 #2 #3
 HODABLE_POSITIONS = 100 #30
 predict_future_legs = 40
-epochs = 550 #4000 #25 #4000 #259 #4000 #45 #15 #45 # 90 #400
+epochs = 1000 #4000 #25 #4000 #259 #4000 #45 #15 #45 # 90 #400
 half_spread = 0.0015
 
 BUY = 0

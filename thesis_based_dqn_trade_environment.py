@@ -20,15 +20,11 @@ class FXEnvironment:
     def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015):
         print("FXEnvironment class constructor called.")
         self.INPUT_LEN = 1
-        # self.SLIDE_IDX_NUM_AT_GEN_INPUTS_AND_COLLECT_LABELS = 1 #5
-        self.PREDICT_FUTURE_LEGS = 5
         self.COMPETITION_DIV = True
         self.COMPETITION_TRAIN_DATA_NUM = train_data_num
 
         self.TRAINDATA_DIV = 2
-        self.CHART_TYPE_JDG_LEN = 25
 
-        self.VALIDATION_DATA_RATIO = 1.0 # rates of validation data to (all data - train data)
         self.DATA_HEAD_ASOBI = 200
 
         #self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "cci", "mo","vorariity", "macd", "chart_type"]
@@ -41,7 +37,6 @@ class FXEnvironment:
 
         self.exchange_dates = None
         self.exchange_rates = None
-        self.reverse_exchange_rates = None
 
         self.time_series = time_series
         self.holdable_positions  = holdable_positions
@@ -57,139 +52,90 @@ class FXEnvironment:
         X_T = scaler.transform(X)
         return X_T, scaler
 
-    # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
-    def judge_chart_type(self, data_arr):
-        max_val = 0
-        min_val = float("inf")
-
-        last_idx = len(data_arr)-1
-
-        for idx in range(len(data_arr)):
-            if data_arr[idx] > max_val:
-                max_val = data_arr[idx]
-                max_idx = idx
-
-            if data_arr[idx] < min_val:
-                min_val = data_arr[idx]
-                min_idx = idx
-
-
-        if max_val == min_val:
-            return 0
-
-        if min_idx == 0 and max_idx == last_idx:
-            return 1
-
-        if max_idx == 0 and min_idx == last_idx:
-            return 2
-
-        if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
-            return 0
-
-        if max_idx != 0 and max_idx != last_idx:
-            return 3
-
-        if min_idx != 0 and min_idx != last_idx:
-            return 4
-
-        return 0
-
     def get_rsi(self, price_arr, cur_pos, period = 40):
         if cur_pos <= period:
-    #        s = 0
             return 0
         else:
             s = cur_pos - (period + 1)
         tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
+        #tmp_arr.reverse()
         prices = np.array(tmp_arr, dtype=float)
 
         return ta.RSI(prices, timeperiod = period)[-1]
 
-
-    #def get_ma(self, price_arr, cur_pos, period = 20):
-    def get_ma(self, price_arr, cur_pos, period=40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.SMA(prices, timeperiod = period)[-1]
-
-    def get_ma_kairi(self, price_arr, cur_pos, period = None):
-        ma = self.get_ma(price_arr, cur_pos)
-        return ((price_arr[cur_pos] - ma) / ma) * 100.0
-        return 0
-
-    def get_bb_1(self, price_arr, cur_pos, period = 40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.BBANDS(prices, timeperiod = period)[0][-1]
-
-    def get_bb_2(self, price_arr, cur_pos, period = 40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.BBANDS(prices, timeperiod = period)[2][-1]
-
-    # periodは移動平均を求める幅なので20程度で良いはず...
-    def get_ema(self, price_arr, cur_pos, period = 20):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.EMA(prices, timeperiod = period)[-1]
-
-
-    # def get_ema_rsi(price_arr, cur_pos, period = None):
+    # def get_ma(self, price_arr, cur_pos, period=40):
+    #     if cur_pos <= period:
+    #         s = 0
+    #     else:
+    #         s = cur_pos - period
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     return ta.SMA(prices, timeperiod = period)[-1]
+    #
+    # def get_ma_kairi(self, price_arr, cur_pos, period = None):
+    #     ma = self.get_ma(price_arr, cur_pos)
+    #     return ((price_arr[cur_pos] - ma) / ma) * 100.0
     #     return 0
+    #
+    # def get_bb_1(self, price_arr, cur_pos, period = 40):
+    #     if cur_pos <= period:
+    #         s = 0
+    #     else:
+    #         s = cur_pos - period
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     return ta.BBANDS(prices, timeperiod = period)[0][-1]
+    #
+    # def get_bb_2(self, price_arr, cur_pos, period = 40):
+    #     if cur_pos <= period:
+    #         s = 0
+    #     else:
+    #         s = cur_pos - period
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     return ta.BBANDS(prices, timeperiod = period)[2][-1]
+    #
+    # # periodは移動平均を求める幅なので20程度で良いはず...
+    # def get_ema(self, price_arr, cur_pos, period = 20):
+    #     if cur_pos <= period:
+    #         s = 0
+    #     else:
+    #         s = cur_pos - period
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     return ta.EMA(prices, timeperiod = period)[-1]
+    #
+    # def get_mo(self, price_arr, cur_pos, period=40):
+    #     if cur_pos <= (period + 1):
+    #         return 0
+    #     else:
+    #         s = cur_pos - (period + 1)
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     return ta.CMO(prices, timeperiod = period)[-1]
+    #
+    # def get_po(self, price_arr, cur_pos, period=40):
+    #     if cur_pos <= period:
+    #         s = 0
+    #     else:
+    #         s = cur_pos - period
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     return ta.PPO(prices)[-1]
 
-    # def get_cci(self, price_arr, cur_pos, period = None):
-    #     return 0
-
-    #def get_mo(self, price_arr, cur_pos, period = 20):
-    def get_mo(self, price_arr, cur_pos, period=40):
-        if cur_pos <= (period + 1):
-    #        s = 0
-            return 0
-        else:
-            s = cur_pos - (period + 1)
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.CMO(prices, timeperiod = period)[-1]
-
-    #def get_po(self, price_arr, cur_pos, period = 10):
-    def get_po(self, price_arr, cur_pos, period=40):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        return ta.PPO(prices)[-1]
-
+    #TODO: need EMSD version
     def get_vorarity(self, price_arr, cur_pos, period = None):
         tmp_arr = []
         prev = -1.0
@@ -208,7 +154,7 @@ class FXEnvironment:
         else:
             s = cur_pos - period
         tmp_arr = price_arr[s:cur_pos]
-        tmp_arr.reverse()
+        #tmp_arr.reverse()
         prices = np.array(tmp_arr, dtype=float)
 
         macd, macdsignal, macdhist = ta.MACD(prices,fastperiod=12, slowperiod=26, signalperiod=9)
