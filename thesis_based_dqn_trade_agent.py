@@ -4,11 +4,8 @@
 # this code based on code on https://qiita.com/sugulu/items/bc7c70e6658f204f85f9
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
-#IS_TF_STYLE = True #True #False
 USE_TENSOR_BOARD = False
-#ENABLE_PRE_EXCUTION_OF_PREDICT = False
-#ENABLE_L2_LEGURALIZER = False
-#IS_PREDICT_BUY_DONOT_ONLY_MODE = True
+
 
 import numpy as np
 import tensorflow as tf
@@ -36,33 +33,24 @@ class QNetwork:
         self.optimizer = Adam(lr=learning_rate, clipvalue=0.5)
         #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
-        #self.loss_func = tf.keras.losses.Huber(delta=1.0)
-        self.loss_func = "categorical_crossentropy"
+        self.loss_func = tf.keras.losses.Huber(delta=1.0)
+        #self.loss_func = "categorical_crossentropy"
 
         self.model = tf.keras.Sequential([
-            LSTM(hidden_size, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
             LeakyReLU(0.2),
-            #PReLU(),
             #BatchNormalization(),
             #Dropout(0.5),
-            LSTM(hidden_size, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
             LeakyReLU(0.2),
-            #PReLU(),
-            BatchNormalization(),
+            #BatchNormalization(),
             #Dropout(0.5),
-            Dense(action_size, activation='softmax')
-            #Dense(action_size, activation='linear')
+            #Dense(action_size, activation='softmax')
+            Dense(action_size, activation='linear')
         ])
-        self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
+        #self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
+        self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         self.model.summary()
-
-        # # predictしたBUYとDONOTの報酬の絶対値の差分を保持する
-        # self.buy_donot_diff_memory_predicted = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=10000)
-
-        # 配列で保持しているBUYとDONOTの報酬の平均値の絶対値の差分を保持する
-        self.buy_donot_diff_memory_collect = Memory([], all_period_reward_arr = all_period_reward_arr, max_size=TRAIN_DATA_NUM)
-
-        # self.batch_datas_for_generator = []
 
     # 重みの学習
     def replay(self, memory, time_series, targetQN, cur_episode_idx = 0, batch_num = 1):
@@ -70,9 +58,7 @@ class QNetwork:
         targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
         all_sample_cnt = 0
-        episode_idx = batch_size - 1 # 1引いているのは後続のコードがゼロオリジンを想定しているため
-        if batch_num == 1:
-            episode_idx = cur_episode_idx
+        episode_idx = cur_episode_idx
 
         for ii in range(batch_num):
             mini_batch = memory.get_sequencial_samples(batch_size, (episode_idx + 1) - batch_size)
@@ -83,34 +69,24 @@ class QNetwork:
                 reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
                 inputs[all_sample_cnt] = reshaped_state
 
-                # 学習の進行度の目安としてBUYとDONOTの predict した報酬の絶対値の差の平均値を求める
-                # （理想的に学習していれば、両者は絶対値が同じ符号が逆の値になるはずであるので、0に近づくほど学習が進んでいると見なせる、はず）
-                # residual は 残差 の意
+                # Double DQN (mainQNとtargetQNを用いる)
+                reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
+                retmainQs = self.model.predict(reshaped_next_state)[0]
+                next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                target = reward_b + gamma * targetQN.model.predict(reshaped_next_state)[0][next_action]
 
-                # targets[all_sample_cnt] = np.reshape(self.model.predict(reshaped_state)[0], [1, nn_output_size])
-                # self.buy_donot_diff_memory_predicted.add(abs(abs(targets[all_sample_cnt][0][0]) - abs(targets[all_sample_cnt][0][2])))
-                # agent_learn_residual = self.buy_donot_diff_memory_predicted.get_mean_value()
+                targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]  # Qネットワークの出力
+                targets[all_sample_cnt][0][action_b] = target  # 教師信号
 
-                # 正解の方を求めて出力
-                self.buy_donot_diff_memory_collect.add_buy_donot_abs_diff(((episode_idx + 1) - batch_size) + idx)
-                base_data_residual = self.buy_donot_diff_memory_collect.get_mean_value()
+                # bigger_pips_action = np.argmax(reward_b)
+                # if bigger_pips_action == 0:
+                #     targets[all_sample_cnt][0][0] = 1 # 教師信号
+                #     targets[all_sample_cnt][0][1] = 0 # 教師信号
+                # else: # 2 => DONOT
+                #     targets[all_sample_cnt][0][0] = 0 # 教師信号
+                #     targets[all_sample_cnt][0][1] = 1 # 教師信号
 
-                print("reward_b: collect residual -> " + str(base_data_residual))
-
-
-                # # イテレーションをまたいで平均rewardを計算しているlistから3つ全てのアクションのrewardを得てあるので
-                # # 全て設定する
-                # # BUYとDONOTの教師信号は符号で-1, 1 にクリッピングする
-                # targets[all_sample_cnt][0][0] = 1.0 if reward_b[0] > 0 else -1.0 # 教師信号
-                # targets[all_sample_cnt][0][1] = 1.0 if reward_b[2] > 0 else -1.0  # 教師信号
-
-                bigger_pips_action = np.argmax(reward_b)
-                if bigger_pips_action == 0:
-                    targets[all_sample_cnt][0][0] = 1 # 教師信号
-                    targets[all_sample_cnt][0][1] = 0 # 教師信号
-                else: # 2 => DONOT
-                    targets[all_sample_cnt][0][0] = 0 # 教師信号
-                    targets[all_sample_cnt][0][1] = 1 # 教師信号
+                print("reward_b," + str(reward_b) + ",target," + str(target) + ",action," + str(action_b) + ",next_action," + str(next_action))
 
                 all_sample_cnt += 1
 
@@ -129,49 +105,12 @@ class QNetwork:
                                                     write_graph=True, write_grads=True, profile_batch=True)
             cbks = [callbacks]
         self.model.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size, callbacks=cbks)
-        # self.fit(inputs, targets, epochs=1, verbose=1, batch_size=batch_size)
-
-    # def fit(self, inputs, targets, epochs=1, verbose=0, batch_size=32):
-    #     # config = tf.ConfigProto(
-    #     #     gpu_options=tf.GPUOptions(
-    #     #         visible_device_list="0",  # specify GPU number
-    #     #         allow_growth=True
-    #     #     )
-    #     # )
-    #     # sess = tf.Session(config=config)
-    #     # sess.run(tf.global_variables_initializer())
-    #
-    #     #with sess:
-    #     bat_per_epoch = math.floor(len(inputs) / batch_size)
-    #     for epoch in range(epochs):
-    #         for i in range(bat_per_epoch):
-    #             n = i * batch_size
-    #             self.fit_step(inputs[n:n + batch_size], targets[n:n + batch_size])
-    #
-    # # 入力データはバッチ単位で与えられる
-    # def fit_step(self, input, target, epochs=1, verbose=0, batch_size=32):
-    #     with tf.GradientTape() as tape:
-    #         predicted = self.model(input, training=True)
-    #         # # assertを入れて出力の型をチェックする。
-    #         # tf.debugging.assert_equal(logits.shape, (32, 10))
-    #         loss_value = self.loss_func(target, predicted)
-    #         print("loss: " + str(loss_value))
-    #
-    #     grads = tape.gradient(loss_value, self.model.trainable_variables)
-    #     self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
     def save_model(self, file_path_prefix_str):
         save_model(self.model, "./" + file_path_prefix_str + ".hd5", save_format="h5")
-        # with open("./" + file_path_prefix_str + "_nw.json", "w") as f:
-        #     f.write(self.model.to_json())
-        # self.model.save_weights("./" + file_path_prefix_str + "_weights.hd5")
 
     def load_model(self, file_path_prefix_str):
         self.model = load_model("./" + file_path_prefix_str + ".hd5", compile=False)
-        # with open("./" + file_path_prefix_str + "_nw.json", "r") as f:
-        #     self.model = model_from_json(f.read())
-        # self.model.compile(loss=huberloss, optimizer=self.optimizer)
-        # self.model.load_weights("./" + file_path_prefix_str + "_weights.hd5")
 
 # replay に 利用するための キュー的なもの
 class Memory:
@@ -181,10 +120,6 @@ class Memory:
 
     def add(self, experience):
         self.buffer.append(experience)
-
-    # def sample(self, batch_size):
-    #     idx = np.random.choice(np.arange(len(self.buffer)), size=batch_size, replace=False)
-    #     return [self.buffer[ii] for ii in idx]
 
     def get_last(self, num):
         deque_length = len(self.buffer)
@@ -232,8 +167,8 @@ class Actor:
             reshaped_state = np.reshape(state, [1, time_series, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
-            # TODO: 1出力の値を -1, 0, 1に 置き換える必要がある
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+            action = action - 1 # 0, 1, 2 を -1, 0, 1 に置き換える
         else:
             # ランダムに行動する
             action = np.random.choice([-1, 0, 1])
@@ -241,43 +176,40 @@ class Actor:
         return action
 
 # ---
-hidden_size = 64 #32
+hidden_size_lstm1 = 64 #32
+hidden_size_lstm2 = 32
+
 learning_rate = 0.0001 #0.0016
 time_series = 64 #32
 batch_size = 64 #256 #1024
-TRAIN_DATA_NUM = 72000 # TODO: 日足の数に合わせる必要あり
+TRAIN_DATA_NUM = 252 * 5 # 5year #72000
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
 iteration_num = 5000 #720
 memory_size = TRAIN_DATA_NUM * 2 + 10
 feature_num = 3
-nn_output_size = 1
+nn_output_size = 3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 HODABLE_POSITIONS = 1 #30
 BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
-# イテレーションを跨いで、ある足での action に対する reward の平均値を求める際に持ちいる時間割引率
-# 昔に得られた結果だからといって割引してはCLOSEのタイミングごとに平等に反映されないことになるので
-# 現在の実装では 1.0 とする
-gamma_at_reward_mean = 1.0
-# mean_pips_update_stop_itr = 90
+gamma = 0.3
+train_episode_interval = 1024 # bs64 * 16
 
-LONG = 0 #BUY
-SHORT = 1 #CLOSE
-NOT_HAVE = 2 #DONOT
+SELL = -1 #SELL
+DONOT = 0 #DONOT
+BUY = 1   #BUY
 
 def tarin_agent():
     env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread = half_spread)
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     targetQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # Double DQNのためのネットワーク
 
-
     memory = Memory([], max_size=memory_size)
     actor = Actor()
 
     total_get_acton_cnt = 1
 
-    # if os.path.exists("./mainQN_nw.json"):
     if os.path.exists("./mainQN.hd5"):
         mainQN.load_model("mainQN")
         # memory.load_memory("memory")
@@ -341,16 +273,11 @@ def tarin_agent():
 
             state = next_state  # 状態更新
 
-            # TODO: 1000エピソードごとに行わないといけないはず（それでFixed DQNを実装したことになるはず）
+            # 1024エピソードごとにfitする（それでFixed DQNを実装したことになるはず）
             # Qネットワークの重みを学習・更新する replay
-            # # memory無いの1要素でfitが行われるため、cur_idx=0から行ってしまって問題ない <- バッチ1はなんかアレなので今は変えている
-            # batch_size分新たにmemoryにエピソードがたまったら batch_size のバッチとして replayする
-            if episode + 1 >= batch_size and (episode + 1) % batch_size == 0:
-                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode)
-
-        # # イテレーションの最後にまとめて複数ミニバッチでfitする
-        # # これにより、fitがコア並列やGPUで動作していた場合のオーバヘッド削減を狙う
-        # mainQN.replay(memory, time_series, cur_episode_idx=0, batch_num=(total_episode_on_last_itr // batch_size))
+            # train_episode_interval分新たにmemoryにエピソードがたまったら batch_size のミニバッチ 16個 として replayする
+            if episode + 1 >= train_episode_interval and (episode + 1) % train_episode_interval == 0:
+                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode, batch_num=16)
 
         # 次周では過去のmemoryは参照しない
         memory.clear()
@@ -368,10 +295,6 @@ def run_backtest(backtest_type, learingQN=None, env_master=None):
     actor = Actor()
 
     mainQN.load_model("mainQN")
-    # if backtest_type == "auto_backtest" or backtest_type == "auto_backtest_test":
-    #     mainQN = learingQN
-    # else:
-    #     mainQN.load_model("mainQN")
 
     # DONOT でスタート
     state, reward, done, info, needclose = env.step(0)

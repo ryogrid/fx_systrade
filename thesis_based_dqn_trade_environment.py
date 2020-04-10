@@ -18,17 +18,10 @@ RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 class FXEnvironment:
     def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015):
         print("FXEnvironment class constructor called.")
-        self.INPUT_LEN = 1
-        self.COMPETITION_DIV = True
         self.COMPETITION_TRAIN_DATA_NUM = train_data_num
 
-        self.TRAINDATA_DIV = 2
+        self.DATA_HEAD_ASOBI = 65
 
-        self.DATA_HEAD_ASOBI = 200
-
-        #self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1", "bb_2", "ema", "cci", "mo","vorariity", "macd", "chart_type"]
-        self.FEATURE_NAMES = ["current_rate", "diff_ratio_between_previous_rate", "rsi", "ma", "ma_kairi", "bb_1",
-                              "bb_2", "cci", "mo", "vorariity"]
         self.tr_input_arr = None
         self.val_input_arr = None
 
@@ -49,7 +42,7 @@ class FXEnvironment:
         X_T = scaler.transform(X)
         return X_T, scaler
 
-    def get_rsi(self, price_arr, cur_pos, period = 40):
+    def get_rsi(self, price_arr, cur_pos, period = 30):
         if cur_pos <= period:
             return 0
         else:
@@ -145,8 +138,7 @@ class FXEnvironment:
 
         return np.std(tmp_arr)
 
-    #TODO: パラメータと返り値の変更が必要
-    def get_macd(self, price_arr, cur_pos, period = 100):
+    def get_macd(self, price_arr, cur_pos, period = 63):
         if cur_pos <= period:
             s = 0
         else:
@@ -155,11 +147,9 @@ class FXEnvironment:
         #tmp_arr.reverse()
         prices = np.array(tmp_arr, dtype=float)
 
-        macd, macdsignal, macdhist = ta.MACD(prices,fastperiod=12, slowperiod=26, signalperiod=9)
-        if macd[-1] > macdsignal[-1]:
-            return 1
-        else:
-            return 0
+        macd, macdsignal, macdhist = ta.MACD(prices, fastperiod=8, slowperiod=24)
+
+        return macd[-1]
 
     # 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
     # なお、本来は月曜朝5:00から取引できるのが一般的なようである
@@ -188,31 +178,15 @@ class FXEnvironment:
             if i % 2000:
                 print("current date idx: " + str(i))
             input_mat.append(
-                [self.exchange_rates[i], #TODO: この要素だけは別にリストを用意しておいて normalizerにかける必要あり
-                 #(self.exchange_rates[i] - self.exchange_rates[i - 1]) / self.exchange_rates[i - 1],
+                [self.exchange_rates[i],
                  self.get_rsi(self.exchange_rates, i),
-                 #self.get_ma(self.exchange_rates, i),
-                 #self.get_ma_kairi(self.exchange_rates, i),
-                 #self.get_bb_1(self.exchange_rates, i),
-                 #self.get_bb_2(self.exchange_rates, i),
-                 #self.get_ema(self.exchange_rates, i),
-                 #self.get_cci(self.exchange_rates, i),
-                 #self.get_mo(self.exchange_rates, i),
-                 #self.get_vorarity(self.exchange_rates, i),
                  self.get_macd(self.exchange_rates, i),
-                 #self.judge_chart_type(self.exchange_rates[i - self.CHART_TYPE_JDG_LEN:i])
                  ]
             )
-
-            if y_arr_fpath != None:
-                tmp = self.exchange_rates[i + self.PREDICT_FUTURE_LEGS] - self.exchange_rates[i]
-                angle_mat.append(tmp)
 
         input_mat = np.array(input_mat, dtype=np.float64)
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
-        with open(y_arr_fpath, 'wb') as f:
-            pickle.dump(angle_mat, f)
         print("test data end index: " + str(train_end_idx))
 
         return input_mat, angle_mat
@@ -228,12 +202,13 @@ class FXEnvironment:
                 self.exchange_rates = pickle.load(f)
         else:
             rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
+            # 日足のデータを得る
             for line in rates_fd:
                 splited = line.split(",")
-                if splited[2] != "High" and splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[
+                if "23:55:00" in splited[0] and splited[2] != "High" and splited[0] != "<DTYYYYMMDD>" and splited[0] != "204/04/26" and splited[
                     0] != "20004/04/26" and self.is_weekend(splited[0]) == False:
                     time = splited[0].replace("/", "-")  # + " " + splited[1]
-                    val = float(splited[1])
+                    val = float(splited[4]) # close price
                     self.exchange_dates.append(time)
                     self.exchange_rates.append(val)
             # 足の長さを調節する
@@ -249,14 +224,13 @@ class FXEnvironment:
                 all_input_mat = pickle.load(f)
         else:
             all_input_mat = \
-                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI - self.PREDICT_FUTURE_LEGS, 1, './all_input_mat.pickle')
+                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI, 1, './all_input_mat.pickle')
 
-        # TODO: 価格の特徴量のみnormalizeするよう変更が必要
+        # TODO: 論文では価格のみ normalize したとあるが、面倒なので全ての特徴量を normalize してしまう
         self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:self.COMPETITION_TRAIN_DATA_NUM * 2], tr_scaler)
+        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
 
         print("data size of all rates for train and test: " + str(len(self.exchange_rates)))
-        print("num of rate datas for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
         print("input features sets for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
         print("input features sets for test: " + str(len(self.ts_input_arr)))
         print("finished setup environment data.")
@@ -266,26 +240,26 @@ class FXEnvironment:
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.tr_angle_arr,  time_series = self.time_series, is_backtest=True)
+                                           time_series = self.time_series, is_backtest=True)
         if(type_str == "auto_backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.tr_angle_arr,  time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
+                                           self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM * 2, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True)
+                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           time_series = self.time_series, is_backtest=True)
         elif(type_str == "auto_backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM * 2, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.ts_angle_arr, time_series = self.time_series, is_backtest=True, is_auto_backtest = True)
+                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           time_series = self.time_series, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           angle_arr=self.tr_angle_arr, is_backtest=False)
+                                           self.DATA_HEAD_ASOBI, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, angle_arr = None, half_spread=0.0015, holdable_positions=100, is_backtest = False, is_auto_backtest = False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, half_spread=0.0015, holdable_positions=100, is_backtest = False, is_auto_backtest = False):
             self.LONG = 0
             self.SHORT = 1
             self.NOT_HAVE = 2
@@ -333,6 +307,7 @@ class FXEnvironment:
 
         def step(self, action_num):
             cur_episode_rate_idx = self.idx_geta + self.cur_idx
+            did_close = False
 
             if action_num == -1:
                 action = "SELL"
@@ -360,6 +335,7 @@ class FXEnvironment:
                     # LONGに持ちかえる
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
                     a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
+                    did_close = True
                 elif self.portfolio_mngr.having_long_or_short == self.LONG:
                     #既にLONGポジションを持っていたら何もしない
                     a_log_str_line += ",HOLD_LONG" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
@@ -399,6 +375,7 @@ class FXEnvironment:
                     # SHORTに持ちかえる
                     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
                     a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
+                    did_close = True
                 elif self.portfolio_mngr.having_long_or_short == self.SHORT:
                     #既にSHORTポジションを持っていたら何もしない
                     a_log_str_line += ",HOLD_SHORT" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + ",0"
@@ -413,8 +390,7 @@ class FXEnvironment:
 
             if self.is_auto_backtest:
             #自動バックテストの際は、CLOSEのアクションの内容だけ出力させる
-                # TODO: CLOSEアクションは無いので対処が必要
-                if action == "CLOSE":
+                if did_close:
                     self.logfile_writeln_bt(a_log_str_line)
             else:
                 self.logfile_writeln_bt(a_log_str_line)
@@ -449,6 +425,7 @@ class PortforioManager:
         self.NOT_HAVE = 2
 
         self.having_money = 1000000.0
+        self.fixed_use_money_mue = 500000.0
         self.total_won_pips = 0.0
 
         # 各要素は [購入時の価格（スプレッド含む）, self.LONG or self.SHORT, 数量]
@@ -472,7 +449,7 @@ class PortforioManager:
     def buy(self, rate_idx):
         pos_kind = self.LONG
         trade_val = self.exchange_rates[rate_idx] + self.half_spread
-        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
+        currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
@@ -485,7 +462,7 @@ class PortforioManager:
     def sell(self, rate_idx):
         pos_kind = self.SHORT
         trade_val = self.exchange_rates[rate_idx] - self.half_spread
-        currency_num = (self.having_money / (self.holdable_position_num - self.position_num)) / trade_val
+        currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
