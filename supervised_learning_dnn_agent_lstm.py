@@ -77,15 +77,15 @@ class Actor:
         reshaped_state = np.reshape(features, [1, time_series, feature_num])
         retTargetQs = mainQN.model.predict(reshaped_state)
         print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
-        #action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+        action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
 
-        pred_diff = retTargetQs[0][0]
-        if pred_diff < half_spread:
-            action = SELL
-        elif pred_diff > half_spread:
-            action = BUY
-        else:
-            action = DONOT
+        # pred_diff = retTargetQs[0][0]
+        # if pred_diff < half_spread:
+        #     action = SELL
+        # elif pred_diff > half_spread:
+        #     action = BUY
+        # else:
+        #     action = DONOT
 
         return action
 
