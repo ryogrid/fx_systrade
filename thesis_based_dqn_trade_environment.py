@@ -129,7 +129,7 @@ class FXEnvironment:
     def get_vorarity(self, price_arr, cur_pos, period = None):
         tmp_arr = []
         prev = -1.0
-        for val in price_arr[cur_pos-self.CHART_TYPE_JDG_LEN:cur_pos]:
+        for val in price_arr[cur_pos-period:cur_pos]:
             if prev == -1.0:
                 tmp_arr.append(0.0)
             else:
@@ -167,7 +167,7 @@ class FXEnvironment:
         out_fd.write(log_str + "\n")
         #out_fd.flush()
 
-    def make_serialized_data(self, start_idx, end_idx, step, x_arr_fpath, y_arr_fpath):
+    def make_serialized_data(self, start_idx, end_idx, step, x_arr_fpath):
         input_mat = []
         angle_mat = []
         train_end_idx = -1
@@ -321,7 +321,7 @@ class FXEnvironment:
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
 
             if action == "BUY":
-                reward = 0
+                reward = 1
 
                 # TODO: rewardの計算が必要
 
@@ -361,7 +361,7 @@ class FXEnvironment:
                 a_log_str_line += operation_str + diff_str + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "SELL":
-                reward = 0
+                reward = -1
 
                 # TODO: rewardの計算が必要
 
