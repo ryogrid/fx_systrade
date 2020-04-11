@@ -193,6 +193,9 @@ BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
 gamma = 0.3
+volatility_tgt = 0.1
+bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
+
 train_episode_interval = 1024 # bs64 * 16
 
 SELL = -1 #SELL
@@ -200,7 +203,7 @@ DONOT = 0 #DONOT
 BUY = 1   #BUY
 
 def tarin_agent():
-    env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread = half_spread)
+    env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=half_spread, volatility_tgt=volatility_tgt, bp=bp)
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     targetQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # Double DQNのためのネットワーク
 
@@ -276,7 +279,7 @@ def run_backtest(backtest_type, env_master=None):
     if env_master:
         env_master_local = env_master
     else:
-        env_master_local = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=half_spread)
+        env_master_local = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=half_spread, volatility_tgt=volatility_tgt, bp=bp)
 
     env = env_master_local.get_env(backtest_type)
     num_episodes = 1500000  # 10年. envがdoneを返すはずなので適当にでかい数字を設定しておく

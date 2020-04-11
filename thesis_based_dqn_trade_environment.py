@@ -12,11 +12,12 @@ import time
 import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
+import math
 
 RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 
 class FXEnvironment:
-    def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015):
+    def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015, volatility_tgt = 0.1, bp = 0.000015):
         print("FXEnvironment class constructor called.")
         self.COMPETITION_TRAIN_DATA_NUM = train_data_num
 
@@ -33,6 +34,9 @@ class FXEnvironment:
 
         self.setup_serialized_fx_data()
         self.half_spread = half_spread
+
+        self.volatility_tgt = volatility_tgt
+        self.bp = bp
 
     def preprocess_data(self, X, scaler=None):
         if scaler == None:
@@ -125,8 +129,20 @@ class FXEnvironment:
     #
     #     return ta.PPO(prices)[-1]
 
-    #TODO: need EMSD version
-    def get_vorarity(self, price_arr, cur_pos, period = None):
+    # def get_vorarity(self, price_arr, cur_pos, period = None):
+    #     tmp_arr = []
+    #     prev = -1.0
+    #     for val in price_arr[cur_pos-period:cur_pos]:
+    #         if prev == -1.0:
+    #             tmp_arr.append(0.0)
+    #         else:
+    #             tmp_arr.append(val - prev)
+    #         prev = val
+    #
+    #     return np.std(tmp_arr)
+
+    # TODO: EMSD version (not implemented yet)
+    def get_volatility(self, price_arr, cur_pos, period = None):
         tmp_arr = []
         prev = -1.0
         for val in price_arr[cur_pos-period:cur_pos]:
@@ -235,26 +251,26 @@ class FXEnvironment:
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           time_series = self.time_series, is_backtest=True)
+                                           time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         if(type_str == "auto_backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           time_series = self.time_series, is_backtest=True, is_auto_backtest=True)
+                                           time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           time_series = self.time_series, is_backtest=True)
+                                           time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         elif(type_str == "auto_backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           time_series = self.time_series, is_backtest=True, is_auto_backtest = True)
+                                           time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
                                            self.DATA_HEAD_ASOBI, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
-                                           is_backtest=False)
+                                           volatility_tgt = self.volatility_tgt, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, half_spread=0.0015, holdable_positions=100, is_backtest = False, is_auto_backtest = False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, half_spread=0.0015, holdable_positions=100, is_backtest = False, volatility_tgt = 0.1, bp = 0.000015, is_auto_backtest = False):
             self.LONG = 0
             self.SHORT = 1
             self.NOT_HAVE = 2
@@ -268,6 +284,16 @@ class FXEnvironment:
             self.idx_geta = idx_geta
             self.is_backtest = is_backtest
             self.is_auto_backtest = is_auto_backtest
+            self.volatility_tgt = volatility_tgt
+
+            # TODO: 初期化時に埋める必要あり、インデックスは exchanged_ratesと一致するように作成する
+            self.volatility_arr = []
+
+            # reward の計算にはbpをトランザクションコストのレートとして用いるが、実際の取引でのスプレッドは half_sparedを用いる
+            self.bp = bp
+            # 常に 5000ドル単位で売買を行う（保有可能ポジションは 1）
+            # 初期資産100万円で、半分の50万円程度を用いる前提で、1ドル100円のレートを想定して設定した
+            self.fixed_open_currency_num_mue = 5000
 
             if self.is_backtest and self.is_auto_backtest:
                 self.log_fd_bt = open("./auto_backtest_log_" + dt.now().strftime("%Y-%m-%d_%H-%M-%S") + ".csv", mode = "w")
@@ -283,10 +309,11 @@ class FXEnvironment:
             self.done = False
             self.input_arr_len = len(input_arr)
             self.holdable_positions = holdable_positions
-            # if(is_backtest == False):
-            #     self.half_spread = 0.0
 
-            self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_position_num = self.holdable_positions)
+            self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_position_num = self.holdable_positions, fixed_open_currency_num_mue=self.fixed_open_currency_num_mue)
+
+            self.action_t_minus_one = 0
+            self.action_t_minus_two = 0
 
         def get_rand_str(self):
             return str(random.randint(0, 10000000))
@@ -299,6 +326,19 @@ class FXEnvironment:
             won_pips, won_money = self.portfolio_mngr.close_all(cur_episode_rate_idx)
 
             return won_pips, won_money
+
+        def caluculate_reward(self, cur_episode_rate_idx):
+            p_t = self.exchange_rates[cur_episode_rate_idx]
+            p_t_minus_one = self.exchange_rates[cur_episode_rate_idx - 1]
+            r_t = p_t - p_t_minus_one
+            volatility_t_minus_one = self.volatility_arr[cur_episode_rate_idx - 1]
+            volatility_t_minus_two = self.volatility_arr[cur_episode_rate_idx - 2]
+            evaluated_position_member = self.action_t_minus_one * (self.volatility_tgt / volatility_t_minus_one) * r_t
+            transaction_cost_member_child = (self.volatility_tgt / volatility_t_minus_one) * self.action_t_minus_one - (self.volatility_tgt / volatility_t_minus_two) * self.action_t_minus_two
+            transaction_cost_member_parent = self.bp * p_t_minus_one * math.abs(transaction_cost_member_child)
+            reward = self.fixed_open_currency_num_mue * (evaluated_position_member - transaction_cost_member_parent)
+
+            return reward
 
         def step(self, action_num):
             cur_episode_rate_idx = self.idx_geta + self.cur_idx
@@ -315,11 +355,16 @@ class FXEnvironment:
 
             a_log_str_line = "log," + str(self.cur_idx) + "," + action
 
+            # rewardは現在のactionではなく、過去の2つのアクションによって決まるので
+            # 個別に求める必要はない
+            reward = self.caluculate_reward(cur_episode_rate_idx)
+            print("reward_at_step," + str(self.cur_idx)  + "," + str(reward))
+
+            # 過去の2アクションを保持しておく必要があるため入れ替えを行う
+            self.action_t_minus_two = self.action_t_minus_one
+            self.action_t_minus_one = action_num
+
             if action == "BUY":
-                reward = 1
-
-                # TODO: rewardの計算が必要
-
                 if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
                     a_log_str_line += ",OPEN_LONG" + ",0,0," + str(
@@ -337,10 +382,6 @@ class FXEnvironment:
                 else:
                     raise Exception("unknown state")
             elif action == "DONOT":
-                reward = 0
-
-                # TODO: rewardの計算が必要
-
                 if self.portfolio_mngr.having_long_or_short == self.LONG:
                     operation_str = ",POSITION_HOLD_LONG,0,"
                 elif self.portfolio_mngr.having_long_or_short == self.SHORT:
@@ -356,10 +397,6 @@ class FXEnvironment:
                 a_log_str_line += operation_str + diff_str + "," + str(
                     self.exchange_rates[cur_episode_rate_idx]) + ",0"
             elif action == "SELL":
-                reward = -1
-
-                # TODO: rewardの計算が必要
-
                 if self.portfolio_mngr.having_long_or_short == self.NOT_HAVE:
                     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
                     a_log_str_line += ",OPEN_SHORT" + ",0,0," + str(
@@ -409,7 +446,7 @@ class FXEnvironment:
 
 class PortforioManager:
 
-    def __init__(self, exchange_rates, half_spred=0.0015, holdable_position_num = 100, is_backtest=False):
+    def __init__(self, exchange_rates, half_spred=0.0015, holdable_position_num = 100, fixed_open_currency_num_mue = 5000, is_backtest=False):
         self.holdable_position_num = holdable_position_num
         self.exchange_rates = exchange_rates
         self.half_spread = half_spred
@@ -420,7 +457,8 @@ class PortforioManager:
         self.NOT_HAVE = 2
 
         self.having_money = 1000000.0
-        self.fixed_use_money_mue = 500000.0
+        # 常に fixed_open_currency_num_mue 数のドル単位で売買を行う（保有可能ポジションは 1）
+        self.fixed_open_currency_num_mue = fixed_open_currency_num_mue
         self.total_won_pips = 0.0
 
         # 各要素は [購入時の価格（スプレッド含む）, self.LONG or self.SHORT, 数量]
@@ -444,7 +482,8 @@ class PortforioManager:
     def buy(self, rate_idx):
         pos_kind = self.LONG
         trade_val = self.exchange_rates[rate_idx] + self.half_spread
-        currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
+        # currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
+        currency_num = self.fixed_open_currency_num_mue
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
@@ -457,7 +496,8 @@ class PortforioManager:
     def sell(self, rate_idx):
         pos_kind = self.SHORT
         trade_val = self.exchange_rates[rate_idx] - self.half_spread
-        currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
+        #currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
+        currency_num = self.fixed_open_currency_num_mue
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
