@@ -201,7 +201,7 @@ BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
 gamma = 0.3
-volatility_tgt = 0.1
+volatility_tgt = 2.0
 bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
 
 train_episode_interval = 1024 # bs64 * 16
