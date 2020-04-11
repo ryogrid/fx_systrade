@@ -26,8 +26,9 @@ class FXEnvironment:
         self.tr_input_arr = None
         self.val_input_arr = None
 
-        self.exchange_dates = None
-        self.exchange_rates = None
+        self.exchange_dates = []
+        self.exchange_rates = []
+        self.volatility_arr = []
 
         self.time_series = time_series
         self.holdable_positions  = holdable_positions
@@ -141,19 +142,6 @@ class FXEnvironment:
     #
     #     return np.std(tmp_arr)
 
-    # TODO: EMSD version (not implemented yet)
-    def get_volatility(self, price_arr, cur_pos, period = None):
-        tmp_arr = []
-        prev = -1.0
-        for val in price_arr[cur_pos-period:cur_pos]:
-            if prev == -1.0:
-                tmp_arr.append(0.0)
-            else:
-                tmp_arr.append(val - prev)
-            prev = val
-
-        return np.std(tmp_arr)
-
     def get_macd(self, price_arr, cur_pos, period = 63):
         if cur_pos <= period:
             s = 0
@@ -202,10 +190,29 @@ class FXEnvironment:
 
         return input_mat
 
-    def setup_serialized_fx_data(self):
-        self.exchange_dates = []
-        self.exchange_rates = []
+    # TODO: calculate EMSD(Exponentially wighted moving standard deviation)
+    #       not tested yet
+    def get_volatility_arr(self, rate_arr, window_size):
+        alpha = 2 / float(window_size + 1)
+        for idx in range(len(rate_arr)):
+            if idx + 1 < window_size:
+                self.volatility_arr.append(0)
+            else:
+                s = (idx + 1) - window_size
+                tmp_arr = rate_arr[s:idx + 1]
+                len(tmp_arr)
+                prices = np.array(tmp_arr, dtype=float)
+                ema_arr = ta.EMA(prices, timeperiod = window_size)
+                emvar_arr = []
+                for sd_idx in range(len(ema_arr)):
+                    if sd_idx == 0:
+                        emvar_arr.append(0.0)
+                    else:
+                        delta = self.exchange_rates[idx] - ema_arr[sd_idx - 1]
+                        emvar_arr.append((1 - alpha) * (emvar_arr[sd_idx - 1] + alpha * delta^2))
+                self.volatility_arr.append(emvar_arr[-1])
 
+    def setup_serialized_fx_data(self):
         if False: #self.is_fist_call == False and os.path.exists("./exchange_rates.pickle"):
             with open("./exchange_dates.pickle", 'rb') as f:
                 self.exchange_dates = pickle.load(f)
@@ -228,6 +235,15 @@ class FXEnvironment:
             with open("./exchange_rates.pickle", 'wb') as f:
                 pickle.dump(self.exchange_rates, f)
             with open("./exchange_dates.pickle", 'wb') as f:
+                pickle.dump(self.exchange_dates, f)
+
+        if False:  # self.is_fist_call == False and os.path.exists("./volatility_arr.pickle"):
+            with open('./volatility_arr.pickle', 'rb') as f:
+                self.volatility_arr = pickle.load(f)
+        else:
+            # 60day window
+            self.volatility_arr = self.get_volatility_arr(self.exchange_rates, 60)
+            with open("./volatility_arr.pickle", 'wb') as f:
                 pickle.dump(self.exchange_dates, f)
 
         if False: #self.is_fist_call == False and os.path.exists("./all_input_mat.pickle"):
@@ -266,11 +282,11 @@ class FXEnvironment:
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            volatility_tgt = self.volatility_tgt, is_backtest=False)
 
     class InnerFXEnvironment:
-        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, time_series=32, half_spread=0.0015, holdable_positions=100, is_backtest = False, volatility_tgt = 0.1, bp = 0.000015, is_auto_backtest = False):
+        def __init__(self, input_arr, exchange_dates, exchange_rates, idx_geta, volatility_arr = None, time_series=32, half_spread=0.0015, holdable_positions=100, is_backtest = False, volatility_tgt = 0.1, bp = 0.000015, is_auto_backtest = False):
             self.LONG = 0
             self.SHORT = 1
             self.NOT_HAVE = 2
@@ -286,8 +302,7 @@ class FXEnvironment:
             self.is_auto_backtest = is_auto_backtest
             self.volatility_tgt = volatility_tgt
 
-            # TODO: 初期化時に埋める必要あり、インデックスは exchanged_ratesと一致するように作成する
-            self.volatility_arr = []
+            self.volatility_arr = volatility_arr
 
             # reward の計算にはbpをトランザクションコストのレートとして用いるが、実際の取引でのスプレッドは half_sparedを用いる
             self.bp = bp
@@ -357,8 +372,12 @@ class FXEnvironment:
 
             # rewardは現在のactionではなく、過去の2つのアクションによって決まるので
             # 個別に求める必要はない
-            reward = self.caluculate_reward(cur_episode_rate_idx)
-            print("reward_at_step," + str(self.cur_idx)  + "," + str(reward))
+            if self.is_backtest:
+                # バックテストを行う際はrewardは用いないため算出不要
+                reward = 0
+            else:
+                reward = self.caluculate_reward(cur_episode_rate_idx)
+                print("reward_at_step," + str(self.cur_idx)  + "," + str(reward))
 
             # 過去の2アクションを保持しておく必要があるため入れ替えを行う
             self.action_t_minus_two = self.action_t_minus_one
