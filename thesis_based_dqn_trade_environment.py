@@ -200,7 +200,7 @@ class FXEnvironment:
             else:
                 s = (idx + 1) - window_size
                 tmp_arr = rate_arr[s:idx + 1]
-                len(tmp_arr)
+                print("get_volatility_arr:" + str(len(tmp_arr)))
                 prices = np.array(tmp_arr, dtype=float)
                 ema_arr = ta.EMA(prices, timeperiod = window_size)
                 emvar_arr = []
@@ -209,8 +209,11 @@ class FXEnvironment:
                         emvar_arr.append(0.0)
                     else:
                         delta = self.exchange_rates[idx] - ema_arr[sd_idx - 1]
-                        emvar_arr.append((1 - alpha) * (emvar_arr[sd_idx - 1] + alpha * delta^2))
-                self.volatility_arr.append(emvar_arr[-1])
+                        emvar_arr.append((1 - alpha) * (emvar_arr[sd_idx - 1] + alpha * delta * delta))
+                self.volatility_arr.append(math.sqrt(emvar_arr[-1]))
+                print("get_volatility_arr:" + str(ema_arr[0]))
+                print("get_volatility_arr:" + str(emvar_arr[-1]))
+                print("get_volatility_arr: ----------------------------------")
 
     def setup_serialized_fx_data(self):
         if False: #self.is_fist_call == False and os.path.exists("./exchange_rates.pickle"):
