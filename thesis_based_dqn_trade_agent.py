@@ -71,9 +71,15 @@ class QNetwork:
                 reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
                 retmainQs = self.model.predict(reshaped_next_state)[0]
                 next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                target = reward_b + gamma * targetQN.model.predict(reshaped_next_state)[0][next_action]
+                predicted_targetQN = targetQN.model.predict(reshaped_next_state)
+                target = reward_b + gamma * predicted_targetQN[0][next_action]
 
-                targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]  # Qネットワークの出力
+
+
+
+                # Fixed DQN実現のため、少し古いmainQNにより得られる値としてtargetQNを用いる
+                targets[all_sample_cnt][0] = predicted_targetQN[0]  # 教師信号以外の出力を与える
+                # targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
                 targets[all_sample_cnt][0][action_b] = target  # 教師信号
 
                 # bigger_pips_action = np.argmax(reward_b)
@@ -206,6 +212,7 @@ def tarin_agent():
     env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=half_spread, volatility_tgt=volatility_tgt, bp=bp)
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     targetQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # Double DQNのためのネットワーク
+    targetQNtmp = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # Double DQN実現のための一時変数
 
     memory = Memory([], max_size=memory_size)
     actor = Actor()
@@ -245,8 +252,10 @@ def tarin_agent():
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state)
 
-        # Double DQNを実現するため
-        targetQN.model.set_weights(mainQN.model.get_weights())
+        # Double DQNを実現するためにテンポラリなネットワークも挟んで前イテレーションのネットワークを
+        # 利用できるようにしておく
+        targetQN.model.set_weights(targetQNtmp.model.get_weights())
+        targetQNtmp.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_action_cnt += 1

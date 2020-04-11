@@ -190,30 +190,53 @@ class FXEnvironment:
 
         return input_mat
 
-    # TODO: calculate EMSD(Exponentially wighted moving standard deviation)
-    #       not tested yet
-    def get_volatility_arr(self, rate_arr, window_size):
+    # 与えられた価格のリストの最後の要素に対応する volatility(EMSD) となるスカラ値を返す
+    # len(partial_price_arr) は window_size と一致する必要がある
+    def calculate_volatility(self, partial_price_arr, window_size):
         alpha = 2 / float(window_size + 1)
+        ema_arr = []
+        emvar_arr = []
+        delta = 0
+        ema_arr.append(partial_price_arr[0])
+        emvar_arr.append(delta)
+        for idx in range(1, window_size):
+            delta = partial_price_arr[idx] - ema_arr[idx-1]
+            ema_arr.append(ema_arr[idx-1] + alpha * delta)
+            emvar_arr.append((1 - alpha) * (emvar_arr[idx - 1] + alpha * delta * delta))
+
+        print("calculate_volatility:" + str(len(partial_price_arr)))
+        print("calculate_volatility:" + str(ema_arr[-1]))
+        print("calculate_volatility:" + str(emvar_arr[-1]))
+        emsd = math.sqrt(emvar_arr[-1])
+        print("calculate_volatility:" + str(emsd))
+        print("calculate_volatility: ----------------------------------")
+        return emsd
+
+    # TODO: not tested yet
+    # calculate EMSD(Exponentially wighted moving standard deviation)
+    def setup_volatility_arr(self, rate_arr, window_size):
         for idx in range(len(rate_arr)):
             if idx + 1 < window_size:
                 self.volatility_arr.append(0)
             else:
                 s = (idx + 1) - window_size
                 tmp_arr = rate_arr[s:idx + 1]
-                print("get_volatility_arr:" + str(len(tmp_arr)))
-                prices = np.array(tmp_arr, dtype=float)
-                ema_arr = ta.EMA(prices, timeperiod = window_size)
-                emvar_arr = []
-                for sd_idx in range(len(ema_arr)):
-                    if sd_idx == 0:
-                        emvar_arr.append(0.0)
-                    else:
-                        delta = self.exchange_rates[idx] - ema_arr[sd_idx - 1]
-                        emvar_arr.append((1 - alpha) * (emvar_arr[sd_idx - 1] + alpha * delta * delta))
-                self.volatility_arr.append(math.sqrt(emvar_arr[-1]))
-                print("get_volatility_arr:" + str(ema_arr[0]))
-                print("get_volatility_arr:" + str(emvar_arr[-1]))
-                print("get_volatility_arr: ----------------------------------")
+                self.volatility_arr.append(self.calculate_volatility(tmp_arr, window_size))
+
+                # s = (idx + 1) - window_size
+                # tmp_arr = rate_arr[s:idx + 1]
+                # print("get_volatility_arr:" + str(len(tmp_arr)))
+                # prices = np.array(tmp_arr, dtype=float)
+                # ema_arr = ta.EMA(prices, timeperiod = window_size)
+                # emvar_arr = []
+                # for sd_idx in range(len(ema_arr)):
+                #     if sd_idx == 0:
+                #         emvar_arr.append(0.0)
+                #     else:
+                #         delta = self.exchange_rates[idx] - ema_arr[sd_idx - 1]
+                #         emvar_arr.append((1 - alpha) * (emvar_arr[sd_idx - 1] + alpha * delta * delta))
+                # self.volatility_arr.append(math.sqrt(emvar_arr[-1]))
+
 
     def setup_serialized_fx_data(self):
         if False: #self.is_fist_call == False and os.path.exists("./exchange_rates.pickle"):
@@ -244,10 +267,11 @@ class FXEnvironment:
             with open('./volatility_arr.pickle', 'rb') as f:
                 self.volatility_arr = pickle.load(f)
         else:
+            # setup self.volatility_arr
             # 60day window
-            self.volatility_arr = self.get_volatility_arr(self.exchange_rates, 60)
+            self.setup_volatility_arr(self.exchange_rates, 60)
             with open("./volatility_arr.pickle", 'wb') as f:
-                pickle.dump(self.exchange_dates, f)
+                pickle.dump(self.volatility_arr, f)
 
         if False: #self.is_fist_call == False and os.path.exists("./all_input_mat.pickle"):
             with open('./all_input_mat.pickle', 'rb') as f:
@@ -353,7 +377,7 @@ class FXEnvironment:
             volatility_t_minus_two = self.volatility_arr[cur_episode_rate_idx - 2]
             evaluated_position_member = self.action_t_minus_one * (self.volatility_tgt / volatility_t_minus_one) * r_t
             transaction_cost_member_child = (self.volatility_tgt / volatility_t_minus_one) * self.action_t_minus_one - (self.volatility_tgt / volatility_t_minus_two) * self.action_t_minus_two
-            transaction_cost_member_parent = self.bp * p_t_minus_one * math.abs(transaction_cost_member_child)
+            transaction_cost_member_parent = self.bp * p_t_minus_one * abs(transaction_cost_member_child)
             reward = self.fixed_open_currency_num_mue * (evaluated_position_member - transaction_cost_member_parent)
 
             return reward
