@@ -58,12 +58,10 @@ class QNetwork:
         targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
         all_sample_cnt = 0
-        episode_idx = cur_episode_idx
+        batch_start_idx = (cur_episode_idx + 1) - (batch_size * batch_num)
 
         for ii in range(batch_num):
-            mini_batch = memory.get_sequencial_samples(batch_size, (episode_idx + 1) - batch_size)
-            # rewardだけ別管理の平均値のリストに置き換える
-            mini_batch = memory.get_sequencial_converted_samples(mini_batch, (episode_idx + 1) - batch_size)
+            mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
 
             for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
                 reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
@@ -90,7 +88,7 @@ class QNetwork:
 
                 all_sample_cnt += 1
 
-            episode_idx += batch_size
+            batch_start_idx += batch_size
 
         targets = np.array(targets)
         inputs = np.array(inputs)
@@ -159,6 +157,7 @@ class Actor:
 
     def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
+        # TODO: 学習進捗をみて式の調整をしていく必要あり
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
@@ -208,15 +207,15 @@ def tarin_agent():
     memory = Memory([], max_size=memory_size)
     actor = Actor()
 
-    total_get_acton_cnt = 1
+    total_get_action_cnt = 1
 
-    if os.path.exists("./mainQN.hd5"):
-        mainQN.load_model("mainQN")
-        # memory.load_memory("memory")
-        # with open("./total_get_action_count.pickle", 'rb') as f:
-        #     total_get_acton_cnt = pickle.load(f)
-        # with open("./all_period_reward_arr.pickle", 'rb') as f:
-        #     all_period_reward_arr = pickle.load(f)
+    # if os.path.exists("./mainQN.hd5"):
+    #     mainQN.load_model("mainQN")
+    #     # memory.load_memory("memory")
+    #     # with open("./total_get_action_count.pickle", 'rb') as f:
+    #     #     total_get_acton_cnt = pickle.load(f)
+    #     # with open("./all_period_reward_arr.pickle", 'rb') as f:
+    #     #     all_period_reward_arr = pickle.load(f)
 
     def store_episode_log_to_memory(state, action, reward, next_state):
         nonlocal memory
@@ -230,42 +229,33 @@ def tarin_agent():
         # 定期的にバックテストを行い評価できるようにしておく（CSVを吐く）
         if cur_itr % BACKTEST_ITR_PERIOD == 0 and cur_itr != 0:
             mainQN.save_model("mainQN")
-            run_backtest("auto_backtest", learingQN=mainQN, env_master=env_master)
-            run_backtest("auto_backtest_test", learingQN=mainQN, env_master=env_master)
+            run_backtest("auto_backtest", env_master=env_master)
+            run_backtest("auto_backtest_test", env_master=env_master)
             continue
 
         env = env_master.get_env('train')
         #action = np.random.choice([0, 1, 2])
-        action = np.random.choice([0, 2])
+        action = np.random.choice([-1, 0, 1])
         state, reward, done = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
-        total_get_acton_cnt += 1
+        total_get_action_cnt += 1
         state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state)
-
-        # replay呼び出しに用いる（上ですでに一回行っているので1からスタート）
-        total_episode_on_last_itr = 1
 
         # Double DQNを実現するため
         targetQN.model.set_weights(mainQN.model.get_weights())
 
         for episode in range(num_episodes):  # 試行数分繰り返す
-            #with tf.device(tf.DeviceSpec(device_type="CPU", device_index=0)):
-            # フィードするデータを用意している間はGPUは利用せず、CPU（コア）も一つのみとして動作させる
-            total_get_acton_cnt += 1
-            total_episode_on_last_itr += 1
+            total_get_action_cnt += 1
 
             # 時刻tでの行動を決定する
-            action = actor.get_action(state, total_get_acton_cnt, mainQN)
+            action = actor.get_action(state, total_get_action_cnt, mainQN)
 
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
 
             # 環境が提供する期間が最後までいった場合
             if done:
                 print(str(cur_itr) + ' training period finished.')
-                # next_stateは今は使っていないのでreshape等は不要
-                # total_get_actionと memory 内の要素数がズレるのを避けるために追加しておく
-                store_episode_log_to_memory(state, action, reward, next_state, info)
                 break
 
             next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
@@ -282,7 +272,7 @@ def tarin_agent():
         # 次周では過去のmemoryは参照しない
         memory.clear()
 
-def run_backtest(backtest_type, learingQN=None, env_master=None):
+def run_backtest(backtest_type, env_master=None):
     if env_master:
         env_master_local = env_master
     else:
@@ -297,15 +287,12 @@ def run_backtest(backtest_type, learingQN=None, env_master=None):
     mainQN.load_model("mainQN")
 
     # DONOT でスタート
-    state, reward, done, info, needclose = env.step(0)
+    state, reward, done = env.step(0)
     state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
-        if needclose:
-            action = 1
-        else:
-            action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+        action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
 
-        state, reward, done, info, needclose  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+        state, reward, done  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
         if done:
             print('all training period learned.')

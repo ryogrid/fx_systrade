@@ -169,8 +169,6 @@ class FXEnvironment:
 
     def make_serialized_data(self, start_idx, end_idx, step, x_arr_fpath):
         input_mat = []
-        angle_mat = []
-        train_end_idx = -1
         print("all rate and data size: " + str(len(self.exchange_rates)))
         for i in range(start_idx, end_idx, step):
             if i % 100 == 0:
@@ -186,7 +184,7 @@ class FXEnvironment:
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
 
-        return input_mat, angle_mat
+        return input_mat
 
     def setup_serialized_fx_data(self):
         self.exchange_dates = []
@@ -386,7 +384,7 @@ class FXEnvironment:
 
 
             if self.is_auto_backtest:
-            #自動バックテストの際は、CLOSEのアクションの内容だけ出力させる
+                #自動バックテストの際は、CLOSEのアクションの内容だけ出力させる
                 if did_close:
                     self.logfile_writeln_bt(a_log_str_line)
             else:
@@ -404,10 +402,10 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True
 
-                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
-                # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
-                # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
-                return next_state, reward, False
+            next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
+            # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
+            # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
+            return next_state, reward, False
 
 class PortforioManager:
 
