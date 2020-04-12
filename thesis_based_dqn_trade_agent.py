@@ -36,18 +36,33 @@ class QNetwork:
         self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = "categorical_crossentropy"
 
+        # self.model = tf.keras.Sequential([
+        #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+        #     LeakyReLU(0.2),
+        #     #BatchNormalization(),
+        #     #Dropout(0.5),
+        #     LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+        #     LeakyReLU(0.2),
+        #     #BatchNormalization(),
+        #     #Dropout(0.5),
+        #     #Dense(action_size, activation='softmax')
+        #     Dense(action_size, activation='linear')
+        # ])
         self.model = tf.keras.Sequential([
-            LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=False, activation=None),
             LeakyReLU(0.2),
-            #BatchNormalization(),
-            #Dropout(0.5),
-            LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            BatchNormalization(),
+            Dropout(0.5),
+            Dense(hidden_size_dense1, activation=None),
             LeakyReLU(0.2),
-            #BatchNormalization(),
-            #Dropout(0.5),
-            #Dense(action_size, activation='softmax')
+            BatchNormalization(),
+            Dropout(0.5),
+            Dense(hidden_size_dense2, activation=None),
+            LeakyReLU(0.2),
+            Dropout(0.5),
             Dense(action_size, activation='linear')
         ])
+
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
         self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
         self.model.summary()
@@ -185,6 +200,8 @@ class Actor:
 # ---
 hidden_size_lstm1 = 64 #32
 hidden_size_lstm2 = 32
+hidden_size_dense1 = 64
+hidden_size_dense2 = 32
 
 learning_rate = 0.0001 #0.0016
 time_series = 64 #32
@@ -201,7 +218,7 @@ BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
 gamma = 0.3
-volatility_tgt = 2.0
+volatility_tgt = 3.0 #2.0
 bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
 
 train_episode_interval = 1024 # bs64 * 16

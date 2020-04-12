@@ -56,7 +56,9 @@ class FXEnvironment:
         #tmp_arr.reverse()
         prices = np.array(tmp_arr, dtype=float)
 
-        return ta.RSI(prices, timeperiod = period)[-1]
+        rsi_val = ta.RSI(prices, timeperiod = period)[-1]
+        print("get_rsi:" + str(rsi_val))
+        return rsi_val
 
     # def get_ma(self, price_arr, cur_pos, period=40):
     #     if cur_pos <= period:
@@ -153,6 +155,7 @@ class FXEnvironment:
 
         macd, macdsignal, macdhist = ta.MACD(prices, fastperiod=8, slowperiod=24)
 
+        print("get_macd:" + str(macd[-1]))
         return macd[-1]
 
     # 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
