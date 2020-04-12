@@ -36,32 +36,32 @@ class QNetwork:
         self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = "categorical_crossentropy"
 
-        # self.model = tf.keras.Sequential([
-        #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
-        #     LeakyReLU(0.2),
-        #     #BatchNormalization(),
-        #     #Dropout(0.5),
-        #     LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
-        #     LeakyReLU(0.2),
-        #     #BatchNormalization(),
-        #     #Dropout(0.5),
-        #     #Dense(action_size, activation='softmax')
-        #     Dense(action_size, activation='linear')
-        # ])
         self.model = tf.keras.Sequential([
-            LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=False, activation=None),
+            LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+            LeakyReLU(0.2),
+            #BatchNormalization(),
+            #Dropout(0.5),
+            LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
             LeakyReLU(0.2),
             BatchNormalization(),
-            Dropout(0.5),
-            Dense(hidden_size_dense1, activation=None),
-            LeakyReLU(0.2),
-            BatchNormalization(),
-            Dropout(0.5),
-            Dense(hidden_size_dense2, activation=None),
-            LeakyReLU(0.2),
-            Dropout(0.5),
+            #Dropout(0.5),
+            #Dense(action_size, activation='softmax')
             Dense(action_size, activation='linear')
         ])
+        # self.model = tf.keras.Sequential([
+        #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=False, activation=None),
+        #     LeakyReLU(0.2),
+        #     BatchNormalization(),
+        #     Dropout(0.5),
+        #     Dense(hidden_size_dense1, activation=None),
+        #     LeakyReLU(0.2),
+        #     BatchNormalization(),
+        #     Dropout(0.5),
+        #     Dense(hidden_size_dense2, activation=None),
+        #     LeakyReLU(0.2),
+        #     Dropout(0.5),
+        #     Dense(action_size, activation='linear')
+        # ])
 
         #self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
         self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
@@ -73,11 +73,11 @@ class QNetwork:
         targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
         all_sample_cnt = 0
-        #batch_start_idx = (cur_episode_idx + 1) - (batch_size * batch_num)
-        # ミニバッチは後方から取得して targets に詰めていく
-        # ミニバッチの中は時系列になっているが、ミニバッチ単位では時系列が逆になる
-        # これは、後方から前方にrewardが伝播していく更新式の性質を考慮したため（うまくいかなければやめる）
-        batch_start_idx = (cur_episode_idx + 1) - batch_size
+        batch_start_idx = (cur_episode_idx + 1) - (batch_size * batch_num)
+        # # ミニバッチは後方から取得して targets に詰めていく
+        # # ミニバッチの中は時系列になっているが、ミニバッチ単位では時系列が逆になる
+        # # これは、後方から前方にrewardが伝播していく更新式の性質を考慮したため（うまくいかなければやめる）
+        # batch_start_idx = (cur_episode_idx + 1) - batch_size
 
         for ii in range(batch_num):
             mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
@@ -108,8 +108,8 @@ class QNetwork:
 
                 all_sample_cnt += 1
 
-            #batch_start_idx += batch_size
-            batch_start_idx -= batch_size
+            batch_start_idx += batch_size
+            #batch_start_idx -= batch_size
 
         targets = np.array(targets)
         inputs = np.array(inputs)
@@ -216,7 +216,7 @@ BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
 gamma = 0.3
-volatility_tgt = 3.0 #2.0
+volatility_tgt = 5.0 #3.0 #2.0
 bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
 
 train_episode_interval = 1024 # bs64 * 16
