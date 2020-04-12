@@ -86,16 +86,14 @@ class QNetwork:
                 reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
                 inputs[all_sample_cnt] = reshaped_state
 
-                # Double DQN (mainQNとtargetQNを用いる)
+                # Double DQN (mainQNとtargetQNを用いる。 Fixed Q-targetsもこれでおそらく実現できているのではないかと思われる)
                 reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
                 retmainQs = self.model.predict(reshaped_next_state)[0]
                 next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
                 predicted_targetQN = targetQN.model.predict(reshaped_next_state)
                 target = reward_b + gamma * predicted_targetQN[0][next_action]
 
-                # Fixed DQN実現のため、少し古いmainQNにより得られる値としてtargetQNを用いる
-                targets[all_sample_cnt][0] = predicted_targetQN[0]  # 教師信号以外の出力を与える
-                # targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
+                targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
                 targets[all_sample_cnt][0][action_b] = target  # 教師信号
 
                 # bigger_pips_action = np.argmax(reward_b)
