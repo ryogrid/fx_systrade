@@ -21,7 +21,7 @@ class FXEnvironment:
         print("FXEnvironment class constructor called.")
         self.COMPETITION_TRAIN_DATA_NUM = train_data_num
 
-        self.DATA_HEAD_ASOBI = 65
+        self.DATA_HEAD_ASOBI = 252 + 63 + 5 # MACDを算出するための期間（1年） + MACDを算出するための期間（63日 window） + 余裕を持たせる分
 
         self.tr_input_arr = None
         self.val_input_arr = None
@@ -29,6 +29,7 @@ class FXEnvironment:
         self.exchange_dates = []
         self.exchange_rates = []
         self.volatility_arr = []
+        self.macd_arr = []
 
         self.time_series = time_series
         self.holdable_positions  = holdable_positions
@@ -144,19 +145,39 @@ class FXEnvironment:
     #
     #     return np.std(tmp_arr)
 
-    def get_macd(self, price_arr, cur_pos, period = 63):
-        if cur_pos <= period:
-            s = 0
-        else:
-            s = cur_pos - period
-        tmp_arr = price_arr[s:cur_pos]
-        #tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
+    def setup_macd_arr(self, price_arr, period = 63):
+        ONE_YEAR_DAYS = 252
+        print("setup_macd_arr called")
+        prices = np.array(price_arr, dtype=float)
+        print(len(prices))
         macd, macdsignal, macdhist = ta.MACD(prices, fastperiod=8, slowperiod=24)
+        print(len(macd))
+        self.macd_arr = macd
+        # まず period 期間の標準偏差で割ることでリストの値を q{t} に置き換える
+        for idx in range(period, len(self.macd_arr)):
+            price_period_std = np.std(price_arr[idx - period + 1:idx + 1])
+            self.macd_arr[idx] = self.macd_arr[idx] / price_period_std
+        # まず 1年間の標準偏差で割ることでリストの値を論文通りのMACD{i}に置き換える
+        for idx in range(ONE_YEAR_DAYS, len(self.macd_arr)):
+            price_year_std = np.std(price_arr[idx - ONE_YEAR_DAYS + 1:idx + 1])
+            self.macd_arr[idx] = self.macd_arr[idx] / price_year_std
 
-        print("get_macd:" + str(macd[-1]))
-        return macd[-1]
+    # def get_macd(self, price_arr, cur_pos, period = 63):
+    #     if cur_pos <= period:
+    #         s = 0
+    #     else:
+    #         s = cur_pos - period
+    #     tmp_arr = price_arr[s:cur_pos]
+    #     #tmp_arr.reverse()
+    #     prices = np.array(tmp_arr, dtype=float)
+    #
+    #     macd, macdsignal, macdhist = ta.MACD(prices, fastperiod=8, slowperiod=24)
+    #
+    #     print("get_macd:" + str(macd[-1]))
+    #     return macd[-1]
+
+    def get_macd(self, price_arr, cur_pos, period=63):
+        return self.macd_arr[cur_pos]
 
     # 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
     # なお、本来は月曜朝5:00から取引できるのが一般的なようである
@@ -215,7 +236,6 @@ class FXEnvironment:
         print("calculate_volatility: ----------------------------------")
         return emsd
 
-    # TODO: not tested yet
     # calculate EMSD(Exponentially wighted moving standard deviation)
     def setup_volatility_arr(self, rate_arr, window_size):
         for idx in range(len(rate_arr)):
@@ -275,6 +295,14 @@ class FXEnvironment:
             self.setup_volatility_arr(self.exchange_rates, 60)
             with open("./volatility_arr.pickle", 'wb') as f:
                 pickle.dump(self.volatility_arr, f)
+
+        if False:  # self.is_fist_call == False and os.path.exists("./macd_arr.pickle"):
+            with open('./macd_arr.pickle', 'rb') as f:
+                self.macd_arr = pickle.load(f)
+        else:
+            self.setup_macd_arr(self.exchange_rates, period = 63)
+            with open("./macd_arr.pickle", 'wb') as f:
+                pickle.dump(self.macd_arr, f)
 
         if False: #self.is_fist_call == False and os.path.exists("./all_input_mat.pickle"):
             with open('./all_input_mat.pickle', 'rb') as f:
