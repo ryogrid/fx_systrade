@@ -320,7 +320,7 @@ def run_backtest(backtest_type, env_master=None):
     state, reward, done = env.step(0)
     state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
-        action = actor.get_action(state, episode, cur_itr, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+        action = actor.get_action(state, episode, 0, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
 
         state, reward, done  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
