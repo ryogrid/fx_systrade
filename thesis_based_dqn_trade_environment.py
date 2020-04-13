@@ -409,7 +409,7 @@ class FXEnvironment:
             evaluated_position_member = self.action_t_minus_one * (self.volatility_tgt / volatility_t_minus_one) * r_t
             transaction_cost_member_child = (self.volatility_tgt / volatility_t_minus_one) * self.action_t_minus_one - (self.volatility_tgt / volatility_t_minus_two) * self.action_t_minus_two
             transaction_cost_member_parent = self.bp * p_t_minus_one * abs(transaction_cost_member_child)
-            reward = self.fixed_open_currency_num_mue * (evaluated_position_member - transaction_cost_member_parent)
+            reward = 1.0 * (evaluated_position_member - transaction_cost_member_parent)
 
             return reward
 
