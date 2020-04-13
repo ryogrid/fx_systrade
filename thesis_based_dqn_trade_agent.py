@@ -176,10 +176,11 @@ class Actor:
     def __init__(self):
         pass
 
-    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, experienced_episodes, cur_itr, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
         # TODO: 学習進捗をみて式の調整をしていく必要あり
-        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        #epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
+        epsilon = 0.001 + 0.9 / (1.0 + cur_itr)
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
@@ -206,7 +207,7 @@ time_series = 64 #32
 batch_size = 64 #256 #1024
 TRAIN_DATA_NUM = 252 * 5 # 5year #72000
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
-iteration_num = 5000 #720
+iteration_num = 500 #5000 #720
 memory_size = TRAIN_DATA_NUM * 2 + 10
 feature_num = 3
 nn_output_size = 3
@@ -278,7 +279,7 @@ def tarin_agent():
             total_get_action_cnt += 1
 
             # 時刻tでの行動を決定する
-            action = actor.get_action(state, total_get_action_cnt, mainQN)
+            action = actor.get_action(state, total_get_action_cnt, cur_itr, mainQN)
 
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
 
@@ -319,7 +320,7 @@ def run_backtest(backtest_type, env_master=None):
     state, reward, done = env.step(0)
     state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
-        action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+        action = actor.get_action(state, episode, cur_itr, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
 
         state, reward, done  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
