@@ -149,7 +149,9 @@ class FXEnvironment:
         ONE_YEAR_DAYS = 252
         print("setup_macd_arr called")
         prices = np.array(price_arr, dtype=float)
+        print(len(prices))
         macd, macdsignal, macdhist = ta.MACD(prices, fastperiod=8, slowperiod=24)
+        print(len(macd))
         self.macd_arr = macd
         # まず period 期間の標準偏差で割ることでリストの値を q{t} に置き換える
         for idx in range(period, len(self.macd_arr)):
@@ -159,7 +161,6 @@ class FXEnvironment:
         for idx in range(ONE_YEAR_DAYS, len(self.macd_arr)):
             price_year_std = np.std(price_arr[idx - ONE_YEAR_DAYS + 1:idx + 1])
             self.macd_arr[idx] = self.macd_arr[idx] / price_year_std
-            print(str(self.macd_arr[idx]))
 
     # def get_macd(self, price_arr, cur_pos, period = 63):
     #     if cur_pos <= period:
@@ -504,7 +505,8 @@ class FXEnvironment:
                 self.logfile_writeln_bt(a_log_str_line)
 
             self.cur_idx += self.idx_step
-            if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
+            #if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
+            if (self.cur_idx) >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
                 process_time = time.time() - self.start

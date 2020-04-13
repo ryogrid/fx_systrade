@@ -73,13 +73,18 @@ class QNetwork:
         targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
         all_sample_cnt = 0
-        batch_start_idx = (cur_episode_idx + 1) - (batch_size * batch_num)
+        # #batch_start_idx = (cur_episode_idx + 1) - (batch_size * batch_num)
         # # ミニバッチは後方から取得して targets に詰めていく
         # # ミニバッチの中は時系列になっているが、ミニバッチ単位では時系列が逆になる
         # # これは、後方から前方にrewardが伝播していく更新式の性質を考慮したため（うまくいかなければやめる）
         # batch_start_idx = (cur_episode_idx + 1) - batch_size
 
+        # 1イテレーション内でミニバッチをシャッフルして適用する
+        batch_num_arr = list(range(batch_num))
+        random.shuffle(batch_num_arr)
         for ii in range(batch_num):
+            # 開始位置をシャッフルしたリストに基づいて決定する
+            batch_start_idx = batch_num_arr.pop() * batch_size
             mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
 
             for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
@@ -93,22 +98,16 @@ class QNetwork:
                 predicted_targetQN = targetQN.model.predict(reshaped_next_state)
                 target = reward_b + gamma * predicted_targetQN[0][next_action]
 
+                action_conved = 0 if action_b == -1 else 1
                 targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
-                targets[all_sample_cnt][0][action_b] = target  # 教師信号
-
-                # bigger_pips_action = np.argmax(reward_b)
-                # if bigger_pips_action == 0:
-                #     targets[all_sample_cnt][0][0] = 1 # 教師信号
-                #     targets[all_sample_cnt][0][1] = 0 # 教師信号
-                # else: # 2 => DONOT
-                #     targets[all_sample_cnt][0][0] = 0 # 教師信号
-                #     targets[all_sample_cnt][0][1] = 1 # 教師信号
+                targets[all_sample_cnt][0][action_conved] = target  # 教師信号
+                #targets[all_sample_cnt][0][action_b] = target  # 教師信号
 
                 print("reward_b," + str(reward_b) + ",target," + str(target) + ",action," + str(action_b) + ",next_action," + str(next_action))
 
                 all_sample_cnt += 1
 
-            batch_start_idx += batch_size
+            #batch_start_idx += batch_size
             #batch_start_idx -= batch_size
 
         targets = np.array(targets)
@@ -176,11 +175,10 @@ class Actor:
     def __init__(self):
         pass
 
-    def get_action(self, state, experienced_episodes, cur_itr, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
         # TODO: 学習進捗をみて式の調整をしていく必要あり
-        #epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
-        epsilon = 0.001 + 0.9 / (1.0 + cur_itr)
+        epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
 
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
@@ -189,10 +187,14 @@ class Actor:
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
-            action = action - 1 # 0, 1, 2 を -1, 0, 1 に置き換える
+            #action = action - 1 # 0, 1, 2 を -1, 0, 1 に置き換える
+
+            # 0, 1 を -1, 1 に置き換える
+            action = -1 if action == 0 else 1
         else:
             # ランダムに行動する
-            action = np.random.choice([-1, 0, 1])
+            #action = np.random.choice([-1, 0, 1])
+            action = np.random.choice([-1, 1])
 
         return action
 
@@ -207,17 +209,17 @@ time_series = 64 #32
 batch_size = 64 #256 #1024
 TRAIN_DATA_NUM = 252 * 5 # 5year #72000
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
-iteration_num = 500 #5000 #720
+iteration_num = 5000 #720
 memory_size = TRAIN_DATA_NUM * 2 + 10
 feature_num = 3
-nn_output_size = 3
+nn_output_size = 2 #3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 HODABLE_POSITIONS = 1 #30
 BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
 gamma = 0.3
-volatility_tgt = 5.0 #3.0 #2.0
+volatility_tgt = 5.0
 bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
 
 train_episode_interval = 1024 # bs64 * 16
@@ -263,7 +265,8 @@ def tarin_agent():
 
         env = env_master.get_env('train')
         #action = np.random.choice([0, 1, 2])
-        action = np.random.choice([-1, 0, 1])
+        #action = np.random.choice([-1, 0, 1])
+        action = np.random.choice([0, 1])
         state, reward, done = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
         total_get_action_cnt += 1
         state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
@@ -275,11 +278,14 @@ def tarin_agent():
         targetQN.model.set_weights(targetQNtmp.model.get_weights())
         targetQNtmp.model.set_weights(mainQN.model.get_weights())
 
+        # # 特徴量の計算方法の変更の影響を検証するため、あえてDdouble DQNとして動作しない実装のままにしておく
+        # targetQN.model.set_weights(mainQN.model.get_weights())
+
         for episode in range(num_episodes):  # 試行数分繰り返す
             total_get_action_cnt += 1
 
             # 時刻tでの行動を決定する
-            action = actor.get_action(state, total_get_action_cnt, cur_itr, mainQN)
+            action = actor.get_action(state, total_get_action_cnt, mainQN)
 
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
 
@@ -320,7 +326,7 @@ def run_backtest(backtest_type, env_master=None):
     state, reward, done = env.step(0)
     state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
-        action = actor.get_action(state, episode, 0, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+        action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
 
         state, reward, done  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
