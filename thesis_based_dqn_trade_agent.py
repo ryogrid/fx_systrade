@@ -207,7 +207,7 @@ hidden_size_dense2 = 32
 learning_rate = 0.0001 #0.0016
 time_series = 64 #32
 batch_size = 64 #256 #1024
-TRAIN_DATA_NUM = 252 * 5 # 5year #72000
+TRAIN_DATA_NUM = 252 * 3 # 3years #252 * 5 # 5year #72000
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
 iteration_num = 5000 #720
 memory_size = TRAIN_DATA_NUM * 2 + 10
@@ -291,6 +291,7 @@ def tarin_agent():
 
             # 環境が提供する期間が最後までいった場合
             if done:
+                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode, batch_num= (memory.len() // batch_size))
                 print(str(cur_itr) + ' training period finished.')
                 break
 
@@ -299,11 +300,11 @@ def tarin_agent():
 
             state = next_state  # 状態更新
 
-            # 1024エピソードごとにfitする（それでFixed DQNを実装したことになるはず）
-            # Qネットワークの重みを学習・更新する replay
-            # train_episode_interval分新たにmemoryにエピソードがたまったら batch_size のミニバッチ 16個 として replayする
-            if episode + 1 >= train_episode_interval and (episode + 1) % train_episode_interval == 0:
-                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode, batch_num=16)
+            # # 1024エピソードごとにfitする（それでFixed DQNを実装したことになるはず）
+            # # Qネットワークの重みを学習・更新する replay
+            # # train_episode_interval分新たにmemoryにエピソードがたまったら batch_size のミニバッチ 16個 として replayする
+            # if episode + 1 >= train_episode_interval and (episode + 1) % train_episode_interval == 0:
+            #     mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode, batch_num=16)
 
         # 次周では過去のmemoryは参照しない
         memory.clear()
