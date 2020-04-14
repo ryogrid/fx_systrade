@@ -11,9 +11,10 @@ import numpy as np
 import tensorflow as tf
 
 from tensorflow.keras.models import Sequential, model_from_json, Model, load_model, save_model
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU, Lambda, Input
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.regularizers import l1, l2
+from tensorflow.keras import backend as K
 #from tensorflow.keras.regularizers import l2
 
 from collections import deque
@@ -36,18 +37,33 @@ class QNetwork:
         self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = "categorical_crossentropy"
 
-        self.model = tf.keras.Sequential([
-            LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
-            LeakyReLU(0.2),
-            #BatchNormalization(),
-            #Dropout(0.5),
-            LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
-            LeakyReLU(0.2),
-            BatchNormalization(),
-            #Dropout(0.5),
-            #Dense(action_size, activation='softmax')
-            Dense(action_size, activation='linear')
-        ])
+        inputlayer = Input(shape=(time_series, state_size))
+        middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
+        middlelayer = LeakyReLU(0.2)(middlelayer)
+        middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
+        middlelayer = LeakyReLU(0.2)(middlelayer)
+        middlelayer = BatchNormalization()(middlelayer)
+
+        # dueling network
+        y=Dense(action_size + 1, activation='linear')(middlelayer)     # 0番目がV(s), 1以降がA(s,a), 平均値は引かないnaive型
+        outputlayer = Lambda(lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - 0.0*K.mean(a[:, 1:], keepdims=True),
+                             output_shape=(action_size,))(y)
+
+        self.model=tf.keras.Model(inputs=inputlayer, outputs=outputlayer)
+
+        # self.model = tf.keras.Sequential([
+        #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+        #     LeakyReLU(0.2),
+        #     #BatchNormalization(),
+        #     #Dropout(0.5),
+        #     LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
+        #     LeakyReLU(0.2),
+        #     BatchNormalization(),
+        #     #Dropout(0.5),
+        #     #Dense(action_size, activation='softmax')
+        #     Dense(action_size, activation='linear')
+        # ])
+
         # self.model = tf.keras.Sequential([
         #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=False, activation=None),
         #     LeakyReLU(0.2),
@@ -201,8 +217,9 @@ class Actor:
 # ---
 HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
 
-hidden_size_lstm1 = 32 #64 #32
-hidden_size_lstm2 = 16 #32
+hidden_size_lstm1 = 16 #64 #32
+hidden_size_lstm2 = 8 #32
+
 
 learning_rate = 0.0001 #0.0016
 time_series = 64 #32
