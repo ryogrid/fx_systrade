@@ -199,15 +199,19 @@ class Actor:
         return action
 
 # ---
-hidden_size_lstm1 = 64 #32
-hidden_size_lstm2 = 32
-hidden_size_dense1 = 64
-hidden_size_dense2 = 32
+HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
+
+hidden_size_lstm1 = 32 #64 #32
+hidden_size_lstm2 = 16 #32
 
 learning_rate = 0.0001 #0.0016
 time_series = 64 #32
+if HALF_DAY_MODE:
+    time_series = 2 * time_series
 batch_size = 64 #256 #1024
 TRAIN_DATA_NUM = 252 * 3 # 3years #252 * 5 # 5year #72000
+if HALF_DAY_MODE:
+    TRAIN_DATA_NUM = 2 * TRAIN_DATA_NUM
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
 iteration_num = 5000 #720
 memory_size = TRAIN_DATA_NUM * 2 + 10
