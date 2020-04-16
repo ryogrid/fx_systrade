@@ -43,7 +43,7 @@ class QNetwork:
         middlelayer = LeakyReLU(0.2)(middlelayer)
         # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
         # middlelayer = LeakyReLU(0.2)(middlelayer)
-        # middlelayer = BatchNormalization()(middlelayer)
+        middlelayer = BatchNormalization()(middlelayer)
         middlelayer = Dropout(0.5)(middlelayer)
 
         # dueling network
@@ -86,7 +86,7 @@ class QNetwork:
         self.model.summary()
 
     # 重みの学習
-    def replay(self, memory, time_series, targetQN, cur_episode_idx = 0, batch_num = 1):
+    def replay(self, memory, time_series, targetQN, cur_episode_idx = 0, cur_itr=0, batch_num = 1):
         inputs = np.zeros((batch_size * batch_num, time_series, feature_num))
         targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
@@ -109,12 +109,15 @@ class QNetwork:
                 reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
                 inputs[all_sample_cnt] = reshaped_state
 
-                # Double DQN (mainQNとtargetQNを用いる。 Fixed Q-targetsもこれでおそらく実現できているのではないかと思われる)
-                reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
-                retmainQs = self.model.predict(reshaped_next_state)[0]
-                next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                predicted_targetQN = targetQN.model.predict(reshaped_next_state)
-                target = reward_b + gamma * predicted_targetQN[0][next_action]
+                target = reward_b
+                # 30itr以降は Q関数の更新式は用いず reward_b にそのまま fit させる
+                if cur_itr < 30:
+                    # Double DQN (mainQNとtargetQNを用いる。 Fixed Q-targetsもこれでおそらく実現できているのではないかと思われる)
+                    reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
+                    retmainQs = self.model.predict(reshaped_next_state)[0]
+                    next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                    predicted_targetQN = targetQN.model.predict(reshaped_next_state)
+                    target = reward_b + gamma * predicted_targetQN[0][next_action]
 
                 #action_conved = 0 if action_b == -1 else 1
                 action_conved = action_b + 1
@@ -316,7 +319,7 @@ def tarin_agent():
 
             # 環境が提供する期間が最後までいった場合
             if done:
-                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode, batch_num= (memory.len() // batch_size))
+                mainQN.replay(memory, time_series, targetQN, cur_episode_idx=episode, cur_itr=cur_itr, batch_num= (memory.len() // batch_size))
                 print(str(cur_itr) + ' training period finished.')
                 break
 
