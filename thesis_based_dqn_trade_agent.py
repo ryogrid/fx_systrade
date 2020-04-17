@@ -226,7 +226,7 @@ class Actor:
 # ---
 HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
 
-hidden_size_lstm1 = 64 #28 #64 #32
+hidden_size_lstm1 = 32 #64 #28 #64 #32
 #hidden_size_lstm2 = 32 #16 #32
 
 
