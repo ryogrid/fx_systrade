@@ -112,8 +112,8 @@ class QNetwork:
                 next_action = -99 # Q関数の更新式を用いなくなった場合のため
 
                 target = reward_b
-                # 30itr以降は Q関数の更新式は用いず reward_b にそのまま fit させる
-                if cur_itr < 30:
+                # 15itr以降は Q関数の更新式は用いず reward_b にそのまま fit させる
+                if cur_itr < 15:
                     # Double DQN (mainQNとtargetQNを用いる。 Fixed Q-targetsもこれでおそらく実現できているのではないかと思われる)
                     reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
                     retmainQs = self.model.predict(reshaped_next_state)[0]
