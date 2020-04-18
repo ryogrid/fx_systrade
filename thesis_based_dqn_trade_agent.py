@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 
 from tensorflow.keras.models import Sequential, model_from_json, Model, load_model, save_model
-from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU, Lambda, Input
+from tensorflow.keras.layers import Dense, BatchNormalization, Dropout, LSTM, RepeatVector, TimeDistributed, Reshape, LeakyReLU, Lambda, Input, SimpleRNN
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.regularizers import l1, l2
 from tensorflow.keras import backend as K
@@ -29,8 +29,6 @@ import math
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
-        global all_period_reward_arr
-
         self.optimizer = Adam(lr=learning_rate, clipvalue=0.5)
         #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
@@ -39,7 +37,8 @@ class QNetwork:
 
         inputlayer = Input(shape=(time_series, state_size))
         #middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
-        middlelayer = LSTM(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
+        #middlelayer = LSTM(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
+        middlelayer = SimpleRNN(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
         middlelayer = LeakyReLU(0.2)(middlelayer)
         # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
         # middlelayer = LeakyReLU(0.2)(middlelayer)
@@ -226,7 +225,7 @@ class Actor:
 # ---
 HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
 
-hidden_size_lstm1 = 32 #64 #28 #64 #32
+hidden_size_lstm1 = 64 #32 #64 #28 #64 #32
 #hidden_size_lstm2 = 32 #16 #32
 
 
