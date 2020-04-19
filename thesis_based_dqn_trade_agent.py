@@ -44,7 +44,7 @@ class QNetwork:
         # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
         # middlelayer = LeakyReLU(0.2)(middlelayer)
 
-        #middlelayer = BatchNormalization()(middlelayer)
+        middlelayer = BatchNormalization()(middlelayer)
         #middlelayer = Dropout(0.5)(middlelayer)
 
         # dueling network
