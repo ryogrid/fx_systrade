@@ -583,8 +583,7 @@ class FXEnvironment:
 
             if USE_PAST_REWARD_FEATURES:
                 # 過去のreturnから求まる特徴量を next_state に加える
-                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
-                next_state = copy.deepcopy(next_state)
+                next_state_tmp = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
                 local_ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS if HALF_DAY_MODE else ONE_YEAR_DAYS
                 local_MONTH_DAYS = 2 * MONTH_DAYS if HALF_DAY_MODE else MONTH_DAYS
                 local_TWO_MONTH_DAYS = 2 * TWO_MONTH_DAYS if HALF_DAY_MODE else TWO_MONTH_DAYS
@@ -595,33 +594,38 @@ class FXEnvironment:
                 two_month_sqrt = math.sqrt(local_TWO_MONTH_DAYS)
                 three_month_sqrt = math.sqrt(local_THREE_MONTH_DAYS)
 
-                for a_feature_list in next_state:
-                    daily_normalized_1year_return = 0.0
-                    daily_normalized_1month_return = 0.0
-                    daily_normalized_2month_return = 0.0
-                    daily_normalized_3month_return = 0.0
+                next_state = np.array([])
+                #print("------------------------------")
+                for idx, a_feature_list in enumerate(next_state_tmp):
+                    #print(a_feature_list)
+                    daily_normalized_1year_return = -0.5
+                    daily_normalized_1month_return = -0.5
+                    daily_normalized_2month_return = -0.5
+                    daily_normalized_3month_return = -0.5
 
                     # self.cur_idx は既に +1 インクリメントされているので 比較に等号は含まない
                     # スライスする場合も self.cur_idx要素は含めずに計算するので +1 はしない
-                    if self.cur_idx > local_ONE_YEAR_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_1year_return = np.sum(self.past_return_arr[self.cur_idx - local_ONE_YEAR_DAYS:self.cur_idx]) / \
-                                                           (self.past_return_emsd_arr[self.cur_idx - 1] * one_year_sqrt)
-                    if self.cur_idx > local_MONTH_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_1month_return = np.sum(self.past_return_arr[self.cur_idx - local_MONTH_DAYS:self.cur_idx]) / \
-                                                        (self.past_return_emsd_arr[self.cur_idx - 1] * one_month_sqrt)
-                    if self.cur_idx > local_TWO_MONTH_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_2month_return = np.sum(self.past_return_arr[self.cur_idx - local_TWO_MONTH_DAYS:self.cur_idx]) / \
-                                                        (self.past_return_emsd_arr[self.cur_idx - 1] * two_month_sqrt)
-                    if self.cur_idx > local_THREE_MONTH_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_3month_return = np.sum(self.past_return_arr[self.cur_idx - local_THREE_MONTH_DAYS:self.cur_idx]) / \
-                                                        (self.past_return_emsd_arr[self.cur_idx - 1] * three_month_sqrt)
+                    if self.cur_idx - self.time_series + idx > local_ONE_YEAR_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_1year_return = np.sum(self.past_return_arr[self.cur_idx - local_ONE_YEAR_DAYS - self.time_series + idx:self.cur_idx - self.time_series + idx]) / \
+                                                           (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * one_year_sqrt + 0.0001)
+                    if self.cur_idx - self.time_series + idx > local_MONTH_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_1month_return = np.sum(self.past_return_arr[self.cur_idx - local_MONTH_DAYS - self.time_series + idx:self.cur_idx  - self.time_series + idx]) / \
+                                                        (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * one_month_sqrt + 0.0001)
+                    if self.cur_idx - self.time_series + idx > local_TWO_MONTH_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_2month_return = np.sum(self.past_return_arr[self.cur_idx - local_TWO_MONTH_DAYS - self.time_series + idx:self.cur_idx - self.time_series + idx]) / \
+                                                        (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * two_month_sqrt + 0.0001)
+                    if self.cur_idx - self.time_series + idx > local_THREE_MONTH_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_3month_return = np.sum(self.past_return_arr[self.cur_idx - local_THREE_MONTH_DAYS - self.time_series + idx:self.cur_idx - self.time_series + idx]) / \
+                                                        (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * three_month_sqrt + 0.0001)
 
-                    a_feature_list.append(daily_normalized_1year_return)
-                    a_feature_list.append(daily_normalized_1month_return)
-                    a_feature_list.append(daily_normalized_2month_return)
-                    a_feature_list.append(daily_normalized_3month_return)
+                    new_list = np.append(a_feature_list, daily_normalized_1year_return)
+                    new_list = np.append(new_list, daily_normalized_1month_return)
+                    new_list = np.append(new_list, daily_normalized_2month_return)
+                    new_list = np.append(new_list, daily_normalized_3month_return)
+                    #print(new_list)
+                    next_state = np.append(next_state, new_list)
 
-                    print("calculate_retun_features," + str(daily_normalized_1year_return) + "," + str(daily_normalized_1month_return) + "," + \
+                    print("calculate_return_features," + str(daily_normalized_1year_return) + "," + str(daily_normalized_1month_return) + "," + \
                             str(daily_normalized_2month_return) + "," + str(daily_normalized_3month_return))
             else:
                 next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]

@@ -5,7 +5,8 @@
 # I am very grateful to work of Mr. Yutaro Ogawa (id: sugulu)
 
 USE_TENSOR_BOARD = False
-
+HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
+USE_PAST_REWARD_FEATURES = True
 
 import numpy as np
 import tensorflow as tf
@@ -36,14 +37,15 @@ class QNetwork:
         #self.loss_func = "categorical_crossentropy"
 
         inputlayer = Input(shape=(time_series, state_size))
-        #middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
-        #middlelayer = LSTM(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
-        middlelayer = SimpleRNN(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
+        middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
+        middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(inputlayer)
+        #middlelayer = SimpleRNN(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
         middlelayer = LeakyReLU(0.2)(middlelayer)
         # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
         # middlelayer = LeakyReLU(0.2)(middlelayer)
-        middlelayer = BatchNormalization()(middlelayer)
-        middlelayer = Dropout(0.5)(middlelayer)
+
+        #middlelayer = BatchNormalization()(middlelayer)
+        #middlelayer = Dropout(0.5)(middlelayer)
 
         # dueling network
         y=Dense(action_size + 1, activation='linear')(middlelayer)     # 0番目がV(s), 1以降がA(s,a), 平均値は引かないnaive型
@@ -223,11 +225,8 @@ class Actor:
         return action
 
 # ---
-HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
-USE_PAST_REWARD_FEATURES = True
-
 hidden_size_lstm1 = 64 #32 #64 #28 #64 #32
-#hidden_size_lstm2 = 32 #16 #32
+hidden_size_lstm2 = 32 #16 #32
 
 
 learning_rate = 0.0001 #0.0016
