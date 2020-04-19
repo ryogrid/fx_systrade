@@ -13,9 +13,38 @@ import random
 from sklearn.preprocessing import StandardScaler
 from collections import deque
 import math
+import copy
 
 RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 HALF_DAY_MODE = True # ageent側にも同じフラグがあって同期している必要があるので注意
+USE_PAST_REWARD_FEATURES = True
+
+ONE_YEAR_DAYS = 252
+MONTH_DAYS = 21
+TWO_MONTH_DAYS = 2 * MONTH_DAYS
+THREE_MONTH_DAYS = 3 * MONTH_DAYS
+
+# 与えられた価格のリストの最後の要素に対応する volatility(EMSD) となるスカラ値を返す
+# len(partial_price_arr) は window_size と一致する必要がある
+def calculate_volatility(partial_price_arr, window_size):
+    alpha = 2 / float(window_size + 1)
+    ema_arr = []
+    emvar_arr = []
+    delta = 0
+    ema_arr.append(partial_price_arr[0])
+    emvar_arr.append(delta)
+    for idx in range(1, window_size):
+        delta = partial_price_arr[idx] - ema_arr[idx - 1]
+        ema_arr.append(ema_arr[idx - 1] + alpha * delta)
+        emvar_arr.append((1 - alpha) * (emvar_arr[idx - 1] + alpha * delta * delta))
+
+    print("calculate_volatility:" + str(len(partial_price_arr)))
+    print("calculate_volatility:" + str(ema_arr[-1]))
+    print("calculate_volatility:" + str(emvar_arr[-1]))
+    emsd = math.sqrt(emvar_arr[-1])
+    print("calculate_volatility:" + str(emsd))
+    print("calculate_volatility: ----------------------------------")
+    return emsd
 
 class FXEnvironment:
     def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015, volatility_tgt = 0.1, bp = 0.000015):
@@ -156,9 +185,8 @@ class FXEnvironment:
         if HALF_DAY_MODE:
             local_period = 2 * local_period
 
-        ONE_YEAR_DAYS = 252
         if HALF_DAY_MODE:
-            ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS
+            local_ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS
         print("setup_macd_arr called")
         prices = np.array(price_arr, dtype=float)
         print(len(prices))
@@ -175,8 +203,8 @@ class FXEnvironment:
         for idx in range(local_period, len(self.macd_arr)):
             price_period_std = np.std(price_arr[idx - local_period + 1:idx + 1])
             self.macd_arr[idx] = self.macd_arr[idx] / price_period_std
-        # まず 1年間の標準偏差で割ることでリストの値を論文通りのMACD{i}に置き換える
-        for idx in range(ONE_YEAR_DAYS, len(self.macd_arr)):
+        # 次に1年間の標準偏差で割ることでリストの値を論文通りのMACD{i}に置き換える
+        for idx in range(local_ONE_YEAR_DAYS, len(self.macd_arr)):
             price_year_std = np.std(price_arr[idx - ONE_YEAR_DAYS + 1:idx + 1])
             self.macd_arr[idx] = self.macd_arr[idx] / price_year_std
 
@@ -232,28 +260,6 @@ class FXEnvironment:
 
         return input_mat
 
-    # 与えられた価格のリストの最後の要素に対応する volatility(EMSD) となるスカラ値を返す
-    # len(partial_price_arr) は window_size と一致する必要がある
-    def calculate_volatility(self, partial_price_arr, window_size):
-        alpha = 2 / float(window_size + 1)
-        ema_arr = []
-        emvar_arr = []
-        delta = 0
-        ema_arr.append(partial_price_arr[0])
-        emvar_arr.append(delta)
-        for idx in range(1, window_size):
-            delta = partial_price_arr[idx] - ema_arr[idx-1]
-            ema_arr.append(ema_arr[idx-1] + alpha * delta)
-            emvar_arr.append((1 - alpha) * (emvar_arr[idx - 1] + alpha * delta * delta))
-
-        print("calculate_volatility:" + str(len(partial_price_arr)))
-        print("calculate_volatility:" + str(ema_arr[-1]))
-        print("calculate_volatility:" + str(emvar_arr[-1]))
-        emsd = math.sqrt(emvar_arr[-1])
-        print("calculate_volatility:" + str(emsd))
-        print("calculate_volatility: ----------------------------------")
-        return emsd
-
     # calculate EMSD(Exponentially wighted moving standard deviation)
     def setup_volatility_arr(self, rate_arr, window_size):
         local_window_size = window_size
@@ -265,7 +271,7 @@ class FXEnvironment:
             else:
                 s = (idx + 1) - local_window_size
                 tmp_arr = rate_arr[s:idx + 1]
-                self.volatility_arr.append(self.calculate_volatility(tmp_arr, local_window_size))
+                self.volatility_arr.append(calculate_volatility(tmp_arr, local_window_size))
 
                 # s = (idx + 1) - window_size
                 # tmp_arr = rate_arr[s:idx + 1]
@@ -378,17 +384,27 @@ class FXEnvironment:
             self.NOT_HAVE = 2
 
             self.input_arr = input_arr
+            self.input_arr_len = len(input_arr)
             self.exchange_dates = exchange_dates
             self.exchange_rates = exchange_rates
             self.half_spread = half_spread
             self.time_series = time_series
-            self.cur_idx = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
+            self.initial_cur_idx_val = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
+            self.cur_idx = self.initial_cur_idx_val
             self.idx_geta = idx_geta
             self.is_backtest = is_backtest
             self.is_auto_backtest = is_auto_backtest
             self.volatility_tgt = volatility_tgt
 
             self.volatility_arr = volatility_arr
+
+            # インデックスは idx_getaを加算しないcur_idx基準
+            # 1イテレーションの間の分のみ保持する
+            self.past_return_arr = [0.0] * (self.input_arr_len + 10)
+            # 過去のreturnから算出される値を特徴量として加えるために用いる
+            # past_return_arr とインデックスの基準は同じ
+            # 1イテレーションの間の分のみ保持する
+            self.past_return_emsd_arr = [0.0] * (self.input_arr_len + 10)
 
             # reward の計算にはbpをトランザクションコストのレートとして用いるが、実際の取引でのスプレッドは half_sparedを用いる
             self.bp = bp
@@ -408,7 +424,6 @@ class FXEnvironment:
             self.idx_step = 1
 
             self.done = False
-            self.input_arr_len = len(input_arr)
             self.holdable_positions = holdable_positions
 
             self.portfolio_mngr = PortforioManager(exchange_rates, self.half_spread, holdable_position_num = self.holdable_positions, fixed_open_currency_num_mue=self.fixed_open_currency_num_mue)
@@ -445,6 +460,8 @@ class FXEnvironment:
             cur_episode_rate_idx = self.idx_geta + self.cur_idx
             did_close = False
 
+            won_money = 0
+
             if action_num == -1:
                 action = "SELL"
             elif action_num == 0:
@@ -476,7 +493,7 @@ class FXEnvironment:
                     self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
                 elif self.portfolio_mngr.having_long_or_short == self.SHORT:
                     #持っているSHORTポジションをクローズ
-                    self.close_all(cur_episode_rate_idx)
+                    _ , won_money = self.close_all(cur_episode_rate_idx)
                     # LONGに持ちかえる
                     buy_val = self.portfolio_mngr.buy(cur_episode_rate_idx)
                     a_log_str_line += ",CLOSE_SHORT_AND_OPEN_LONG" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(buy_val)
@@ -508,7 +525,7 @@ class FXEnvironment:
                     self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
                 elif self.portfolio_mngr.having_long_or_short == self.LONG:
                     #持っているLONGポジションをクローズ
-                    self.close_all(cur_episode_rate_idx)
+                    _ , won_money = self.close_all(cur_episode_rate_idx)
                     # SHORTに持ちかえる
                     sell_val = self.portfolio_mngr.sell(cur_episode_rate_idx)
                     a_log_str_line += ",CLOSE_LONG_AND_OPEN_SHORT" + ",0,0," + str(self.exchange_rates[cur_episode_rate_idx]) + "," + str(sell_val)
@@ -532,6 +549,24 @@ class FXEnvironment:
             else:
                 self.logfile_writeln_bt(a_log_str_line)
 
+
+
+            # 過去のreturnから求まる特徴量算出のための値を用意しておく
+            if USE_PAST_REWARD_FEATURES:
+                # このstepでのリターンを記録しておく
+                self.past_return_arr[self.cur_idx] = won_money
+                # この episodeでの 60-day span の　EMSD を埋めておく
+                day_span = 60
+                if HALF_DAY_MODE:
+                    day_span = 2 * day_span
+
+                # この後、stepメソッドが返すstateは self.cur_idx + 1 のものなので、そこを埋める
+                if self.cur_idx >= day_span + self.initial_cur_idx_val:
+                    #必要な要素数が用意できる場合のみ設定する. 設定しない場合は 0.0 で初期化されているので問題ない
+                    # +1　しているのは self.cur_idx の要素が slice したデータに含まれるようにするため
+                    self.past_return_emsd_arr[self.cur_idx + 1] = \
+                        calculate_volatility(self.past_return_arr[self.cur_idx - day_span + 1:self.cur_idx + 1], day_span)
+
             self.cur_idx += self.idx_step
             #if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
             if (self.cur_idx) >= len(self.input_arr):
@@ -545,7 +580,53 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True
 
-            next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
+
+            if USE_PAST_REWARD_FEATURES:
+                # 過去のreturnから求まる特徴量を next_state に加える
+                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
+                next_state = copy.deepcopy(next_state)
+                local_ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS if HALF_DAY_MODE else ONE_YEAR_DAYS
+                local_MONTH_DAYS = 2 * MONTH_DAYS if HALF_DAY_MODE else MONTH_DAYS
+                local_TWO_MONTH_DAYS = 2 * TWO_MONTH_DAYS if HALF_DAY_MODE else TWO_MONTH_DAYS
+                local_THREE_MONTH_DAYS = 2 * THREE_MONTH_DAYS if HALF_DAY_MODE else THREE_MONTH_DAYS
+
+                one_year_sqrt = math.sqrt(local_ONE_YEAR_DAYS)
+                one_month_sqrt = math.sqrt(local_MONTH_DAYS)
+                two_month_sqrt = math.sqrt(local_TWO_MONTH_DAYS)
+                three_month_sqrt = math.sqrt(local_THREE_MONTH_DAYS)
+
+                for a_feature_list in next_state:
+                    daily_normalized_1year_return = 0.0
+                    daily_normalized_1month_return = 0.0
+                    daily_normalized_2month_return = 0.0
+                    daily_normalized_3month_return = 0.0
+
+                    # self.cur_idx は既に +1 インクリメントされているので 比較に等号は含まない
+                    # スライスする場合も self.cur_idx要素は含めずに計算するので +1 はしない
+                    if self.cur_idx > local_ONE_YEAR_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_1year_return = np.sum(self.past_return_arr[self.cur_idx - local_ONE_YEAR_DAYS:self.cur_idx]) / \
+                                                           (self.past_return_emsd_arr[self.cur_idx - 1] * one_year_sqrt)
+                    if self.cur_idx > local_MONTH_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_1month_return = np.sum(self.past_return_arr[self.cur_idx - local_MONTH_DAYS:self.cur_idx]) / \
+                                                        (self.past_return_emsd_arr[self.cur_idx - 1] * one_month_sqrt)
+                    if self.cur_idx > local_TWO_MONTH_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_2month_return = np.sum(self.past_return_arr[self.cur_idx - local_TWO_MONTH_DAYS:self.cur_idx]) / \
+                                                        (self.past_return_emsd_arr[self.cur_idx - 1] * two_month_sqrt)
+                    if self.cur_idx > local_THREE_MONTH_DAYS + self.initial_cur_idx_val:
+                        daily_normalized_3month_return = np.sum(self.past_return_arr[self.cur_idx - local_THREE_MONTH_DAYS:self.cur_idx]) / \
+                                                        (self.past_return_emsd_arr[self.cur_idx - 1] * three_month_sqrt)
+
+                    a_feature_list.append(daily_normalized_1year_return)
+                    a_feature_list.append(daily_normalized_1month_return)
+                    a_feature_list.append(daily_normalized_2month_return)
+                    a_feature_list.append(daily_normalized_3month_return)
+
+                    print("calculate_retun_features," + str(daily_normalized_1year_return) + "," + str(daily_normalized_1month_return) + "," + \
+                            str(daily_normalized_2month_return) + "," + str(daily_normalized_3month_return))
+            else:
+                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
+
+
             # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
             # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
             return next_state, reward, False
