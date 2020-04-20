@@ -33,7 +33,9 @@ class QNetwork:
         self.optimizer = Adam(lr=learning_rate, clipvalue=0.01)
         #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
-        self.loss_func = tf.keras.losses.Huber(delta=1.0)
+
+        self.loss_func = tf.keras.losses.Huber(delta=0.1)
+        #self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = "categorical_crossentropy"
 
         inputlayer = Input(shape=(time_series, state_size))
@@ -126,6 +128,7 @@ class QNetwork:
                 action_conved = action_b + 1
 
                 targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
+                print("mainQN output at replay: " + str(list(itertools.chain.from_iterable(targets[all_sample_cnt][0]))))
                 targets[all_sample_cnt][0][action_conved] = target  # 教師信号
                 #targets[all_sample_cnt][0][action_b] = target  # 教師信号
 
@@ -230,7 +233,7 @@ hidden_size_lstm2 = 32 #16 #32
 
 
 learning_rate = 0.0001 #0.0016
-time_series =  32 #64
+time_series =  64 #32 #64
 if HALF_DAY_MODE:
     time_series = 2 * time_series
 batch_size = 64 #256 #1024
@@ -296,8 +299,7 @@ def tarin_agent():
 
         env = env_master.get_env('train')
         #action = np.random.choice([0, 1, 2])
-        #action = np.random.choice([-1, 0, 1])
-        action = np.random.choice([0, 1])
+        action = np.random.choice([-1, 0, 1])
         state, reward, done = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
         total_get_action_cnt += 1
         state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
