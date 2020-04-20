@@ -259,29 +259,33 @@ class FXEnvironment:
         three_month_sqrt = math.sqrt(local_THREE_MONTH_DAYS)
 
         for idx in range(len(self.exchange_rates)):
+            daily_normalized_1year_return = 0.0
             if idx > local_ONE_YEAR_DAYS:
                 daily_normalized_1year_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_ONE_YEAR_DAYS]) / (self.volatility_arr[idx] * one_year_sqrt)
                 self.one_year_return_arr.append(daily_normalized_1year_return)
             else:
                 self.one_year_return_arr.append(0.0)
 
+            daily_normalized_1month_return = 0.0
             if idx > local_MONTH_DAYS and idx > local_window_size:
                 daily_normalized_1month_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_MONTH_DAYS]) / (self.volatility_arr[idx] * one_month_sqrt)
-                self.one_month_return_arr.apend(daily_normalized_1month_return)
+                self.one_month_return_arr.append(daily_normalized_1month_return)
             else:
-                self.one_month_return_arr.apend(0.0)
+                self.one_month_return_arr.append(0.0)
 
-            if idx > local_TWO_MONTH_DAYS:
+            daily_normalized_2month_return = 0.0
+            if idx > local_TWO_MONTH_DAYS and idx > local_window_size:
                 daily_normalized_2month_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_TWO_MONTH_DAYS]) / (self.volatility_arr[idx] * two_month_sqrt)
-                self.two_month_return_arr.apend(daily_normalized_2month_return)
+                self.two_month_return_arr.append(daily_normalized_2month_return)
             else:
-                self.two_month_return_arr.apend(0.0)
+                self.two_month_return_arr.append(0.0)
 
+            daily_normalized_3month_return = 0.0
             if idx > local_THREE_MONTH_DAYS:
                 daily_normalized_3month_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_THREE_MONTH_DAYS]) / (self.volatility_arr[idx] * three_month_sqrt)
-                self.three_month_return_arr.apend(daily_normalized_3month_return)
+                self.three_month_return_arr.append(daily_normalized_3month_return)
             else:
-                self.three_month_return_arr.apend(0.0)
+                self.three_month_return_arr.append(0.0)
 
             print("calculate_return_features," + str(daily_normalized_1year_return) + "," + str(daily_normalized_1month_return) + "," + \
                     str(daily_normalized_2month_return) + "," + str(daily_normalized_3month_return))
