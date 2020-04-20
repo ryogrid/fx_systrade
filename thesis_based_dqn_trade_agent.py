@@ -128,7 +128,7 @@ class QNetwork:
                 action_conved = action_b + 1
 
                 targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
-                print("mainQN output at replay: " + str(list(itertools.chain.from_iterable(targets[all_sample_cnt][0]))))
+                print("mainQN output at replay: " + str(list(targets[all_sample_cnt][0])))
                 targets[all_sample_cnt][0][action_conved] = target  # 教師信号
                 #targets[all_sample_cnt][0][action_b] = target  # 教師信号
 
