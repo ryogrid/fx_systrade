@@ -30,11 +30,11 @@ import math
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
-        self.optimizer = Adam(lr=learning_rate, clipvalue=0.01)
+        self.optimizer = Adam(lr=learning_rate, clipvalue=0.5)
         #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
         #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
 
-        self.loss_func = tf.keras.losses.Huber(delta=0.1)
+        self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = tf.keras.losses.Huber(delta=1.0)
         #self.loss_func = "categorical_crossentropy"
 

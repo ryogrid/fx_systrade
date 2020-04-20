@@ -24,77 +24,7 @@ MONTH_DAYS = 21
 TWO_MONTH_DAYS = 2 * MONTH_DAYS
 THREE_MONTH_DAYS = 3 * MONTH_DAYS
 
-# 与えられた価格のリストの最後の要素に対応する volatility(EMSD) となるスカラ値を返す
-# len(partial_price_arr) は window_size と一致する必要がある
-def calculate_volatility(partial_price_arr, window_size):
-    alpha = 2 / float(window_size + 1)
-    ema_arr = []
-    emvar_arr = []
-    delta = 0
-    ema_arr.append(partial_price_arr[0])
-    emvar_arr.append(delta)
-    for idx in range(1, window_size):
-        delta = partial_price_arr[idx] - ema_arr[idx - 1]
-        ema_arr.append(ema_arr[idx - 1] + alpha * delta)
-        emvar_arr.append((1 - alpha) * (emvar_arr[idx - 1] + alpha * delta * delta))
-
-    print("calculate_volatility:" + str(len(partial_price_arr)))
-    print("calculate_volatility:" + str(ema_arr[-1]))
-    print("calculate_volatility:" + str(emvar_arr[-1]))
-    emsd = math.sqrt(emvar_arr[-1])
-    print("calculate_volatility:" + str(emsd))
-    print("calculate_volatility: ----------------------------------")
-    return emsd
-
 class FXEnvironment:
-    def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015, volatility_tgt = 0.1, bp = 0.000015):
-        print("FXEnvironment class constructor called.")
-        self.COMPETITION_TRAIN_DATA_NUM = train_data_num
-
-        self.DATA_HEAD_ASOBI = 252 + 63 + 5 # MACDを算出するための期間（1年） + MACDを算出するための期間（63日 window） + 余裕を持たせる分
-        if HALF_DAY_MODE:
-            self.DATA_HEAD_ASOBI = 2 * self.DATA_HEAD_ASOBI
-
-        self.tr_input_arr = None
-        self.val_input_arr = None
-
-        self.exchange_dates = []
-        self.exchange_rates = []
-        self.volatility_arr = []
-        self.macd_arr = []
-
-        self.time_series = time_series
-        self.holdable_positions  = holdable_positions
-
-        self.setup_serialized_fx_data()
-        self.half_spread = half_spread
-
-        self.volatility_tgt = volatility_tgt
-        self.bp = bp
-
-    def preprocess_data(self, X, scaler=None):
-        if scaler == None:
-            scaler = StandardScaler()
-            scaler.fit(X)
-
-        X_T = scaler.transform(X)
-        return X_T, scaler
-
-    def get_rsi(self, price_arr, cur_pos, period = 30):
-        period_local = period
-        if HALF_DAY_MODE:
-            period_local = 2 * period_local
-        if cur_pos <= period_local:
-            return 0
-        else:
-            s = cur_pos - (period_local + 1)
-        tmp_arr = price_arr[s:cur_pos]
-        #tmp_arr.reverse()
-        prices = np.array(tmp_arr, dtype=float)
-
-        rsi_val = ta.RSI(prices, timeperiod = period_local)[-1]
-        print("get_rsi:" + str(rsi_val))
-        return rsi_val
 
     # def get_ma(self, price_arr, cur_pos, period=40):
     #     if cur_pos <= period:
@@ -180,6 +110,95 @@ class FXEnvironment:
     #
     #     return np.std(tmp_arr)
 
+    def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015, volatility_tgt = 0.1, bp = 0.000015):
+        print("FXEnvironment class constructor called.")
+        self.COMPETITION_TRAIN_DATA_NUM = train_data_num
+
+        self.DATA_HEAD_ASOBI = 252 + 63 + 5 # MACDを算出するための期間（1年） + MACDを算出するための期間（63日 window） + 余裕を持たせる分
+        if HALF_DAY_MODE:
+            self.DATA_HEAD_ASOBI = 2 * self.DATA_HEAD_ASOBI
+
+        self.tr_input_arr = None
+        self.val_input_arr = None
+
+        self.exchange_dates = []
+        self.exchange_rates = []
+        self.volatility_arr = []
+        self.macd_arr = []
+
+        self.one_year_return_arr = []
+        self.one_month_return_arr = []
+        self.two_month_return_arr = []
+        self.three_month_return_arr = []
+
+        self.time_series = time_series
+        self.holdable_positions  = holdable_positions
+
+        self.setup_serialized_fx_data()
+        self.half_spread = half_spread
+
+        self.volatility_tgt = volatility_tgt
+        self.bp = bp
+
+    def preprocess_data(self, X, scaler=None):
+        if scaler == None:
+            scaler = StandardScaler()
+            scaler.fit(X)
+
+        X_T = scaler.transform(X)
+        return X_T, scaler
+
+    def get_rsi(self, price_arr, cur_pos, period = 30):
+        period_local = period
+        if HALF_DAY_MODE:
+            period_local = 2 * period_local
+        if cur_pos <= period_local:
+            return 0
+        else:
+            s = cur_pos - (period_local + 1)
+        tmp_arr = price_arr[s:cur_pos]
+        #tmp_arr.reverse()
+        prices = np.array(tmp_arr, dtype=float)
+
+        rsi_val = ta.RSI(prices, timeperiod = period_local)[-1]
+        print("get_rsi:" + str(rsi_val))
+        return rsi_val
+
+    # 与えられた価格のリストの最後の要素に対応する volatility(EMSD) となるスカラ値を返す
+    # len(partial_price_arr) は window_size と一致する必要がある
+    def calculate_volatility(self, partial_price_arr, window_size):
+        alpha = 2 / float(window_size + 1)
+        ema_arr = []
+        emvar_arr = []
+        delta = 0
+        ema_arr.append(partial_price_arr[0])
+        emvar_arr.append(delta)
+        for idx in range(1, window_size):
+            delta = partial_price_arr[idx] - ema_arr[idx - 1]
+            ema_arr.append(ema_arr[idx - 1] + alpha * delta)
+            emvar_arr.append((1 - alpha) * (emvar_arr[idx - 1] + alpha * delta * delta))
+
+        print("calculate_volatility:" + str(len(partial_price_arr)))
+        print("calculate_volatility:" + str(ema_arr[-1]))
+        print("calculate_volatility:" + str(emvar_arr[-1]))
+        emsd = math.sqrt(emvar_arr[-1])
+        print("calculate_volatility:" + str(emsd))
+        print("calculate_volatility: ----------------------------------")
+        return emsd
+
+    # calculate EMSD(Exponentially wighted moving standard deviation)
+    def setup_volatility_arr(self, rate_arr, window_size):
+        local_window_size = window_size
+        if HALF_DAY_MODE:
+            local_window_size = 2 * local_window_size
+        for idx in range(len(rate_arr)):
+            if idx + 1 < local_window_size:
+                self.volatility_arr.append(0)
+            else:
+                s = (idx + 1) - local_window_size
+                tmp_arr = rate_arr[s:idx + 1]
+                self.volatility_arr.append(self.calculate_volatility(tmp_arr, local_window_size))
+
     def setup_macd_arr(self, price_arr, period = 63):
         local_period = period
         if HALF_DAY_MODE:
@@ -225,6 +244,48 @@ class FXEnvironment:
     def get_macd(self, price_arr, cur_pos):
         return self.macd_arr[cur_pos]
 
+    def setup_past_return_arrs(self):
+        local_ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS if HALF_DAY_MODE else ONE_YEAR_DAYS
+        local_MONTH_DAYS = 2 * MONTH_DAYS if HALF_DAY_MODE else MONTH_DAYS
+        local_TWO_MONTH_DAYS = 2 * TWO_MONTH_DAYS if HALF_DAY_MODE else TWO_MONTH_DAYS
+        local_THREE_MONTH_DAYS = 2 * THREE_MONTH_DAYS if HALF_DAY_MODE else THREE_MONTH_DAYS
+        local_window_size = 60
+        if HALF_DAY_MODE:
+            local_window_size = 2 * local_window_size
+
+        one_year_sqrt = math.sqrt(local_ONE_YEAR_DAYS)
+        one_month_sqrt = math.sqrt(local_MONTH_DAYS)
+        two_month_sqrt = math.sqrt(local_TWO_MONTH_DAYS)
+        three_month_sqrt = math.sqrt(local_THREE_MONTH_DAYS)
+
+        for idx in range(len(self.exchange_rates)):
+            if idx > local_ONE_YEAR_DAYS:
+                daily_normalized_1year_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_ONE_YEAR_DAYS]) / (self.volatility_arr[idx] * one_year_sqrt)
+                self.one_year_return_arr.append(daily_normalized_1year_return)
+            else:
+                self.one_year_return_arr.append(0.0)
+
+            if idx > local_MONTH_DAYS and idx > local_window_size:
+                daily_normalized_1month_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_MONTH_DAYS]) / (self.volatility_arr[idx] * one_month_sqrt)
+                self.one_month_return_arr.apend(daily_normalized_1month_return)
+            else:
+                self.one_month_return_arr.apend(0.0)
+
+            if idx > local_TWO_MONTH_DAYS:
+                daily_normalized_2month_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_TWO_MONTH_DAYS]) / (self.volatility_arr[idx] * two_month_sqrt)
+                self.two_month_return_arr.apend(daily_normalized_2month_return)
+            else:
+                self.two_month_return_arr.apend(0.0)
+
+            if idx > local_THREE_MONTH_DAYS:
+                daily_normalized_3month_return = (self.exchange_rates[idx] - self.exchange_rates[idx - local_THREE_MONTH_DAYS]) / (self.volatility_arr[idx] * three_month_sqrt)
+                self.three_month_return_arr.apend(daily_normalized_3month_return)
+            else:
+                self.three_month_return_arr.apend(0.0)
+
+            print("calculate_return_features," + str(daily_normalized_1year_return) + "," + str(daily_normalized_1month_return) + "," + \
+                    str(daily_normalized_2month_return) + "," + str(daily_normalized_3month_return))
+
     # 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
     # なお、本来は月曜朝5:00から取引できるのが一般的なようである
     def is_weekend(self, date_str):
@@ -244,49 +305,33 @@ class FXEnvironment:
     def make_serialized_data(self, start_idx, end_idx, step, x_arr_fpath):
         input_mat = []
         print("all rate and data size: " + str(len(self.exchange_rates)))
-        for i in range(start_idx, end_idx, step):
-            if i % 100 == 0:
-                print("current date idx: " + str(i))
-            input_mat.append(
-                [self.exchange_rates[i],
-                 self.get_rsi(self.exchange_rates, i),
-                 self.get_macd(self.exchange_rates, i),
-                 ]
-            )
+        for idx in range(start_idx, end_idx, step):
+            if idx % 100 == 0:
+                print("current date idx: " + str(idx))
+            if USE_PAST_REWARD_FEATURES:
+                input_mat.append(
+                    [self.exchange_rates[idx],
+                     self.get_rsi(self.exchange_rates, idx),
+                     self.get_macd(self.exchange_rates, idx),
+                     self.one_year_return_arr[idx],
+                     self.one_month_return_arr[idx],
+                     self.two_month_return_arr[idx],
+                     self.three_month_return_arr[idx]
+                     ]
+                )
+            else:
+                input_mat.append(
+                    [self.exchange_rates[idx],
+                     self.get_rsi(self.exchange_rates, idx),
+                     self.get_macd(self.exchange_rates, idx),
+                     ]
+                )
 
         input_mat = np.array(input_mat, dtype=np.float64)
         with open(x_arr_fpath, 'wb') as f:
             pickle.dump(input_mat, f)
 
         return input_mat
-
-    # calculate EMSD(Exponentially wighted moving standard deviation)
-    def setup_volatility_arr(self, rate_arr, window_size):
-        local_window_size = window_size
-        if HALF_DAY_MODE:
-            local_window_size = 2 * local_window_size
-        for idx in range(len(rate_arr)):
-            if idx + 1 < local_window_size:
-                self.volatility_arr.append(0)
-            else:
-                s = (idx + 1) - local_window_size
-                tmp_arr = rate_arr[s:idx + 1]
-                self.volatility_arr.append(calculate_volatility(tmp_arr, local_window_size))
-
-                # s = (idx + 1) - window_size
-                # tmp_arr = rate_arr[s:idx + 1]
-                # print("get_volatility_arr:" + str(len(tmp_arr)))
-                # prices = np.array(tmp_arr, dtype=float)
-                # ema_arr = ta.EMA(prices, timeperiod = window_size)
-                # emvar_arr = []
-                # for sd_idx in range(len(ema_arr)):
-                #     if sd_idx == 0:
-                #         emvar_arr.append(0.0)
-                #     else:
-                #         delta = self.exchange_rates[idx] - ema_arr[sd_idx - 1]
-                #         emvar_arr.append((1 - alpha) * (emvar_arr[sd_idx - 1] + alpha * delta * delta))
-                # self.volatility_arr.append(math.sqrt(emvar_arr[-1]))
-
 
     def setup_serialized_fx_data(self):
         if False: #self.is_fist_call == False and os.path.exists("./exchange_rates.pickle"):
@@ -339,8 +384,28 @@ class FXEnvironment:
             with open("./macd_arr.pickle", 'wb') as f:
                 pickle.dump(self.macd_arr, f)
 
+        if False:  # self.is_fist_call == False and os.path.exists("./one_year_return_arr.pickle"):
+            with open('./one_year_return_arr.pickle', 'rb') as f:
+                self.one_year_return_arr = pickle.load(f)
+            with open('./one_month_return_arr.pickle', 'rb') as f:
+                self.one_month_return_arr = pickle.load(f)
+            with open('./two_month_return_arr.pickle', 'rb') as f:
+                self.two_month_return_arr = pickle.load(f)
+            with open('./three_month_return_arr.pickle', 'rb') as f:
+                self.three_month_return_arr = pickle.load(f)
+        else:
+            self.setup_past_return_arrs()
+            with open('./one_year_return_arr.pickle', 'wb') as f:
+                pickle.dump(self.one_year_return_arr, f)
+            with open('./one_month_return_arr.pickle', 'wb') as f:
+                pickle.dump(self.one_month_return_arr, f)
+            with open('./two_month_return_arr.pickle', 'wb') as f:
+                pickle.dump(self.two_month_return_arr, f)
+            with open('./three_month_return_arr.pickle', 'wb') as f:
+                pickle.dump(self.three_month_return_arr, f)
+
         if False: #self.is_fist_call == False and os.path.exists("./all_input_mat.pickle"):
-            with open('./all_input_mat.pickle', 'rb') as f:
+            with open('./one_year_return_arr.pickle', 'rb') as f:
                 all_input_mat = pickle.load(f)
         else:
             all_input_mat = \
@@ -397,14 +462,6 @@ class FXEnvironment:
             self.volatility_tgt = volatility_tgt
 
             self.volatility_arr = volatility_arr
-
-            # インデックスは idx_getaを加算しないcur_idx基準
-            # 1イテレーションの間の分のみ保持する
-            self.past_return_arr = [0.0] * (self.input_arr_len + 10)
-            # 過去のreturnから算出される値を特徴量として加えるために用いる
-            # past_return_arr とインデックスの基準は同じ
-            # 1イテレーションの間の分のみ保持する
-            self.past_return_emsd_arr = [0.0] * (self.input_arr_len + 10)
 
             # reward の計算にはbpをトランザクションコストのレートとして用いるが、実際の取引でのスプレッドは half_sparedを用いる
             self.bp = bp
@@ -549,23 +606,21 @@ class FXEnvironment:
             else:
                 self.logfile_writeln_bt(a_log_str_line)
 
-
-
-            # 過去のreturnから求まる特徴量算出のための値を用意しておく
-            if USE_PAST_REWARD_FEATURES:
-                # このstepでのリターンを記録しておく
-                self.past_return_arr[self.cur_idx] = won_money
-                # この episodeでの 60-day span の　EMSD を埋めておく
-                day_span = 60
-                if HALF_DAY_MODE:
-                    day_span = 2 * day_span
-
-                # この後、stepメソッドが返すstateは self.cur_idx + 1 のものなので、そこを埋める
-                if self.cur_idx >= day_span + self.initial_cur_idx_val:
-                    #必要な要素数が用意できる場合のみ設定する. 設定しない場合は 0.0 で初期化されているので問題ない
-                    # +1　しているのは self.cur_idx の要素が slice したデータに含まれるようにするため
-                    self.past_return_emsd_arr[self.cur_idx + 1] = \
-                        calculate_volatility(self.past_return_arr[self.cur_idx - day_span + 1:self.cur_idx + 1], day_span)
+            # # 過去のreturnから求まる特徴量算出のための値を用意しておく
+            # if USE_PAST_REWARD_FEATURES:
+            #     # このstepでのリターンを記録しておく
+            #     self.past_return_arr[self.cur_idx] = won_money
+            #     # この episodeでの 60-day span の　EMSD を埋めておく
+            #     day_span = 60
+            #     if HALF_DAY_MODE:
+            #         day_span = 2 * day_span
+            #
+            #     # この後、stepメソッドが返すstateは self.cur_idx + 1 のものなので、そこを埋める
+            #     if self.cur_idx >= day_span + self.initial_cur_idx_val:
+            #         #必要な要素数が用意できる場合のみ設定する. 設定しない場合は 0.0 で初期化されているので問題ない
+            #         # +1　しているのは self.cur_idx の要素が slice したデータに含まれるようにするため
+            #         self.past_return_emsd_arr[self.cur_idx + 1] = \
+            #             calculate_volatility(self.past_return_arr[self.cur_idx - day_span + 1:self.cur_idx + 1], day_span)
 
             self.cur_idx += self.idx_step
             #if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
@@ -580,55 +635,7 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True
 
-
-            if USE_PAST_REWARD_FEATURES:
-                # 過去のreturnから求まる特徴量を next_state に加える
-                next_state_tmp = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
-                local_ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS if HALF_DAY_MODE else ONE_YEAR_DAYS
-                local_MONTH_DAYS = 2 * MONTH_DAYS if HALF_DAY_MODE else MONTH_DAYS
-                local_TWO_MONTH_DAYS = 2 * TWO_MONTH_DAYS if HALF_DAY_MODE else TWO_MONTH_DAYS
-                local_THREE_MONTH_DAYS = 2 * THREE_MONTH_DAYS if HALF_DAY_MODE else THREE_MONTH_DAYS
-
-                one_year_sqrt = math.sqrt(local_ONE_YEAR_DAYS)
-                one_month_sqrt = math.sqrt(local_MONTH_DAYS)
-                two_month_sqrt = math.sqrt(local_TWO_MONTH_DAYS)
-                three_month_sqrt = math.sqrt(local_THREE_MONTH_DAYS)
-
-                next_state = np.array([])
-                #print("------------------------------")
-                for idx, a_feature_list in enumerate(next_state_tmp):
-                    #print(a_feature_list)
-                    daily_normalized_1year_return = -0.5
-                    daily_normalized_1month_return = -0.5
-                    daily_normalized_2month_return = -0.5
-                    daily_normalized_3month_return = -0.5
-
-                    # self.cur_idx は既に +1 インクリメントされているので 比較に等号は含まない
-                    # スライスする場合も self.cur_idx要素は含めずに計算するので +1 はしない
-                    if self.cur_idx - self.time_series + idx > local_ONE_YEAR_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_1year_return = np.sum(self.past_return_arr[self.cur_idx - local_ONE_YEAR_DAYS - self.time_series + idx:self.cur_idx - self.time_series + idx]) / \
-                                                           (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * one_year_sqrt + 0.0001)
-                    if self.cur_idx - self.time_series + idx > local_MONTH_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_1month_return = np.sum(self.past_return_arr[self.cur_idx - local_MONTH_DAYS - self.time_series + idx:self.cur_idx  - self.time_series + idx]) / \
-                                                        (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * one_month_sqrt + 0.0001)
-                    if self.cur_idx - self.time_series + idx > local_TWO_MONTH_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_2month_return = np.sum(self.past_return_arr[self.cur_idx - local_TWO_MONTH_DAYS - self.time_series + idx:self.cur_idx - self.time_series + idx]) / \
-                                                        (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * two_month_sqrt + 0.0001)
-                    if self.cur_idx - self.time_series + idx > local_THREE_MONTH_DAYS + self.initial_cur_idx_val:
-                        daily_normalized_3month_return = np.sum(self.past_return_arr[self.cur_idx - local_THREE_MONTH_DAYS - self.time_series + idx:self.cur_idx - self.time_series + idx]) / \
-                                                        (self.past_return_emsd_arr[self.cur_idx - 1 - self.time_series + idx] * three_month_sqrt + 0.0001)
-
-                    new_list = np.append(a_feature_list, daily_normalized_1year_return)
-                    new_list = np.append(new_list, daily_normalized_1month_return)
-                    new_list = np.append(new_list, daily_normalized_2month_return)
-                    new_list = np.append(new_list, daily_normalized_3month_return)
-                    #print(new_list)
-                    next_state = np.append(next_state, new_list)
-
-                    print("calculate_return_features," + str(daily_normalized_1year_return) + "," + str(daily_normalized_1month_return) + "," + \
-                            str(daily_normalized_2month_return) + "," + str(daily_normalized_3month_return))
-            else:
-                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
+            next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
 
 
             # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
