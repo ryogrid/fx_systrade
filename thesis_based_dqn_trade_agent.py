@@ -230,8 +230,8 @@ class Actor:
         return action
 
 # ---
-hidden_size_lstm1 = 64 #32 #64 #28 #64 #32
-hidden_size_lstm2 = 32 #16 #32
+hidden_size_lstm1 = 32 #64 #32 #64 #28 #64 #32
+#hidden_size_lstm2 = 32 #16 #32
 
 
 learning_rate = 0.0001 #0.0016
