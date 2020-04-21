@@ -39,9 +39,11 @@ class QNetwork:
         #self.loss_func = "categorical_crossentropy"
 
         inputlayer = Input(shape=(time_series, state_size))
-        middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
-        middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
-        #middlelayer = SimpleRNN(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
+        middlelayer = LSTM(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
+        #middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
+        #middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
+
+
         middlelayer = LeakyReLU(0.2)(middlelayer)
         # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
         # middlelayer = LeakyReLU(0.2)(middlelayer)
