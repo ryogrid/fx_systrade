@@ -131,10 +131,10 @@ class QNetwork:
                 else:
                     reshaped_next_state = np.reshape(next_state_b, [1, feature_num])
 
-                    retmainQs = self.model.predict(reshaped_next_state)
+                    retmainQs = self.model.predict(reshaped_next_state)[0]
                     next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
                     predicted_targetQN = targetQN.model.predict(reshaped_next_state)
-                    target = reward_b + gamma * predicted_targetQN[next_action]
+                    target = reward_b + gamma * predicted_targetQN[0][next_action]
 
                 #action_conved = 0 if action_b == -1 else 1
                 action_conved = action_b + 1
@@ -144,9 +144,9 @@ class QNetwork:
                     print("mainQN output at replay: " + str(list(targets[all_sample_cnt][0])))
                     targets[all_sample_cnt][0][action_conved] = target  # 教師信号
                 else:
-                    targets[all_sample_cnt] = self.model.predict(reshaped_state)
-                    print("mainQN output at replay: " + str(list(targets[all_sample_cnt])))
-                    targets[all_sample_cnt][action_conved] = target  # 教師信号
+                    targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
+                    print("mainQN output at replay: " + str(list(targets[all_sample_cnt][0])))
+                    targets[all_sample_cnt][0][action_conved] = target  # 教師信号
 
                 print("reward_b," + str(reward_b) + ",target," + str(target) + ",action," + str(action_b) + ",next_action," + str(next_action))
 
