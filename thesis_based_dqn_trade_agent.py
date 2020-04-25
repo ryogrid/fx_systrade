@@ -6,7 +6,7 @@
 
 USE_TENSOR_BOARD = False
 HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
-USE_PAST_REWARD_FEATURES = True
+USE_RECCURENT_LAYER_MODE = False # environment側にも同じフラグがあって同期している必要があるので注意
 
 import numpy as np
 import tensorflow as tf
@@ -30,69 +30,67 @@ import math
 # [2]Q関数をディープラーニングのネットワークをクラスとして定義
 class QNetwork:
     def __init__(self, learning_rate=0.001, state_size=15, action_size=3, time_series=32):
-        self.optimizer = Adam(lr=learning_rate, clipvalue=0.5)
-        #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
-        #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
+        if USE_RECCURENT_LAYER_MODE:
+            self.optimizer = Adam(lr=learning_rate, clipvalue=0.5)
+            #self.optimizer = RMSprop(lr=learning_rate, momentum=0.9, clipvalue=0.1)
+            #self.optimizer = SGD(lr=learning_rate, momentum=0.9, clipvalue=0.5)
 
-        self.loss_func = tf.keras.losses.Huber(delta=1.0)
-        #self.loss_func = tf.keras.losses.Huber(delta=1.0)
-        #self.loss_func = "categorical_crossentropy"
+            self.loss_func = tf.keras.losses.Huber(delta=1.0)
+            #self.loss_func = "categorical_crossentropy"
 
-        inputlayer = Input(shape=(time_series, state_size))
-        middlelayer = LSTM(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
-        #middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
-        #middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
+            inputlayer = Input(shape=(time_series, state_size))
+            middlelayer = LSTM(hidden_size_lstm1, return_sequences=False, activation=None)(inputlayer)
+            #middlelayer = LSTM(hidden_size_lstm1, return_sequences=True, activation=None)(inputlayer)
+            #middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
 
 
-        middlelayer = LeakyReLU(0.2)(middlelayer)
-        # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
-        # middlelayer = LeakyReLU(0.2)(middlelayer)
+            middlelayer = LeakyReLU(0.2)(middlelayer)
+            # middlelayer = LSTM(hidden_size_lstm2, return_sequences=False, activation=None)(middlelayer)
+            # middlelayer = LeakyReLU(0.2)(middlelayer)
 
-        middlelayer = BatchNormalization()(middlelayer)
-        #middlelayer = Dropout(0.5)(middlelayer)
+            middlelayer = BatchNormalization()(middlelayer)
+            #middlelayer = Dropout(0.5)(middlelayer)
 
-        # dueling network
-        y=Dense(action_size + 1, activation='linear')(middlelayer)     # 0番目がV(s), 1以降がA(s,a), 平均値は引かないnaive型
-        outputlayer = Lambda(lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - 0.0*K.mean(a[:, 1:], keepdims=True),
-                             output_shape=(action_size,))(y)
+            # dueling network
+            y=Dense(action_size + 1, activation='linear')(middlelayer)     # 0番目がV(s), 1以降がA(s,a), 平均値は引かないnaive型
+            outputlayer = Lambda(lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - 0.0*K.mean(a[:, 1:], keepdims=True),
+                                 output_shape=(action_size,))(y)
 
-        self.model=tf.keras.Model(inputs=inputlayer, outputs=outputlayer)
+            self.model=tf.keras.Model(inputs=inputlayer, outputs=outputlayer)
 
-        # self.model = tf.keras.Sequential([
-        #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=True, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
-        #     LeakyReLU(0.2),
-        #     #BatchNormalization(),
-        #     #Dropout(0.5),
-        #     LSTM(hidden_size_lstm2, return_sequences=False, activation=None), #kernel_regularizer=l1(0.1)), #recurrent_dropout=0.5),
-        #     LeakyReLU(0.2),
-        #     BatchNormalization(),
-        #     #Dropout(0.5),
-        #     #Dense(action_size, activation='softmax')
-        #     Dense(action_size, activation='linear')
-        # ])
+            #self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
+            self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
+        else:
+            self.optimizer = Adam(lr=learning_rate)
 
-        # self.model = tf.keras.Sequential([
-        #     LSTM(hidden_size_lstm1, input_shape=(time_series, state_size), return_sequences=False, activation=None),
-        #     LeakyReLU(0.2),
-        #     BatchNormalization(),
-        #     Dropout(0.5),
-        #     Dense(hidden_size_dense1, activation=None),
-        #     LeakyReLU(0.2),
-        #     BatchNormalization(),
-        #     Dropout(0.5),
-        #     Dense(hidden_size_dense2, activation=None),
-        #     LeakyReLU(0.2),
-        #     Dropout(0.5),
-        #     Dense(action_size, activation='linear')
-        # ])
+            self.loss_func = tf.keras.losses.Huber(delta=1.0)
 
-        #self.model.compile(optimizer=self.optimizer, loss=self.loss_func, metrics=['accuracy'])
-        self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
+            inputlayer = Input(shape=(state_size))
+            middlelayer = Dense(hidden_size_dense, activation=None)(inputlayer)
+            middlelayer = LeakyReLU(0.2)(middlelayer)
+            middlelayer = Dense(hidden_size_dense, activation=None)(middlelayer)
+            middlelayer = LeakyReLU(0.2)(middlelayer)
+            middlelayer = BatchNormalization()(middlelayer)
+
+            # dueling network
+            y = Dense(action_size + 1, activation='linear')(middlelayer)  # 0番目がV(s), 1以降がA(s,a), 平均値は引かないnaive型
+            outputlayer = Lambda(
+                lambda a: K.expand_dims(a[:, 0], -1) + a[:, 1:] - 0.0 * K.mean(a[:, 1:], keepdims=True),
+                output_shape=(action_size,))(y)
+
+            self.model = tf.keras.Model(inputs=inputlayer, outputs=outputlayer)
+
+            self.model.compile(optimizer=self.optimizer, loss=self.loss_func)
+
         self.model.summary()
 
     # 重みの学習
     def replay(self, memory, time_series, targetQN, cur_episode_idx = 0, cur_itr=0, batch_num = 1):
-        inputs = np.zeros((batch_size * batch_num, time_series, feature_num))
+        if USE_RECCURENT_LAYER_MODE:
+            inputs = np.zeros((batch_size * batch_num, time_series, feature_num))
+        else:
+            inputs = np.zeros((batch_size * batch_num, feature_num))
+
         targets = np.zeros((batch_size * batch_num, 1, nn_output_size))
 
         all_sample_cnt = 0
@@ -111,28 +109,44 @@ class QNetwork:
             mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
 
             for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
-                reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
+                if USE_RECCURENT_LAYER_MODE:
+                    reshaped_state = np.reshape(state_b, [1, time_series, feature_num])
+                else:
+                    reshaped_state = np.reshape(state_b, [1, feature_num])
                 inputs[all_sample_cnt] = reshaped_state
 
                 next_action = -99 # Q関数の更新式を用いなくなった場合のため
-
                 target = reward_b
+
                 # # 15itr以降は Q関数の更新式は用いず reward_b にそのまま fit させる
                 # if cur_itr < 15:
                 # Double DQN (mainQNとtargetQNを用いる。 Fixed Q-targetsもこれでおそらく実現できているのではないかと思われる)
-                reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
-                retmainQs = self.model.predict(reshaped_next_state)[0]
-                next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                predicted_targetQN = targetQN.model.predict(reshaped_next_state)
-                target = reward_b + gamma * predicted_targetQN[0][next_action]
+                if USE_RECCURENT_LAYER_MODE:
+                    reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
+
+                    retmainQs = self.model.predict(reshaped_next_state)[0]
+                    next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                    predicted_targetQN = targetQN.model.predict(reshaped_next_state)
+                    target = reward_b + gamma * predicted_targetQN[0][next_action]
+                else:
+                    reshaped_next_state = np.reshape(next_state_b, [1, feature_num])
+
+                    retmainQs = self.model.predict(reshaped_next_state)
+                    next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                    predicted_targetQN = targetQN.model.predict(reshaped_next_state)
+                    target = reward_b + gamma * predicted_targetQN[next_action]
 
                 #action_conved = 0 if action_b == -1 else 1
                 action_conved = action_b + 1
 
-                targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
-                print("mainQN output at replay: " + str(list(targets[all_sample_cnt][0])))
-                targets[all_sample_cnt][0][action_conved] = target  # 教師信号
-                #targets[all_sample_cnt][0][action_b] = target  # 教師信号
+                if USE_RECCURENT_LAYER_MODE:
+                    targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
+                    print("mainQN output at replay: " + str(list(targets[all_sample_cnt][0])))
+                    targets[all_sample_cnt][0][action_conved] = target  # 教師信号
+                else:
+                    targets[all_sample_cnt] = self.model.predict(reshaped_state)
+                    print("mainQN output at replay: " + str(list(targets[all_sample_cnt])))
+                    targets[all_sample_cnt][action_conved] = target  # 教師信号
 
                 print("reward_b," + str(reward_b) + ",target," + str(target) + ",action," + str(action_b) + ",next_action," + str(next_action))
 
@@ -144,7 +158,11 @@ class QNetwork:
         targets = np.array(targets)
         inputs = np.array(inputs)
 
-        inputs = inputs.reshape((batch_size * batch_num, time_series, feature_num))
+        if USE_RECCURENT_LAYER_MODE:
+            inputs = inputs.reshape((batch_size * batch_num, time_series, feature_num))
+        else:
+            inputs = inputs.reshape((batch_size * batch_num, feature_num))
+
         targets = targets.reshape((batch_size * batch_num, nn_output_size))
 
         cbks = []
@@ -214,7 +232,10 @@ class Actor:
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
-            reshaped_state = np.reshape(state, [1, time_series, feature_num])
+            if USE_RECCURENT_LAYER_MODE:
+                reshaped_state = np.reshape(state, [1, time_series, feature_num])
+            else:
+                reshaped_state = np.reshape(state, [1, feature_num])
             retTargetQs = mainQN.model.predict(reshaped_state)
             print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
             action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
@@ -233,6 +254,7 @@ class Actor:
 hidden_size_lstm1 = 32 #64 #32 #64 #28 #64 #32
 #hidden_size_lstm2 = 32 #16 #32
 
+hidden_size_dense = 64
 
 learning_rate = 0.0001 #0.0016
 time_series =  64 #32 #64
@@ -245,9 +267,9 @@ if HALF_DAY_MODE:
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定
 iteration_num = 5000 #720
 memory_size = TRAIN_DATA_NUM * 2 + 10
-feature_num = 3
-if USE_PAST_REWARD_FEATURES:
-    feature_num = 3 + 4
+feature_num = 7
+if not USE_RECCURENT_LAYER_MODE:
+    feature_num = 19
 nn_output_size = 3 #2 #3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 HODABLE_POSITIONS = 1 #30
@@ -304,7 +326,8 @@ def tarin_agent():
         action = np.random.choice([-1, 0, 1])
         state, reward, done = env.step(action)  # 1step目は適当なBUYかDONOTのうちランダムに行動をとる
         total_get_action_cnt += 1
-        state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
+        if USE_RECCURENT_LAYER_MODE:
+            state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state)
 
@@ -330,7 +353,8 @@ def tarin_agent():
                 print(str(cur_itr) + ' training period finished.')
                 break
 
-            next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
+            if USE_RECCURENT_LAYER_MODE:
+                next_state = np.reshape(next_state, [time_series, feature_num])  # list型のstateを、1行feature num列の行列に変換
             store_episode_log_to_memory(state, action, reward, next_state)
 
             state = next_state  # 状態更新
@@ -360,7 +384,8 @@ def run_backtest(backtest_type, env_master=None):
 
     # DONOT でスタート
     state, reward, done = env.step(0)
-    state = np.reshape(state, [time_series, feature_num])
+    if USE_RECCURENT_LAYER_MODE:
+        state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
         action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
 
@@ -370,7 +395,8 @@ def run_backtest(backtest_type, env_master=None):
             print('all training period learned.')
             break
         #state = state.T
-        state = np.reshape(state, [time_series, feature_num])
+        if USE_RECCURENT_LAYER_MODE:
+            state = np.reshape(state, [time_series, feature_num])
 
 def disable_gpu():
     tf.config.set_visible_devices([], 'GPU')

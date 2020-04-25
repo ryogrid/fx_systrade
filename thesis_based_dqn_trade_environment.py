@@ -17,7 +17,7 @@ import copy
 
 RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 HALF_DAY_MODE = True # ageent側にも同じフラグがあって同期している必要があるので注意
-USE_PAST_REWARD_FEATURES = True
+USE_RECCURENT_LAYER_MODE = False # agent側にも同じフラグがあって同期している必要があるので注意
 
 ONE_YEAR_DAYS = 252
 MONTH_DAYS = 21
@@ -25,90 +25,6 @@ TWO_MONTH_DAYS = 2 * MONTH_DAYS
 THREE_MONTH_DAYS = 3 * MONTH_DAYS
 
 class FXEnvironment:
-
-    # def get_ma(self, price_arr, cur_pos, period=40):
-    #     if cur_pos <= period:
-    #         s = 0
-    #     else:
-    #         s = cur_pos - period
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     return ta.SMA(prices, timeperiod = period)[-1]
-    #
-    # def get_ma_kairi(self, price_arr, cur_pos, period = None):
-    #     ma = self.get_ma(price_arr, cur_pos)
-    #     return ((price_arr[cur_pos] - ma) / ma) * 100.0
-    #     return 0
-    #
-    # def get_bb_1(self, price_arr, cur_pos, period = 40):
-    #     if cur_pos <= period:
-    #         s = 0
-    #     else:
-    #         s = cur_pos - period
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     return ta.BBANDS(prices, timeperiod = period)[0][-1]
-    #
-    # def get_bb_2(self, price_arr, cur_pos, period = 40):
-    #     if cur_pos <= period:
-    #         s = 0
-    #     else:
-    #         s = cur_pos - period
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     return ta.BBANDS(prices, timeperiod = period)[2][-1]
-    #
-    # # periodは移動平均を求める幅なので20程度で良いはず...
-    # def get_ema(self, price_arr, cur_pos, period = 20):
-    #     if cur_pos <= period:
-    #         s = 0
-    #     else:
-    #         s = cur_pos - period
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     return ta.EMA(prices, timeperiod = period)[-1]
-    #
-    # def get_mo(self, price_arr, cur_pos, period=40):
-    #     if cur_pos <= (period + 1):
-    #         return 0
-    #     else:
-    #         s = cur_pos - (period + 1)
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     return ta.CMO(prices, timeperiod = period)[-1]
-    #
-    # def get_po(self, price_arr, cur_pos, period=40):
-    #     if cur_pos <= period:
-    #         s = 0
-    #     else:
-    #         s = cur_pos - period
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     return ta.PPO(prices)[-1]
-
-    # def get_vorarity(self, price_arr, cur_pos, period = None):
-    #     tmp_arr = []
-    #     prev = -1.0
-    #     for val in price_arr[cur_pos-period:cur_pos]:
-    #         if prev == -1.0:
-    #             tmp_arr.append(0.0)
-    #         else:
-    #             tmp_arr.append(val - prev)
-    #         prev = val
-    #
-    #     return np.std(tmp_arr)
 
     def __init__(self, train_data_num, time_series=32, holdable_positions=100, half_spread=0.0015, volatility_tgt = 0.1, bp = 0.000015):
         print("FXEnvironment class constructor called.")
@@ -147,6 +63,113 @@ class FXEnvironment:
 
         X_T = scaler.transform(X)
         return X_T, scaler
+
+    # 0->flat 1->upper line 2-> downer line 3->above is top 4->below is top
+    def judge_chart_type(self, data_arr):
+        max_val = 0
+        min_val = float("inf")
+
+        last_idx = len(data_arr)-1
+
+        for idx in range(len(data_arr)):
+            if data_arr[idx] > max_val:
+                max_val = data_arr[idx]
+                max_idx = idx
+
+            if data_arr[idx] < min_val:
+                min_val = data_arr[idx]
+                min_idx = idx
+
+
+        if max_val == min_val:
+            return [1,0,0,0,0]
+
+        if min_idx == 0 and max_idx == last_idx:
+            return [0,1,0,0,0]
+
+        if max_idx == 0 and min_idx == last_idx:
+            return [0,0,1,0,0]
+
+        if max_idx != 0 and max_idx != last_idx and min_idx != 0 and min_idx != last_idx:
+            return [1,0,0,0,0]
+
+        if max_idx != 0 and max_idx != last_idx:
+            return [0,0,0,1,0]
+
+        if min_idx != 0 and min_idx != last_idx:
+            return [0,0,0,0,1]
+
+        return [1,0,0,0,0]
+
+    def get_ma(self, price_arr, cur_pos, period=40):
+        period_local = period
+        if HALF_DAY_MODE:
+            period_local = 2 * period_local
+        if cur_pos <= period_local:
+            s = 0
+        else:
+            s = cur_pos - period_local
+        tmp_arr = price_arr[s:cur_pos]
+        prices = np.array(tmp_arr, dtype=float)
+
+        return ta.SMA(prices, timeperiod = period_local)[-1]
+
+    def get_ma_kairi(self, price_arr, cur_pos):
+        ma = self.get_ma(price_arr, cur_pos)
+        return ((price_arr[cur_pos] - ma) / ma) * 100.0
+        return 0
+
+    def get_bb_1(self, price_arr, cur_pos, period = 40):
+        period_local = period
+        if HALF_DAY_MODE:
+            period_local = 2 * period_local
+        if cur_pos <= period_local:
+            s = 0
+        else:
+            s = cur_pos - period_local
+        tmp_arr = price_arr[s:cur_pos]
+        prices = np.array(tmp_arr, dtype=float)
+
+        return ta.BBANDS(prices, timeperiod = period_local)[0][-1]
+
+    def get_bb_2(self, price_arr, cur_pos, period = 40):
+        period_local = period
+        if HALF_DAY_MODE:
+            period_local = 2 * period_local
+        if cur_pos <= period_local:
+            s = 0
+        else:
+            s = cur_pos - period_local
+        tmp_arr = price_arr[s:cur_pos]
+        prices = np.array(tmp_arr, dtype=float)
+
+        return ta.BBANDS(prices, timeperiod = period_local)[2][-1]
+
+    def get_mo(self, price_arr, cur_pos, period=40):
+        period_local = period
+        if HALF_DAY_MODE:
+            period_local = 2 * period_local
+        if cur_pos <= (period + 1):
+            return 0
+        else:
+            s = cur_pos - (period_local + 1)
+        tmp_arr = price_arr[s:cur_pos]
+        prices = np.array(tmp_arr, dtype=float)
+
+        return ta.CMO(prices, timeperiod = period_local)[-1]
+
+    def get_po(self, price_arr, cur_pos, period=40):
+        period_local = period
+        if HALF_DAY_MODE:
+            period_local = 2 * period_local
+        if cur_pos <= period_local:
+            s = 0
+        else:
+            s = cur_pos - period_local
+        tmp_arr = price_arr[s:cur_pos]
+        prices = np.array(tmp_arr, dtype=float)
+
+        return ta.PPO(prices)[-1]
 
     def get_rsi(self, price_arr, cur_pos, period = 30):
         period_local = period
@@ -224,22 +247,8 @@ class FXEnvironment:
             self.macd_arr[idx] = self.macd_arr[idx] / price_period_std
         # 次に1年間の標準偏差で割ることでリストの値を論文通りのMACD{i}に置き換える
         for idx in range(local_ONE_YEAR_DAYS, len(self.macd_arr)):
-            price_year_std = np.std(price_arr[idx - local_ONE_YEAR_DAYS + 1:idx + 1])
+            price_year_std = np.std(price_arr[idx - ONE_YEAR_DAYS + 1:idx + 1])
             self.macd_arr[idx] = self.macd_arr[idx] / price_year_std
-
-    # def get_macd(self, price_arr, cur_pos, period = 63):
-    #     if cur_pos <= period:
-    #         s = 0
-    #     else:
-    #         s = cur_pos - period
-    #     tmp_arr = price_arr[s:cur_pos]
-    #     #tmp_arr.reverse()
-    #     prices = np.array(tmp_arr, dtype=float)
-    #
-    #     macd, macdsignal, macdhist = ta.MACD(prices, fastperiod=8, slowperiod=24)
-    #
-    #     print("get_macd:" + str(macd[-1]))
-    #     return macd[-1]
 
     def get_macd(self, price_arr, cur_pos):
         return self.macd_arr[cur_pos]
@@ -312,7 +321,7 @@ class FXEnvironment:
         for idx in range(start_idx, end_idx, step):
             if idx % 100 == 0:
                 print("current date idx: " + str(idx))
-            if USE_PAST_REWARD_FEATURES:
+            if USE_RECCURENT_LAYER_MODE:
                 input_mat.append(
                     [self.exchange_rates[idx],
                      self.get_rsi(self.exchange_rates, idx),
@@ -324,11 +333,25 @@ class FXEnvironment:
                      ]
                 )
             else:
-                input_mat.append(
+                tmp_list = \
                     [self.exchange_rates[idx],
+                     (self.exchange_rates[idx] - self.exchange_rates[idx - 1]) / self.exchange_rates[idx - 1],
                      self.get_rsi(self.exchange_rates, idx),
                      self.get_macd(self.exchange_rates, idx),
+                     self.one_year_return_arr[idx],
+                     self.one_month_return_arr[idx],
+                     self.two_month_return_arr[idx],
+                     self.three_month_return_arr[idx],
+                     self.get_ma(self.exchange_rates, idx, period=self.time_series),
+                     self.get_ma_kairi(self.exchange_rates, idx),
+                     self.get_bb_1(self.exchange_rates, idx, period=self.time_series),
+                     self.get_bb_2(self.exchange_rates, idx, period=self.time_series),
+                     self.get_mo(self.exchange_rates, idx, period=self.time_series),
+                     self.get_po(self.exchange_rates, idx, period=self.time_series),
                      ]
+                tmp_list = tmp_list + self.judge_chart_type(self.exchange_rates[idx - self.time_series + 1:idx + 1])
+                input_mat.append(
+                    tmp_list
                 )
 
         input_mat = np.array(input_mat, dtype=np.float64)
@@ -610,24 +633,7 @@ class FXEnvironment:
             else:
                 self.logfile_writeln_bt(a_log_str_line)
 
-            # # 過去のreturnから求まる特徴量算出のための値を用意しておく
-            # if USE_PAST_REWARD_FEATURES:
-            #     # このstepでのリターンを記録しておく
-            #     self.past_return_arr[self.cur_idx] = won_money
-            #     # この episodeでの 60-day span の　EMSD を埋めておく
-            #     day_span = 60
-            #     if HALF_DAY_MODE:
-            #         day_span = 2 * day_span
-            #
-            #     # この後、stepメソッドが返すstateは self.cur_idx + 1 のものなので、そこを埋める
-            #     if self.cur_idx >= day_span + self.initial_cur_idx_val:
-            #         #必要な要素数が用意できる場合のみ設定する. 設定しない場合は 0.0 で初期化されているので問題ない
-            #         # +1　しているのは self.cur_idx の要素が slice したデータに含まれるようにするため
-            #         self.past_return_emsd_arr[self.cur_idx + 1] = \
-            #             calculate_volatility(self.past_return_arr[self.cur_idx - day_span + 1:self.cur_idx + 1], day_span)
-
             self.cur_idx += self.idx_step
-            #if (self.cur_idx) >= (len(self.input_arr) - (self.time_series - 1) - 1):
             if (self.cur_idx) >= len(self.input_arr):
                 self.logfile_writeln_bt("finished backtest.")
                 print("finished backtest.")
@@ -639,8 +645,10 @@ class FXEnvironment:
                 self.log_fd_bt.close()
                 return None, reward, True
 
-            next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
-
+            if USE_RECCURENT_LAYER_MODE:
+                next_state = self.input_arr[self.cur_idx - self.time_series + 1:self.cur_idx + 1]
+            else:
+                next_state = self.input_arr[self.cur_idx]
 
             # 第四返り値はエピソードの識別子を格納するリスト. 第0要素は返却する要素に対応するもので、
             # それ以外の要素がある場合は、close時にさかのぼって エピソードのrewardを更新するためのもの
