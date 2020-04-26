@@ -348,6 +348,7 @@ class FXEnvironment:
                      self.get_bb_2(self.exchange_rates, idx, period=self.time_series),
                      self.get_mo(self.exchange_rates, idx, period=self.time_series),
                      self.get_po(self.exchange_rates, idx, period=self.time_series),
+                     self.volatility_arr[idx]
                      ]
                 tmp_list = tmp_list + self.judge_chart_type(self.exchange_rates[idx - self.time_series + 1:idx + 1])
                 input_mat.append(
