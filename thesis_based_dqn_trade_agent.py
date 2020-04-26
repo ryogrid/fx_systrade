@@ -66,9 +66,9 @@ class QNetwork:
             self.loss_func = tf.keras.losses.Huber(delta=1.0)
 
             inputlayer = Input(shape=(state_size))
-            middlelayer = Dense(hidden_size_dense, activation=None)(inputlayer)
+            middlelayer = Dense(hidden_size_dense_1, activation=None)(inputlayer)
             middlelayer = LeakyReLU(0.2)(middlelayer)
-            middlelayer = Dense(hidden_size_dense, activation=None)(middlelayer)
+            middlelayer = Dense(hidden_size_dense_2, activation=None)(middlelayer)
             middlelayer = LeakyReLU(0.2)(middlelayer)
             middlelayer = BatchNormalization()(middlelayer)
 
@@ -254,10 +254,12 @@ class Actor:
 hidden_size_lstm1 = 32 #64 #32 #64 #28 #64 #32
 #hidden_size_lstm2 = 32 #16 #32
 
-hidden_size_dense = 64
+hidden_size_dense_1 = 64
+hidden_size_dense_2 = 32
+
 
 learning_rate = 0.0001 #0.0016
-time_series =  64 #32 #64
+time_series =  64 #32 #64 #USE_RECCURENT_LAYERがFalseでも利用されるので注意
 if HALF_DAY_MODE:
     time_series = 2 * time_series
 batch_size = 64 #256 #1024
@@ -280,7 +282,7 @@ gamma = 0.5477 #0.3
 volatility_tgt = 5.0
 bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
 
-train_episode_interval = 1024 # bs64 * 16
+#train_episode_interval = 1024 # bs64 * 16
 
 SELL = -1 #SELL
 DONOT = 0 #DONOT
