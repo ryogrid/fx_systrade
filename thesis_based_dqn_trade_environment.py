@@ -303,7 +303,8 @@ class FXEnvironment:
     # 日本時間で土曜7:00-月曜7:00までは取引不可として元データから取り除く
     # なお、本来は月曜朝5:00から取引できるのが一般的なようである
     def is_weekend(self, date_str):
-        tz = pytz.timezone('Asia/Tokyo')
+        #tz = pytz.timezone('Asia/Tokyo')
+        tz = pytz.timezone('UTC') #長期間の方のデータセットに変えた場合
         dstr = date_str.replace(".","-")
         tdatetime = dt.strptime(dstr, '%Y-%m-%d %H:%M:%S')
         tz_time = tz.localize(tdatetime)
@@ -369,7 +370,9 @@ class FXEnvironment:
             with open("./exchange_rates.pickle", 'rb') as f:
                 self.exchange_rates = pickle.load(f)
         else:
-            rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
+            #rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
+            # 長期間の方のデータセットに変えた場合
+            rates_fd = open('./USDJPY_UTC_5Min_2003-05-04_2016-07-09.csv', 'r')
             leg_split_symbol_str = "23:55:00"
             additional_symbol = "xxxxx" # 基本的には存在しない文字列を指定しておく
             if HALF_DAY_MODE:
@@ -441,10 +444,12 @@ class FXEnvironment:
                 self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI, 1, './all_input_mat.pickle')
 
         # TODO: 論文では価格のみ normalize したとあるが、面倒なので全ての特徴量を normalize してしまう
-        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        #self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
-        self.ts_input_arr, _ = self.preprocess_data(
-            all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
+        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM])
+        self.ts_input_arr, _ = self.preprocess_data(all_input_mat[2 * self.COMPETITION_TRAIN_DATA_NUM:3 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
+
+        # self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
+        # self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
+        # #self.ts_input_arr, _ = self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
 
         print("input features sets for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
         print("input features sets for test: " + str(len(self.ts_input_arr)))
