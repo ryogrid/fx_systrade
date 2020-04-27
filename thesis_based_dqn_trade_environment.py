@@ -350,7 +350,7 @@ class FXEnvironment:
                      self.get_po(self.exchange_rates, idx, period=self.time_series),
                      self.volatility_arr[idx]
                      ]
-                tmp_list = tmp_list + self.judge_chart_type(self.exchange_rates[idx - self.time_series + 1:idx + 1])
+                #tmp_list = tmp_list + self.judge_chart_type(self.exchange_rates[idx - self.time_series + 1:idx + 1])
                 input_mat.append(
                     tmp_list
                 )
@@ -441,7 +441,9 @@ class FXEnvironment:
 
         # TODO: 論文では価格のみ normalize したとあるが、面倒なので全ての特徴量を normalize してしまう
         self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
+        #self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
+        self.ts_input_arr, _ = self.preprocess_data(
+            all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
 
         print("input features sets for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
         print("input features sets for test: " + str(len(self.ts_input_arr)))
