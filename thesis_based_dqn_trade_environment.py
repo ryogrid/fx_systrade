@@ -19,6 +19,7 @@ RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 HALF_DAY_MODE = True # ageent側にも同じフラグがあって同期している必要があるので注意
 USE_RECCURENT_LAYER_MODE = False # agent側にも同じフラグがあって同期している必要があるので注意
 
+
 ONE_YEAR_DAYS = 252
 MONTH_DAYS = 21
 TWO_MONTH_DAYS = 2 * MONTH_DAYS

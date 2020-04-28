@@ -7,6 +7,7 @@
 USE_TENSOR_BOARD = False
 HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
 USE_RECCURENT_LAYER_MODE = False # environment側にも同じフラグがあって同期している必要があるので注意
+USE_MEAN_REWARD_TABLE = True
 
 import numpy as np
 import tensorflow as tf
@@ -84,6 +85,12 @@ class QNetwork:
 
         self.model.summary()
 
+    def check_has_zero(self, table_idx):
+        for mean_val in all_period_reward_arr[table_idx]:
+            if mean_val == 0.0:
+                return True
+        return False
+
     # 重みの学習
     def replay(self, memory, time_series, targetQN, cur_episode_idx = 0, cur_itr=0, batch_num = 1):
         if USE_RECCURENT_LAYER_MODE:
@@ -106,7 +113,12 @@ class QNetwork:
         for ii in range(batch_num):
             # 開始位置をシャッフルしたリストに基づいて決定する
             batch_start_idx = batch_num_arr.pop() * batch_size
-            mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
+            if USE_MEAN_REWARD_TABLE:
+                mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
+                # rewardだけ別管理の平均値のリストに置き換える
+                mini_batch = memory.get_sequencial_converted_samples(mini_batch, batch_start_idx)
+            else:
+                mini_batch = memory.get_sequencial_samples(batch_size, batch_start_idx)
 
             for idx, (state_b, action_b, reward_b, next_state_b) in enumerate(mini_batch):
                 if USE_RECCURENT_LAYER_MODE:
@@ -121,26 +133,31 @@ class QNetwork:
                 # # 15itr以降は Q関数の更新式は用いず reward_b にそのまま fit させる
                 # if cur_itr < 15:
                 # Double DQN (mainQNとtargetQNを用いる。 Fixed Q-targetsもこれでおそらく実現できているのではないかと思われる)
-                if USE_RECCURENT_LAYER_MODE:
-                    reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
-
-                    retmainQs = self.model.predict(reshaped_next_state)[0]
-                    next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                    predicted_targetQN = targetQN.model.predict(reshaped_next_state)
-                    target = reward_b + gamma * predicted_targetQN[0][next_action]
+                if USE_MEAN_REWARD_TABLE:
+                    next_action = np.argmax(all_period_reward_arr[batch_start_idx + idx])  # 最大の報酬を返す行動を選択する
+                    next_action_mac_reward = all_period_reward_arr[batch_start_idx + idx][next_action]
+                    target = reward_b + gamma * next_action_mac_reward
                 else:
-                    reshaped_next_state = np.reshape(next_state_b, [1, feature_num])
+                    if USE_RECCURENT_LAYER_MODE:
+                        reshaped_next_state = np.reshape(next_state_b, [1, time_series, feature_num])
 
-                    retmainQs = self.model.predict(reshaped_next_state)[0]
-                    next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
-                    predicted_targetQN = targetQN.model.predict(reshaped_next_state)
-                    target = reward_b + gamma * predicted_targetQN[0][next_action]
+                        retmainQs = self.model.predict(reshaped_next_state)[0]
+                        next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                        predicted_targetQN = targetQN.model.predict(reshaped_next_state)
+                        target = reward_b + gamma * predicted_targetQN[0][next_action]
+                    else:
+                        reshaped_next_state = np.reshape(next_state_b, [1, feature_num])
+
+                        retmainQs = self.model.predict(reshaped_next_state)[0]
+                        next_action = np.argmax(retmainQs)  # 最大の報酬を返す行動を選択する
+                        predicted_targetQN = targetQN.model.predict(reshaped_next_state)
+                        target = reward_b + gamma * predicted_targetQN[0][next_action]
 
                 #action_conved = 0 if action_b == -1 else 1
                 action_conved = action_b + 1
 
-                if USE_RECCURENT_LAYER_MODE:
-                    targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0]
+                if USE_MEAN_REWARD_TABLE:
+                    targets[all_sample_cnt][0] = self.model.predict(reshaped_state)[0] if self.check_has_zero(batch_start_idx + idx) else all_period_reward_arr[batch_start_idx + idx]
                     print("mainQN output at replay: " + str(list(targets[all_sample_cnt][0])))
                     targets[all_sample_cnt][0][action_conved] = target  # 教師信号
                 else:
@@ -199,6 +216,19 @@ class Memory:
         print(start_idx)
         return [self.buffer[ii] for ii in range(start_idx, start_idx + batch_size)]
 
+    # 連続したエピソードのサンプルシストを渡して、イテレーションにおける開始インデックス
+    # を指定すると、reward情報をよろしく入れ替えて返す
+    # 具体的には保持している全イテレーション共通の各episode x action のリストの情報を利用し、
+    # [state, action, reward, next_episode]
+    def get_sequencial_converted_samples(self, base_data, start_idx):
+        ret_list = []
+        print(start_idx)
+        for idx, (state, action, reward, next_action) in enumerate(base_data):
+            action_local = action + 1 # -1, 0, 1 を 0, 1, 2 に変換する
+            ret_list.append([state, action, all_period_reward_arr[start_idx + idx][action_local], next_action])
+
+        return ret_list
+
     def sum(self):
         return sum(list(self.buffer))
 
@@ -224,7 +254,7 @@ class Actor:
     def __init__(self):
         pass
 
-    def get_action(self, state, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
+    def get_action(self, state, cur_episode, experienced_episodes, mainQN, isBacktest = False):   # [C]ｔ＋１での行動を返す
         # 徐々に最適行動のみをとる、ε-greedy法
         # TODO: 学習進捗をみて式の調整をしていく必要あり
         epsilon = 0.001 + 0.9 / (1.0 + (300.0 * (experienced_episodes / TOTAL_ACTION_NUM)))
@@ -232,14 +262,18 @@ class Actor:
         # epsilonが小さい値の場合の方が最大報酬の行動が起こる
         # イテレーション数が5の倍数の時か、バックテストの場合は常に最大報酬の行動を選ぶ
         if epsilon <= np.random.uniform(0, 1) or isBacktest == True:
-            if USE_RECCURENT_LAYER_MODE:
-                reshaped_state = np.reshape(state, [1, time_series, feature_num])
+            if USE_MEAN_REWARD_TABLE and isBacktest == False:
+                action = np.argmax(all_period_reward_arr[cur_episode])  # 最大の報酬を返す行動を選択する
+                action = action - 1 # 0, 1, 2 を -1, 0, 1 に置き換える
             else:
-                reshaped_state = np.reshape(state, [1, feature_num])
-            retTargetQs = mainQN.model.predict(reshaped_state)
-            print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
-            action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
-            action = action - 1 # 0, 1, 2 を -1, 0, 1 に置き換える
+                if USE_RECCURENT_LAYER_MODE:
+                    reshaped_state = np.reshape(state, [1, time_series, feature_num])
+                else:
+                    reshaped_state = np.reshape(state, [1, feature_num])
+                retTargetQs = mainQN.model.predict(reshaped_state)
+                print("NN all output at get_action: " + str(list(itertools.chain.from_iterable(retTargetQs))))
+                action = np.argmax(retTargetQs)  # 最大の報酬を返す行動を選択する
+                action = action - 1 # 0, 1, 2 を -1, 0, 1 に置き換える
 
             # # 0, 1 を -1, 1 に置き換える
             # action = -1 if action == 0 else 1
@@ -279,6 +313,7 @@ BACKTEST_ITR_PERIOD = 30
 half_spread = 0.0015
 
 gamma = 0.5477 #0.3
+mean_reaward_gamma = 0.99
 volatility_tgt = 5.0
 bp = 0.000015 # 1ドル100円の時にスプレッドで0.15銭とられるよう逆算した比率
 
@@ -288,7 +323,26 @@ SELL = -1 #SELL
 DONOT = 0 #DONOT
 BUY = 1   #BUY
 
+all_period_reward_arr = [[0.0, 0.0, 0.0] for i in range(TRAIN_DATA_NUM + 100)]
+
+def update_mean_reward(action_num, cur_itr, table_idx, value):
+    global all_period_reward_arr
+    
+    conved_action = action_num + 1
+
+    past_all_itr_mean_reward = all_period_reward_arr[table_idx][conved_action]
+    current_itr_num = cur_itr + 1
+    # 過去の結果は最適な行動を学習する過程で見ると古い学習状態での値であるため
+    # 時間割引の考え方を導入して平均をとる
+    update_val = ((past_all_itr_mean_reward * (current_itr_num - 1) * mean_reaward_gamma) + value) / current_itr_num
+    print("update_reward: cur_itr=" + str(cur_itr) + " update_idx=" + str(
+        table_idx) + " action=" + str(action_num) + " update_val=" + str(update_val))
+
+    all_period_reward_arr[table_idx][conved_action] = update_val
+
 def tarin_agent():
+    global all_period_reward_arr
+
     env_master = FXEnvironment(TRAIN_DATA_NUM, time_series=time_series, holdable_positions=HODABLE_POSITIONS, half_spread=half_spread, volatility_tgt=volatility_tgt, bp=bp)
     mainQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # メインのQネットワーク
     targetQN = QNetwork(time_series=time_series, learning_rate=learning_rate, state_size=feature_num, action_size=nn_output_size)     # Double DQNのためのネットワーク
@@ -332,6 +386,7 @@ def tarin_agent():
             state = np.reshape(state, [time_series, feature_num])  # list型のstateを、1行15列の行列に変換
         # ここだけ 同じstateから同じstateに遷移したことにする
         store_episode_log_to_memory(state, action, reward, state)
+        update_mean_reward(action, cur_itr, 0, reward)
 
         # Double DQNを実現するためにテンポラリなネットワークも挟んで前イテレーションのネットワークを
         # 利用できるようにしておく
@@ -345,9 +400,11 @@ def tarin_agent():
             total_get_action_cnt += 1
 
             # 時刻tでの行動を決定する
-            action = actor.get_action(state, total_get_action_cnt, mainQN)
+            action = actor.get_action(state, episode, total_get_action_cnt, mainQN)
 
             next_state, reward, done = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
+
+            update_mean_reward(action, cur_itr, episode + 1, reward)
 
             # 環境が提供する期間が最後までいった場合
             if done:
@@ -389,7 +446,7 @@ def run_backtest(backtest_type, env_master=None):
     if USE_RECCURENT_LAYER_MODE:
         state = np.reshape(state, [time_series, feature_num])
     for episode in range(num_episodes):   # 試行数分繰り返す
-        action = actor.get_action(state, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
+        action = actor.get_action(state, episode, episode, mainQN, isBacktest = True)   # 時刻tでの行動を決定する
 
         state, reward, done  = env.step(action)   # 行動a_tの実行による、s_{t+1}, _R{t}を計算する
         # 環境が提供する期間が最後までいった場合
