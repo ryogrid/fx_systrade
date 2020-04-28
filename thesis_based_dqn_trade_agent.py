@@ -7,7 +7,7 @@
 USE_TENSOR_BOARD = False
 HALF_DAY_MODE = True # environment側にも同じフラグがあって同期している必要があるので注意
 USE_RECCURENT_LAYER_MODE = False # environment側にも同じフラグがあって同期している必要があるので注意
-USE_MEAN_REWARD_TABLE = True
+USE_MEAN_REWARD_TABLE = False
 
 import numpy as np
 import tensorflow as tf
@@ -309,7 +309,7 @@ if not USE_RECCURENT_LAYER_MODE:
 nn_output_size = 3 #2 #3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 HODABLE_POSITIONS = 1 #30
-BACKTEST_ITR_PERIOD = 30
+BACKTEST_ITR_PERIOD = 10 #30
 half_spread = 0.0015
 
 gamma = 0.5477 #0.3
