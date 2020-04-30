@@ -373,9 +373,9 @@ class FXEnvironment:
             #rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
             # # 長期間の方のデータセットに変えた場合
             # rates_fd = open('./USDJPY_UTC_5Min_2003-05-04_2016-07-09.csv', 'r')
-            
+
             # EURJPYのデータセットに変えた場合
-            rates_fd = open('EURJPY_UTC_5 Mins_Bid_2003-08-03_2016-07-09.csv', 'r')
+            rates_fd = open('EURJPY_UTC_5_Mins_Bid_2003-08-03_2016-07-09.csv', 'r')
             leg_split_symbol_str = "23:55:00"
             additional_symbol = "xxxxx" # 基本的には存在しない文字列を指定しておく
             if HALF_DAY_MODE:
