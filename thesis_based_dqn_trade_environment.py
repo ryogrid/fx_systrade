@@ -464,11 +464,11 @@ class FXEnvironment:
     def get_env(self, type_str):
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         if(type_str == "auto_backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
@@ -480,7 +480,7 @@ class FXEnvironment:
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 0 * self.COMPETITION_TRAIN_DATA_NUM, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            volatility_tgt = self.volatility_tgt, is_backtest=False)
 
     class InnerFXEnvironment:
