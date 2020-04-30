@@ -309,7 +309,7 @@ if not USE_RECCURENT_LAYER_MODE:
 nn_output_size = 3 #2 #3
 TOTAL_ACTION_NUM = TRAIN_DATA_NUM * iteration_num
 HODABLE_POSITIONS = 1 #30
-BACKTEST_ITR_PERIOD = 30
+BACKTEST_ITR_PERIOD = 10 #30
 half_spread = 0.0015
 
 gamma = 0.5477 #0.3
