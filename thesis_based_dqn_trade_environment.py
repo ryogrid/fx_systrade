@@ -228,6 +228,7 @@ class FXEnvironment:
         if HALF_DAY_MODE:
             local_period = 2 * local_period
 
+        local_ONE_YEAR_DAYS = ONE_YEAR_DAYS
         if HALF_DAY_MODE:
             local_ONE_YEAR_DAYS = 2 * ONE_YEAR_DAYS
         print("setup_macd_arr called")
