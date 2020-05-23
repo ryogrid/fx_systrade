@@ -687,7 +687,8 @@ class PortforioManager:
         self.having_money = 1000000.0
         # 常に fixed_open_currency_num_mue 数のドル単位で売買を行う（保有可能ポジションは 1）
 
-        # 今の実装ではこの固定購入通貨数は無視される
+        # # 今の実装ではこの固定購入通貨数は無視される
+
         self.fixed_open_currency_num_mue = fixed_open_currency_num_mue
 
         self.total_won_pips = 0.0
@@ -714,8 +715,8 @@ class PortforioManager:
         pos_kind = self.LONG
         trade_val = self.exchange_rates[rate_idx] + self.half_spread
         # currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
-        #currency_num = self.fixed_open_currency_num_mue
-        currency_num = self.having_money / float(trade_val)
+        currency_num = self.fixed_open_currency_num_mue
+        #currency_num = self.having_money / float(trade_val)
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
@@ -729,8 +730,8 @@ class PortforioManager:
         pos_kind = self.SHORT
         trade_val = self.exchange_rates[rate_idx] - self.half_spread
         #currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
-        #currency_num = self.fixed_open_currency_num_mue
-        currency_num = self.having_money / float(trade_val)
+        currency_num = self.fixed_open_currency_num_mue
+        #currency_num = self.having_money / float(trade_val)
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
