@@ -288,8 +288,8 @@ class Actor:
 hidden_size_lstm1 = 32 #64 #32 #64 #28 #64 #32
 #hidden_size_lstm2 = 32 #16 #32
 
-hidden_size_dense_1 = 64
-hidden_size_dense_2 = 32
+hidden_size_dense_1 = 96 #64
+hidden_size_dense_2 = 48 #32
 
 
 learning_rate = 0.0001 #0.0016
@@ -297,7 +297,7 @@ time_series =  64 #32 #64 #USE_RECCURENT_LAYERがFalseでも利用されるの�
 if HALF_DAY_MODE:
     time_series = 2 * time_series
 batch_size = 64 #256 #1024
-TRAIN_DATA_NUM = 252 * 3 # 3years # 252 * 6 # 3years #  # 252 * 2 # 2years # 252 * 5 # 5year #72000
+TRAIN_DATA_NUM = 252 * 8 # 8years # 252 * 3 # 3years # 252 * 6 # 3years #  # 252 * 2 # 2years # 252 * 5 # 5year #72000
 if HALF_DAY_MODE:
     TRAIN_DATA_NUM = 2 * TRAIN_DATA_NUM
 num_episodes = TRAIN_DATA_NUM + 10  # envがdoneを返すはずなので念のため多めに設定

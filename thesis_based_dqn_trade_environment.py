@@ -499,7 +499,9 @@ class FXEnvironment:
             self.exchange_rates = exchange_rates
             self.half_spread = half_spread
             self.time_series = time_series
-            self.initial_cur_idx_val = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
+            self.initial_cur_idx_val = 0
+            if USE_RECCURENT_LAYER_MODE:
+                self.initial_cur_idx_val = (time_series - 1) #LSTMで過去のstateを見るため、その分はずらしてスタートする
             self.cur_idx = self.initial_cur_idx_val
             self.idx_geta = idx_geta
             self.is_backtest = is_backtest
@@ -715,8 +717,8 @@ class PortforioManager:
         pos_kind = self.LONG
         trade_val = self.exchange_rates[rate_idx] + self.half_spread
         # currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
-        currency_num = self.fixed_open_currency_num_mue
-        #currency_num = self.having_money / float(trade_val)
+        #currency_num = self.fixed_open_currency_num_mue
+        currency_num = self.having_money / float(trade_val)
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
@@ -730,8 +732,8 @@ class PortforioManager:
         pos_kind = self.SHORT
         trade_val = self.exchange_rates[rate_idx] - self.half_spread
         #currency_num = (self.fixed_use_money_mue / (self.holdable_position_num - self.position_num)) / trade_val
-        currency_num = self.fixed_open_currency_num_mue
-        #currency_num = self.having_money / float(trade_val)
+        #currency_num = self.fixed_open_currency_num_mue
+        currency_num = self.having_money / float(trade_val)
 
         self.positions.append([trade_val, pos_kind, currency_num, rate_idx])
         self.position_num += 1
