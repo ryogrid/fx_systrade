@@ -371,7 +371,7 @@ class FXEnvironment:
             with open("./exchange_rates.pickle", 'rb') as f:
                 self.exchange_rates = pickle.load(f)
         else:
-            #rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
+            rates_fd = open('./USD_JPY_2001_2008_5min.csv', 'r')
             # 長期間の方のデータセットに変えた場合
             rates_fd = open('./USDJPY_UTC_5Min_2003-05-04_2016-07-09.csv', 'r')
 
@@ -380,7 +380,7 @@ class FXEnvironment:
 
             # # EURJPYのデータセットに変えた場合
             # rates_fd = open('EURJPY_UTC_5_Mins_Bid_2003-08-03_2016-07-09.csv', 'r')
-            leg_split_symbol_str = "23:55:00"
+            # leg_split_symbol_str = "23:55:00"
             additional_symbol = "xxxxx" # 基本的には存在しない文字列を指定しておく
             if HALF_DAY_MODE:
                 additional_symbol = "11:55:00"
@@ -448,43 +448,46 @@ class FXEnvironment:
                 all_input_mat = pickle.load(f)
         else:
             all_input_mat = \
-                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates) - self.DATA_HEAD_ASOBI, 1, './all_input_mat.pickle')
+                self.make_serialized_data(self.DATA_HEAD_ASOBI, len(self.exchange_rates), 1, './all_input_mat.pickle')
 
         # TODO: 論文では価格のみ normalize したとあるが、面倒なので全ての特徴量を normalize してしまう
-        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
-        self.ts_input_arr, _ = self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
+        # 以下の 6 * (2 * ONE_YEAR_DAYS) は学習データの期間を先頭6年分（HALF_DAY_MODEで）後ろにずらすため
+        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[6 * (2 * ONE_YEAR_DAYS):6 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM])
+        self.ts_input_arr, _ = self.preprocess_data(all_input_mat[6 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
 
         # self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
         # self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
 
         #self.ts_input_arr, _ = self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
 
-
-        print("input features sets for tarin: " + str(self.COMPETITION_TRAIN_DATA_NUM))
+        print("all_input_mat elems: " + str(len(all_input_mat)))
+        print("exchange_rates elems: " + str(len(self.exchange_rates)))
+        print("input features sets for tarin: " + str(len(self.tr_input_arr)))
         print("input features sets for test: " + str(len(self.ts_input_arr)))
         print("finished setup environment data.")
 
     # type_str: "train", "test"
     def get_env(self, type_str):
+        # 以下の 2 * (2 * ONE_YEAR_DAYS) は学習データの期間を先頭2年分（HALF_DAY_MODEで）後ろにずらすため
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 2 * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         if(type_str == "auto_backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 2 * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 6 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         elif(type_str == "auto_backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 6 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 0 * self.COMPETITION_TRAIN_DATA_NUM, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + 6 * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            volatility_tgt = self.volatility_tgt, is_backtest=False)
 
     class InnerFXEnvironment:
