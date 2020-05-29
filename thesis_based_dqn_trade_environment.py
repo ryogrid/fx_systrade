@@ -18,7 +18,7 @@ import copy
 RATE_AND_DATE_STLIDE = int(5 / 5) # 5分足 #int(30 / 5) # 30分足
 HALF_DAY_MODE = True # ageent側にも同じフラグがあって同期している必要があるので注意
 USE_RECCURENT_LAYER_MODE = False # agent側にも同じフラグがあって同期している必要があるので注意
-
+USE_DATA_HEAD_SLIDE_YEARS = 0
 
 ONE_YEAR_DAYS = 252
 MONTH_DAYS = 21
@@ -452,8 +452,8 @@ class FXEnvironment:
 
         # TODO: 論文では価格のみ normalize したとあるが、面倒なので全ての特徴量を normalize してしまう
         # 以下の 6 * (2 * ONE_YEAR_DAYS) は学習データの期間を先頭6年分（HALF_DAY_MODEで）後ろにずらすため
-        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[7 * (2 * ONE_YEAR_DAYS):7 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM])
-        self.ts_input_arr, _ = self.preprocess_data(all_input_mat[7 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
+        self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS):USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM])
+        self.ts_input_arr, _ = self.preprocess_data(all_input_mat[USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM:], tr_scaler)
 
         # self.tr_input_arr, tr_scaler = self.preprocess_data(all_input_mat[0:self.COMPETITION_TRAIN_DATA_NUM])
         # self.ts_input_arr, _ =  self.preprocess_data(all_input_mat[self.COMPETITION_TRAIN_DATA_NUM:2 * self.COMPETITION_TRAIN_DATA_NUM], tr_scaler)
@@ -471,23 +471,23 @@ class FXEnvironment:
         # 以下の 2 * (2 * ONE_YEAR_DAYS) は学習データの期間を先頭2年分（HALF_DAY_MODEで）後ろにずらすため
         if(type_str == "backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 7 * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         if(type_str == "auto_backtest"):
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 7 * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest=True)
         elif(type_str == "backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 7 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True)
         elif(type_str == "auto_backtest_test"):
             return self.InnerFXEnvironment(self.ts_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 7 * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + self.COMPETITION_TRAIN_DATA_NUM, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            time_series = self.time_series, volatility_tgt = self.volatility_tgt, is_backtest=True, is_auto_backtest = True)
         else:
             return self.InnerFXEnvironment(self.tr_input_arr, self.exchange_dates, self.exchange_rates,
-                                           self.DATA_HEAD_ASOBI + 7 * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
+                                           self.DATA_HEAD_ASOBI + USE_DATA_HEAD_SLIDE_YEARS * (2 * ONE_YEAR_DAYS) + 0 * self.COMPETITION_TRAIN_DATA_NUM, volatility_arr = self.volatility_arr, time_series = self.time_series, holdable_positions = self.holdable_positions, half_spread=self.half_spread,
                                            volatility_tgt = self.volatility_tgt, is_backtest=False)
 
     class InnerFXEnvironment:
