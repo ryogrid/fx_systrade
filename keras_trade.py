@@ -102,7 +102,6 @@ def get_rsi(price_arr, cur_pos, period = 40):
     else:
         s = cur_pos - (period + 1)
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.RSI(prices, timeperiod = period)[-1]
@@ -113,7 +112,6 @@ def get_ma(price_arr, cur_pos, period = 20):
     else:
         s = cur_pos - period
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.SMA(prices, timeperiod = period)[-1]
@@ -129,7 +127,6 @@ def get_bb_1(price_arr, cur_pos, period = 40):
     else:
         s = cur_pos - period
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.BBANDS(prices, timeperiod = period)[0][-1]
@@ -140,7 +137,6 @@ def get_bb_2(price_arr, cur_pos, period = 40):
     else:
         s = cur_pos - period
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.BBANDS(prices, timeperiod = period)[2][-1]
@@ -151,7 +147,6 @@ def get_ema(price_arr, cur_pos, period = 20):
     else:
         s = cur_pos - period
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.EMA(prices, timeperiod = period)[-1]    
@@ -170,7 +165,6 @@ def get_mo(price_arr, cur_pos, period = 20):
     else:
         s = cur_pos - (period + 1)
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.CMO(prices, timeperiod = period)[-1]        
@@ -181,7 +175,6 @@ def get_po(price_arr, cur_pos, period = 10):
     else:
         s = cur_pos - period
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     return ta.PPO(prices)[-1]
@@ -213,7 +206,6 @@ def get_macd(price_arr, cur_pos, period = 100):
     else:
         s = cur_pos - period
     tmp_arr = price_arr[s:cur_pos]
-    tmp_arr.reverse()
     prices = np.array(tmp_arr, dtype=float)
 
     macd, macdsignal, macdhist = ta.MACD(prices,fastperiod=12, slowperiod=26, signalperiod=9)
